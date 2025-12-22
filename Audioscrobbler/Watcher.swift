@@ -54,34 +54,34 @@ enum ScriptError: Error {
 
 class Watcher: ObservableObject {
     let MUSIC_STATE_SCRIPT = """
-        tell application "Music" to get player state
+        tell application id "com.apple.Music" to get player state
     """
     let MUSIC_PLAYER_POSITION_SCRIPT = """
-        tell application "Music" to get the player position
+        tell application id "com.apple.Music" to get the player position
     """
     let MUSIC_TRACK_NAME_SCRIPT = """
-        tell application "Music" to get the name of the current track
+        tell application id "com.apple.Music" to get the name of the current track
     """
     let MUSIC_TRACK_ARTIST_SCRIPT = """
-        tell application "Music" to get the artist of the current track
+        tell application id "com.apple.Music" to get the artist of the current track
     """
     let MUSIC_TRACK_ALBUM_SCRIPT = """
-        tell application "Music" to get the album of the current track
+        tell application id "com.apple.Music" to get the album of the current track
     """
     let MUSIC_TRACK_DB_ID_SCRIPT = """
-        tell application "Music" to get the database ID of the current track
+        tell application id "com.apple.Music" to get the database ID of the current track
     """
     let MUSIC_TRACK_ARTWORK_SCRIPT = """
-        tell application "Music" to get the data of the first artwork of the current track
+        tell application id "com.apple.Music" to get the data of the first artwork of the current track
     """
     let MUSIC_TRACK_DURATION_SCRIPT = """
-        tell application "Music" to get the duration of the current track
+        tell application id "com.apple.Music" to get the duration of the current track
     """
     let MUSIC_TRACK_DATABASE_ID_SCRIPT = """
-        tell application "Music" to get the database ID of the current track
+        tell application id "com.apple.Music" to get the database ID of the current track
     """
     let MUSIC_TRACK_YEAR_SCRIPT = """
-        tell application "Music" to get the year of the current track
+        tell application id "com.apple.Music" to get the year of the current track
     """
     // Possible property names for "loved/favorited" across macOS versions
     let MUSIC_TRACK_LOVED_PROPERTIES = ["favorited", "loved"]
