@@ -15,5 +15,9 @@
 			</array>
 		</dict>
 	</array>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Audioscrobbler needs to access Apple Music to track and scrobble the songs you're listening to.</string>
+	<key>NSAppleMusicUsageDescription</key>
+	<string>Audioscrobbler needs to access Apple Music to track and scrobble the songs you're listening to.</string>
 </dict>
 </plist>
