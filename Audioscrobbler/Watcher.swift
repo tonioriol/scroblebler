@@ -83,9 +83,8 @@ class Watcher: ObservableObject {
     let MUSIC_TRACK_YEAR_SCRIPT = """
         tell application "Music" to get the year of the current track
     """
-    let MUSIC_TRACK_LOVED_SCRIPT = """
-        tell application "Music" to get loved of the current track
-    """
+    // Possible property names for "loved/favorited" across macOS versions
+    let MUSIC_TRACK_LOVED_PROPERTIES = ["favorited", "loved"]
     
     @Published var currentTrackID: Int32?
     @Published var currentTrack: Track?
@@ -182,9 +181,23 @@ class Watcher: ObservableObject {
         let artwork: Data = try runScript(MUSIC_TRACK_ARTWORK_SCRIPT)
         let length: Double = try runScript(MUSIC_TRACK_DURATION_SCRIPT)
         let year: Int32 = try runScript(MUSIC_TRACK_YEAR_SCRIPT)
-        let loved: Bool = try runScript(MUSIC_TRACK_LOVED_SCRIPT)
+        
+        // Try different property names for loved/favorited across macOS versions
+        var loved: Bool = false
+        for propertyName in MUSIC_TRACK_LOVED_PROPERTIES {
+            do {
+                let script = """
+                    tell application "Music" to get \(propertyName) of the current track
+                """
+                loved = try runScript(script)
+                break // Success, stop trying other properties
+            } catch {
+                continue // Try next property name
+            }
+        }
     
-        return Track.init(artist: artist, album: album, name: name, year: year, length: length, artwork: artwork, loved: loved, startedAt: Int32((NSDate().timeIntervalSince1970 - (currentPosition ?? 0))))
+        let track = Track.init(artist: artist, album: album, name: name, year: year, length: length, artwork: artwork, loved: loved, startedAt: Int32((NSDate().timeIntervalSince1970 - (currentPosition ?? 0))))
+        return track
     }
     
     func isMusicRunning() -> Bool {
@@ -266,7 +279,9 @@ class Watcher: ObservableObject {
 
         let trackID: Int32 = try runScript(MUSIC_TRACK_DATABASE_ID_SCRIPT)
         
-        guard self.currentTrackID != trackID else { return }
+        guard self.currentTrackID != trackID else {
+            return
+        }
         
         // At this point, the track has changed. Is our max position enough to scrobble it?
         if let maxPos = maxPosition {
