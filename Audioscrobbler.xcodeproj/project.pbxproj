@@ -376,11 +376,13 @@
 				AUTOMATION_APPLE_EVENTS = YES;
 				CODE_SIGN_ENTITLEMENTS = Audioscrobbler/Audioscrobbler.entitlements;
 				CODE_SIGN_IDENTITY = "-";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 5;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"Audioscrobbler/Preview Content\"";
+				DEVELOPMENT_TEAM = 7GEB3UCDV7;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_FILE_ACCESS_MUSIC_FOLDER = readonly;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -422,11 +424,13 @@
 				AUTOMATION_APPLE_EVENTS = YES;
 				CODE_SIGN_ENTITLEMENTS = Audioscrobbler/Audioscrobbler.entitlements;
 				CODE_SIGN_IDENTITY = "-";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 5;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"Audioscrobbler/Preview Content\"";
+				DEVELOPMENT_TEAM = 7GEB3UCDV7;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_FILE_ACCESS_MUSIC_FOLDER = readonly;
 				ENABLE_HARDENED_RUNTIME = YES;
