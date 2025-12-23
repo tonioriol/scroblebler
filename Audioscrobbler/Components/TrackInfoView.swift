@@ -90,7 +90,9 @@ struct TrackInfoView: View {
                             ScrollingText(
                                 text: trackName,
                                 font: .system(size: titleFontSize, weight: .semibold),
-                                foregroundColor: .lastFmRed
+                                foregroundColor: .lastFmRed,
+                                fontSize: titleFontSize,
+                                fontWeight: .semibold
                             )
                         }
                         
@@ -104,7 +106,9 @@ struct TrackInfoView: View {
                                     ScrollingText(
                                         text: artist,
                                         font: .system(size: detailFontSize),
-                                        foregroundColor: .lastFmRed
+                                        foregroundColor: .lastFmRed,
+                                        fontSize: detailFontSize,
+                                        fontWeight: .regular
                                     )
                                 }
                             } else {
@@ -123,7 +127,9 @@ struct TrackInfoView: View {
                                     ScrollingText(
                                         text: album,
                                         font: .system(size: detailFontSize),
-                                        foregroundColor: .lastFmRed
+                                        foregroundColor: .lastFmRed,
+                                        fontSize: detailFontSize,
+                                        fontWeight: .regular
                                     )
                                 }
                             } else {
