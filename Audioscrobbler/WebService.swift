@@ -384,4 +384,19 @@ class WebService: ObservableObject {
         let response: RecentTracksResponse = try decodeJSON(data)
         return response.tracks.filter { !$0.isNowPlaying }
     }
+    
+    func getTrackUserPlaycount(token: String, artist: String, track: String) async throws -> Int? {
+        do {
+            let data = try await executeRequestWithRetry(method: "track.getInfo", args: [
+                "artist": artist,
+                "track": track,
+                "sk": token
+            ])
+            let trackInfo: TrackInfo = try decodeJSON(data)
+            return trackInfo.userPlaycount
+        } catch {
+            // Track not found or other API error - return nil instead of throwing
+            return nil
+        }
+    }
 }

@@ -1,6 +1,9 @@
 import SwiftUI
 
 struct TrackInfoView: View {
+    @EnvironmentObject var webService: WebService
+    @EnvironmentObject var defaults: Defaults
+    
     let trackName: String
     let artist: String
     let album: String
@@ -19,6 +22,8 @@ struct TrackInfoView: View {
     // For now playing
     let currentPosition: Double?
     let trackLength: Double?
+    
+    @State private var playCount: Int? = nil
     
     init(
         trackName: String,
@@ -154,15 +159,29 @@ struct TrackInfoView: View {
                     Spacer()
                     
                     if let timestamp = timestamp {
-                        VStack(alignment: .trailing, spacing: 0) {
-                            LoveButton(loved: $loved, artist: artist, trackName: trackName, fontSize: loveFontSize)
+                        VStack(alignment: .trailing, spacing: 4) {
+                            HStack(spacing: 6) {
+                                if let count = playCount, count > 0 {
+                                    Text("\(count) \(count == 1 ? "scrobble" : "scrobbles")")
+                                        .font(.system(size: loveFontSize - 1))
+                                        .foregroundColor(.secondary)
+                                }
+                                LoveButton(loved: $loved, artist: artist, trackName: trackName, fontSize: loveFontSize)
+                            }
                             Spacer()
                             Text(formatDate(timestamp))
                                 .font(.system(size: 10))
                                 .foregroundColor(.secondary)
                         }
                     } else {
-                        LoveButton(loved: $loved, artist: artist, trackName: trackName, fontSize: loveFontSize)
+                        HStack(spacing: 6) {
+                            if let count = playCount, count > 0 {
+                                Text("\(count) \(count == 1 ? "scrobble" : "scrobbles")")
+                                    .font(.system(size: loveFontSize - 1))
+                                    .foregroundColor(.secondary)
+                            }
+                            LoveButton(loved: $loved, artist: artist, trackName: trackName, fontSize: loveFontSize)
+                        }
                     }
                 }
                 
@@ -190,6 +209,22 @@ struct TrackInfoView: View {
                             .opacity(0)
                     }
                 }
+            }
+        }
+        .onAppear {
+            fetchPlayCount()
+        }
+        .onChange(of: trackName) { _ in
+            fetchPlayCount()
+        }
+    }
+    
+    func fetchPlayCount() {
+        guard let token = defaults.token else { return }
+        Task {
+            let count = try? await webService.getTrackUserPlaycount(token: token, artist: artist, track: trackName)
+            await MainActor.run {
+                playCount = count
             }
         }
     }
