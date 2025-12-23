@@ -14,6 +14,9 @@ struct MainView: View {
     @State var privateSession: Bool = false
     @State var showPrivateSessionPopover: Bool = false
     @State var recentTracks: [WebService.RecentTrack] = []
+    @State var currentPage: Int = 1
+    @State var isLoadingMore: Bool = false
+    @State var hasMoreTracks: Bool = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -46,17 +49,32 @@ struct MainView: View {
                         .padding(.bottom, 8)
                     
                     ScrollView {
-                        VStack(alignment: .leading, spacing: 0) {
+                        LazyVStack(alignment: .leading, spacing: 0) {
                             ForEach(Array(recentTracks.enumerated()), id: \.offset) { index, track in
                                 HistoryItemView(track: track)
+                                    .onAppear {
+                                        if index == recentTracks.count - 1 && !isLoadingMore && hasMoreTracks {
+                                            loadMoreTracks()
+                                        }
+                                    }
                                 if index < recentTracks.count - 1 {
                                     Divider()
                                         .padding(.horizontal, 16)
                                 }
                             }
+                            
+                            if isLoadingMore {
+                                HStack {
+                                    Spacer()
+                                    ProgressView()
+                                        .scaleEffect(0.7)
+                                        .padding(.vertical, 8)
+                                    Spacer()
+                                }
+                            }
                         }
                     }
-                    .frame(maxHeight: 200)
+                    .frame(maxHeight: 500)
                 }
                 Divider()
             }
@@ -87,14 +105,44 @@ struct MainView: View {
     
     func loadRecentTracks() {
         guard let username = defaults.name else { return }
+        currentPage = 1
+        hasMoreTracks = true
         Task {
             do {
-                let tracks = try await webService.getRecentTracks(username: username, limit: 10)
+                let tracks = try await webService.getRecentTracks(username: username, limit: 20, page: 1)
                 await MainActor.run {
                     recentTracks = tracks
+                    hasMoreTracks = tracks.count >= 20
                 }
             } catch {
                 print("Failed to load recent tracks: \(error)")
+            }
+        }
+    }
+    
+    func loadMoreTracks() {
+        guard let username = defaults.name, !isLoadingMore, hasMoreTracks else { return }
+        isLoadingMore = true
+        let nextPage = currentPage + 1
+        
+        Task {
+            do {
+                let tracks = try await webService.getRecentTracks(username: username, limit: 20, page: nextPage)
+                await MainActor.run {
+                    if !tracks.isEmpty {
+                        recentTracks.append(contentsOf: tracks)
+                        currentPage = nextPage
+                        hasMoreTracks = tracks.count >= 20
+                    } else {
+                        hasMoreTracks = false
+                    }
+                    isLoadingMore = false
+                }
+            } catch {
+                await MainActor.run {
+                    isLoadingMore = false
+                }
+                print("Failed to load more tracks: \(error)")
             }
         }
     }

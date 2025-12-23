@@ -295,10 +295,11 @@ class WebService: ObservableObject {
         ])
     }
     
-    func getRecentTracks(username: String, limit: Int = 10) async throws -> [RecentTrack] {
+    func getRecentTracks(username: String, limit: Int = 10, page: Int = 1) async throws -> [RecentTrack] {
         let data = try await executeRequest(method: "user.getRecentTracks", args: [
             "user": username,
-            "limit": String(limit)
+            "limit": String(limit),
+            "page": String(page)
         ])
         let response: RecentTracksResponse = try decodeJSON(data)
         return response.tracks.filter { !$0.isNowPlaying }
