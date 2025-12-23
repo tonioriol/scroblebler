@@ -82,7 +82,8 @@ class WebService: ObservableObject {
         }
         
         enum CodingKeys: String, CodingKey {
-            case name, artist, album, date, attr, loved
+            case name, artist, album, date, loved
+            case attr = "@attr"
         }
         
         init(from decoder: Decoder) throws {

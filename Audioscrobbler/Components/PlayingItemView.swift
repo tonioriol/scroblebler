@@ -1,10 +1,3 @@
-//
-//  PlayingItemView.swift
-//  Audioscrobbler
-//
-//  Created by Victor Gama on 24/11/2022.
-//
-
 import SwiftUI
 
 struct PlayingItemView: View {
@@ -83,31 +76,15 @@ struct PlayingItemView: View {
                         .font(.caption)
                 }
                 HStack(spacing: 8) {
-                    Button(action: toggleLove) {
-                        Image(systemName: track!.loved ? "heart.fill" : "heart")
-                            .foregroundColor(track!.loved ? .red : .secondary)
-                    }
-                    .buttonStyle(.borderless)
-                    .help(track!.loved ? "Unlove track" : "Love track")
+                    LoveButton(loved: Binding(
+                        get: { track?.loved ?? false },
+                        set: { track?.loved = $0 }
+                    ), artist: track!.artist, trackName: track!.name, fontSize: 12)
                 }
                 .padding(.top, 4)
             }
         }.padding()
             .animation(nil)
-    }
-    
-    func toggleLove() {
-        guard let currentTrack = track, let token = defaults.token else { return }
-        
-        Task {
-            do {
-                currentTrack.loved.toggle()
-                try await webService.updateLove(token: token, artist: currentTrack.artist, track: currentTrack.name, loved: currentTrack.loved)
-            } catch {
-                currentTrack.loved.toggle()
-                print("Failed to toggle love: \(error)")
-            }
-        }
     }
 }
 

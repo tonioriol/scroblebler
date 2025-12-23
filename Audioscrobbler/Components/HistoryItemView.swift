@@ -1,15 +1,6 @@
-//
-//  HistoryItemView.swift
-//  Audioscrobbler
-//
-//  Created by Victor Gama on 23/12/2024.
-//
-
 import SwiftUI
 
 struct HistoryItemView: View {
-    @EnvironmentObject var webService: WebService
-    @EnvironmentObject var defaults: Defaults
     let track: WebService.RecentTrack
     @State private var loved: Bool
     
@@ -68,37 +59,15 @@ struct HistoryItemView: View {
             }
             Spacer()
             HStack(spacing: 8) {
-                Button(action: toggleLove) {
-                    Image(systemName: loved ? "heart.fill" : "heart")
-                        .foregroundColor(loved ? .red : .secondary)
-                        .font(.system(size: 11))
-                }
-                .buttonStyle(.borderless)
-                .help(loved ? "Unlove track" : "Love track")
+                LoveButton(loved: $loved, artist: track.artist, trackName: track.name, fontSize: 11)
                 
-                if let date = track.date {
-                    Text(formatDate(date))
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondary)
-                }
+                Text(formatDate(track.date))
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
             }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
-    }
-    
-    func toggleLove() {
-        guard let token = defaults.token else { return }
-        
-        Task {
-            do {
-                loved.toggle()
-                try await webService.updateLove(token: token, artist: track.artist, track: track.name, loved: loved)
-            } catch {
-                loved.toggle()
-                print("Failed to toggle love: \(error)")
-            }
-        }
     }
 }
 

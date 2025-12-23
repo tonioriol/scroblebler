@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		214BE49AEB926CFA16D44F62 /* LoveButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0F361811AED80EF7ACDCA43 /* LoveButton.swift */; };
 		DA6859CC292FDE66009143B3 /* PlayingItemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA6859CB292FDE66009143B3 /* PlayingItemView.swift */; };
 		DA6859CD292FDE67009143B3 /* HistoryItemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA6859CA292FDE67009143B3 /* HistoryItemView.swift */; };
 		DA6859CE29300A27009143B3 /* HeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA6859CD29300A27009143B3 /* HeaderView.swift */; };
@@ -31,6 +32,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		A0F361811AED80EF7ACDCA43 /* LoveButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoveButton.swift; sourceTree = "<group>"; };
 		DA6859CA292FDE67009143B3 /* HistoryItemView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryItemView.swift; sourceTree = "<group>"; };
 		DA6859CB292FDE66009143B3 /* PlayingItemView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayingItemView.swift; sourceTree = "<group>"; };
 		DA6859CD29300A27009143B3 /* HeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeaderView.swift; sourceTree = "<group>"; };
@@ -79,6 +81,7 @@
 				DAC4708A2931606900734C24 /* ActivityIndicator.swift */,
 				DAC4708C2931633F00734C24 /* ProgressBar.swift */,
 				DAC4708E293163C600734C24 /* Link.swift */,
+				A0F361811AED80EF7ACDCA43 /* LoveButton.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -235,6 +238,7 @@
 				DA6859D329302ECA009143B3 /* WebService.swift in Sources */,
 				DA6859CC292FDE66009143B3 /* PlayingItemView.swift in Sources */,
 				DA6859CD292FDE67009143B3 /* HistoryItemView.swift in Sources */,
+				214BE49AEB926CFA16D44F62 /* LoveButton.swift in Sources */,
 				DAC4708F293163C600734C24 /* Link.swift in Sources */,
 				DA6859D1293024B5009143B3 /* LoginView.swift in Sources */,
 				DAC47091293166B300734C24 /* main.swift in Sources */,
