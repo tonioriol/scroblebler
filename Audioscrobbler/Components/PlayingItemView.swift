@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct PlayingItemView: View {
+    @EnvironmentObject var webService: WebService
+    @EnvironmentObject var defaults: Defaults
     @Binding var track: Track?
     @Binding var currentPosition: Double?
 
@@ -80,9 +82,32 @@ struct PlayingItemView: View {
                     Text(formatDuration(track!.length))
                         .font(.caption)
                 }
+                HStack(spacing: 8) {
+                    Button(action: toggleLove) {
+                        Image(systemName: track!.loved ? "heart.fill" : "heart")
+                            .foregroundColor(track!.loved ? .red : .secondary)
+                    }
+                    .buttonStyle(.borderless)
+                    .help(track!.loved ? "Unlove track" : "Love track")
+                }
+                .padding(.top, 4)
             }
         }.padding()
             .animation(nil)
+    }
+    
+    func toggleLove() {
+        guard let currentTrack = track, let token = defaults.token else { return }
+        
+        Task {
+            do {
+                currentTrack.loved.toggle()
+                try await webService.updateLove(token: token, artist: currentTrack.artist, track: currentTrack.name, loved: currentTrack.loved)
+            } catch {
+                currentTrack.loved.toggle()
+                print("Failed to toggle love: \(error)")
+            }
+        }
     }
 }
 

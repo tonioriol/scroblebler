@@ -57,6 +57,7 @@ class WebService: ObservableObject {
         let album: String
         let date: Int?
         let isNowPlaying: Bool
+        let loved: Bool
         
         struct Artist: Decodable {
             let name: String
@@ -81,7 +82,7 @@ class WebService: ObservableObject {
         }
         
         enum CodingKeys: String, CodingKey {
-            case name, artist, album, date, attr
+            case name, artist, album, date, attr, loved
         }
         
         init(from decoder: Decoder) throws {
@@ -104,6 +105,13 @@ class WebService: ObservableObject {
                 self.isNowPlaying = attrContainer.nowplaying == "true"
             } else {
                 self.isNowPlaying = false
+            }
+            
+            // Last.fm API returns "1" for loved, "0" for not loved
+            if let lovedString = try? container.decode(String.self, forKey: .loved) {
+                self.loved = lovedString == "1"
+            } else {
+                self.loved = false
             }
         }
     }
@@ -263,10 +271,10 @@ class WebService: ObservableObject {
         return data
     }
 
-    func updateLove(token: String, track: Track) async throws {
-        _ = try await executeRequest(method: "track.\(track.loved ? "" : "un")love", args: [
-            "artist": track.artist,
-            "track": track.name,
+    func updateLove(token: String, artist: String, track: String, loved: Bool) async throws {
+        _ = try await executeRequest(method: "track.\(loved ? "" : "un")love", args: [
+            "artist": artist,
+            "track": track,
             "sk": token
         ])
     }
@@ -284,7 +292,7 @@ class WebService: ObservableObject {
 
     func doScrobble(token: String, track: Track) async throws {
         if Defaults.shared.privateSession { return }
-        _ = try await updateLove(token: token, track: track)
+        _ = try await updateLove(token: token, artist: track.artist, track: track.name, loved: track.loved)
         _ = try await executeRequest(method: "track.scrobble", args: [
             "artist": track.artist,
             "track": track.name,
