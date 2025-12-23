@@ -58,6 +58,7 @@ class WebService: ObservableObject {
         let date: Int?
         let isNowPlaying: Bool
         let loved: Bool
+        let imageUrl: String?
         
         struct Artist: Decodable {
             let name: String
@@ -73,6 +74,15 @@ class WebService: ObservableObject {
             }
         }
         
+        struct Image: Decodable {
+            let size: String
+            let url: String
+            enum CodingKeys: String, CodingKey {
+                case size
+                case url = "#text"
+            }
+        }
+        
         struct Date: Decodable {
             let uts: String
         }
@@ -82,7 +92,7 @@ class WebService: ObservableObject {
         }
         
         enum CodingKeys: String, CodingKey {
-            case name, artist, album, date, loved
+            case name, artist, album, date, loved, image
             case attr = "@attr"
         }
         
@@ -113,6 +123,13 @@ class WebService: ObservableObject {
                 self.loved = lovedString == "1"
             } else {
                 self.loved = false
+            }
+            
+            // Get the largest image URL
+            if let images = try? container.decode([Image].self, forKey: .image) {
+                self.imageUrl = images.last(where: { !$0.url.isEmpty })?.url
+            } else {
+                self.imageUrl = nil
             }
         }
     }
@@ -145,6 +162,31 @@ class WebService: ObservableObject {
             self.name = try sessionContainer.decode(String.self, forKey: .name)
             self.key = try sessionContainer.decode(String.self, forKey: .key)
             self.subscriber = try sessionContainer.decode(Int.self, forKey: .subscriber) == 1
+        }
+    }
+    
+    struct TrackInfo: Decodable {
+        let userPlaycount: Int?
+        let playcount: Int?
+        
+        enum RootKeys: String, CodingKey { case track }
+        enum TrackKeys: String, CodingKey { case userplaycount, playcount }
+        
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: RootKeys.self)
+            let trackContainer = try container.nestedContainer(keyedBy: TrackKeys.self, forKey: .track)
+            
+            if let userPlaycountString = try? trackContainer.decode(String.self, forKey: .userplaycount) {
+                self.userPlaycount = Int(userPlaycountString)
+            } else {
+                self.userPlaycount = nil
+            }
+            
+            if let playcountString = try? trackContainer.decode(String.self, forKey: .playcount) {
+                self.playcount = Int(playcountString)
+            } else {
+                self.playcount = nil
+            }
         }
     }
     
