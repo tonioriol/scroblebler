@@ -61,16 +61,16 @@ struct TrackInfoView: View {
     }
     
     func formatDuration(_ value: Double) -> String {
-        let hours = value / 3600
+        let hours = Int(value / 3600)
         let minutes = Int(value.truncatingRemainder(dividingBy: 3600) / 60)
         let seconds = Int(value.truncatingRemainder(dividingBy: 60))
         
         if hours >= 1 {
-            return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
+            return String(format: "%d:%02d:%02d", hours, minutes, seconds)
         } else if minutes >= 1 {
-            return String(format: "%02d:%02d", minutes, seconds)
+            return String(format: "%d:%02d", minutes, seconds)
         } else {
-            return String(format: "00:%02d", seconds)
+            return String(format: "0:%02d", seconds)
         }
     }
     
@@ -90,32 +90,39 @@ struct TrackInfoView: View {
                             .font(.system(size: titleFontSize, weight: .semibold))
                             .foregroundColor(.lastFmRed)
                             .lineLimit(1)
+                            .truncationMode(.tail)
                         
-                        // Artist - always visible
+                        // Artist - always reserve space
                         HStack(spacing: 3) {
-                            Text("by")
-                                .font(.system(size: detailFontSize))
-                                .foregroundColor(.secondary)
-                            Link(artist, destination: .lastFmArtist(artist))
-                                .font(.system(size: detailFontSize))
-                                .foregroundColor(.lastFmRed)
-                                .lineLimit(1)
+                            if !artist.isEmpty {
+                                Text("by")
+                                    .font(.system(size: detailFontSize))
+                                    .foregroundColor(.secondary)
+                                Link(artist, destination: .lastFmArtist(artist))
+                                    .font(.system(size: detailFontSize))
+                                    .foregroundColor(.lastFmRed)
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
+                            } else {
+                                Text("")
+                                    .font(.system(size: detailFontSize))
+                            }
                         }
                         
                         // Album - always reserve space
                         HStack(spacing: 3) {
-                            Text("on")
-                                .font(.system(size: detailFontSize))
-                                .foregroundColor(.secondary)
                             if !album.isEmpty {
+                                Text("on")
+                                    .font(.system(size: detailFontSize))
+                                    .foregroundColor(.secondary)
                                 Link(album, destination: .lastFmAlbum(artist: artist, album: album))
                                     .font(.system(size: detailFontSize))
                                     .foregroundColor(.lastFmRed)
                                     .lineLimit(1)
+                                    .truncationMode(.tail)
                             } else {
-                                Text("Unknown Album")
+                                Text("")
                                     .font(.system(size: detailFontSize))
-                                    .opacity(0)
                             }
                         }
                         
