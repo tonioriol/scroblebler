@@ -86,11 +86,13 @@ struct TrackInfoView: View {
                 HStack(alignment: .top, spacing: 0) {
                     VStack(alignment: .leading, spacing: 2) {
                         // Track name - always visible
-                        Link(trackName, destination: .lastFmTrack(artist: artist, track: trackName))
-                            .font(.system(size: titleFontSize, weight: .semibold))
-                            .foregroundColor(.lastFmRed)
-                            .lineLimit(1)
-                            .truncationMode(.tail)
+                        Link(destination: .lastFmTrack(artist: artist, track: trackName)) {
+                            ScrollingText(
+                                text: trackName,
+                                font: .system(size: titleFontSize, weight: .semibold),
+                                foregroundColor: .lastFmRed
+                            )
+                        }
                         
                         // Artist - always reserve space
                         HStack(spacing: 3) {
@@ -98,11 +100,13 @@ struct TrackInfoView: View {
                                 Text("by")
                                     .font(.system(size: detailFontSize))
                                     .foregroundColor(.secondary)
-                                Link(artist, destination: .lastFmArtist(artist))
-                                    .font(.system(size: detailFontSize))
-                                    .foregroundColor(.lastFmRed)
-                                    .lineLimit(1)
-                                    .truncationMode(.tail)
+                                Link(destination: .lastFmArtist(artist)) {
+                                    ScrollingText(
+                                        text: artist,
+                                        font: .system(size: detailFontSize),
+                                        foregroundColor: .lastFmRed
+                                    )
+                                }
                             } else {
                                 Text("")
                                     .font(.system(size: detailFontSize))
@@ -115,11 +119,13 @@ struct TrackInfoView: View {
                                 Text("on")
                                     .font(.system(size: detailFontSize))
                                     .foregroundColor(.secondary)
-                                Link(album, destination: .lastFmAlbum(artist: artist, album: album))
-                                    .font(.system(size: detailFontSize))
-                                    .foregroundColor(.lastFmRed)
-                                    .lineLimit(1)
-                                    .truncationMode(.tail)
+                                Link(destination: .lastFmAlbum(artist: artist, album: album)) {
+                                    ScrollingText(
+                                        text: album,
+                                        font: .system(size: detailFontSize),
+                                        foregroundColor: .lastFmRed
+                                    )
+                                }
                             } else {
                                 Text("")
                                     .font(.system(size: detailFontSize))

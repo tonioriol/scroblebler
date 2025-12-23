@@ -7,20 +7,27 @@
 
 import SwiftUI
 
-struct Link: View {
+struct Link<Label: View>: View {
     var destination: URL
-    var text: any StringProtocol
+    var label: Label
 
-    init(_ text: any StringProtocol, destination: URL) {
+    init(_ text: any StringProtocol, destination: URL) where Label == Text {
         self.destination = destination
-        self.text = text
+        self.label = Text(text)
+    }
+
+    init(destination: URL, @ViewBuilder label: () -> Label) {
+        self.destination = destination
+        self.label = label()
     }
 
     var body: some View {
-        Button(text) {
+        Button {
             NSWorkspace.shared.open(self.destination)
+        } label: {
+            label
         }
-            .buttonStyle(.link)
+        .buttonStyle(.link)
     }
 }
 
