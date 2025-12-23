@@ -6,18 +6,6 @@ struct PlayingItemView: View {
     @Binding var track: Track?
     @Binding var currentPosition: Double?
 
-    func artworkImage() -> Image {
-        if let trk = track {
-            if let art = trk.artwork {
-                if let img = NSImage.init(data: art) {
-                    return Image(nsImage: img)
-                }
-            }
-        }
-
-        return Image("nocover")
-    }
-
     func formatDuration(_ value: Double) -> String {
         let hours = value / 3600
         let minutes = Int(value.truncatingRemainder(dividingBy: 3600) / 60)
@@ -32,38 +20,24 @@ struct PlayingItemView: View {
         }
     }
 
-    let redColor = Color(hue: 0, saturation: 0.70, brightness: 0.75)
-    func urlFor(artist: String) -> URL {
-        let artist = artist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
-        return URL(string: "https://www.last.fm/music/\(artist)")!
-    }
-
-    func urlFor(artist: String, album: String) -> URL {
-        let artist = artist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
-        let album = album.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
-        return URL(string: "https://www.last.fm/music/\(artist)/\(album)")!
-    }
-
     var body: some View {
         ZStack(alignment: .topTrailing) {
             HStack(alignment: .top) {
-                artworkImage()
-                    .resizable()
-                    .cornerRadius(3)
-                    .frame(width: 92, height: 92)
+                AlbumArtwork(imageData: track?.artwork, size: 92)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(track!.name)
+                    Link(track!.name, destination: .lastFmTrack(artist: track!.artist, track: track!.name))
                         .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(.lastFmRed)
                         .padding(.trailing, 28)
                     HStack(spacing: 3) {
                         Text("by")
-                        Link(track!.artist, destination: urlFor(artist: track!.artist))
-                            .foregroundColor(redColor)
+                        Link(track!.artist, destination: .lastFmArtist(track!.artist))
+                            .foregroundColor(.lastFmRed)
                     }
                     HStack(spacing: 3) {
                         Text("on")
-                        Link(track!.album, destination: urlFor(artist: track!.artist, album: track!.album))
-                            .foregroundColor(redColor)
+                        Link(track!.album, destination: .lastFmAlbum(artist: track!.artist, album: track!.album))
+                            .foregroundColor(.lastFmRed)
                     }
                     HStack(spacing: 3) {
                         Text("released")
