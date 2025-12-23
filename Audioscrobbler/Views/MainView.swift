@@ -18,8 +18,25 @@ struct MainView: View {
     @State var currentPage: Int = 1
     @State var isLoadingMore: Bool = false
     @State var hasMoreTracks: Bool = true
+    @State var showProfileView: Bool = false
 
     var body: some View {
+        ZStack(alignment: .leading) {
+            mainContent
+                .offset(x: showProfileView ? -400 : 0)
+                .animation(.easeInOut(duration: 0.3), value: showProfileView)
+            
+            if showProfileView {
+                ProfileView(isPresented: $showProfileView)
+                    .transition(.move(edge: .trailing))
+                    .offset(x: showProfileView ? 0 : 400)
+                    .animation(.easeInOut(duration: 0.3), value: showProfileView)
+            }
+        }
+        .clipped()
+    }
+    
+    var mainContent: some View {
         VStack(alignment: .leading, spacing: 0) {
             if watcher.currentTrack != nil {
                 PlayingItemView(track: $watcher.currentTrack, currentPosition: $watcher.currentPosition)
@@ -94,8 +111,9 @@ struct MainView: View {
                 }
             }.padding()
             Divider()
-            HeaderView()
+            HeaderView(showProfileView: $showProfileView)
         }
+        .frame(width: 400)
         .onAppear {
             loadRecentTracks()
         }

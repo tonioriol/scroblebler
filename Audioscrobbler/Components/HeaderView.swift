@@ -9,6 +9,7 @@ import SwiftUI
 
 struct HeaderView: View {
     @EnvironmentObject var defaults: Defaults
+    @Binding var showProfileView: Bool
     @State var showSignoutScreen = false
     
     var body: some View {
@@ -42,17 +43,20 @@ struct HeaderView: View {
 
                                 }
                         }
-                        if defaults.picture == nil {
-                            Image("avatar")
-                                .resizable()
-                                .frame(width: 42, height: 42)
-                                .cornerRadius(4)
-                        } else {
-                            Image(nsImage: NSImage(data: defaults.picture!) ?? NSImage(named: "avatar")!)
-                                .resizable()
-                                .frame(width: 42, height: 42)
-                                .cornerRadius(4)
+                        Button(action: { showProfileView = true }) {
+                            if defaults.picture == nil {
+                                Image("avatar")
+                                    .resizable()
+                                    .frame(width: 42, height: 42)
+                                    .cornerRadius(4)
+                            } else {
+                                Image(nsImage: NSImage(data: defaults.picture!) ?? NSImage(named: "avatar")!)
+                                    .resizable()
+                                    .frame(width: 42, height: 42)
+                                    .cornerRadius(4)
+                            }
                         }
+                        .buttonStyle(.plain)
                     }
                 }
             }.padding()
@@ -67,6 +71,6 @@ struct HeaderView: View {
 
 struct Header_Previews: PreviewProvider {
     static var previews: some View {
-        HeaderView()
+        HeaderView(showProfileView: .constant(false))
     }
 }

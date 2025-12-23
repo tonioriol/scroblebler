@@ -114,7 +114,7 @@ struct LoginView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HeaderView()
+            HeaderView(showProfileView: .constant(false))
             Divider()
             VStack(alignment: .leading) {
                 Text("Welcome to Audioscrobbler!")

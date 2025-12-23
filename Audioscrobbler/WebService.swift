@@ -190,6 +190,45 @@ class WebService: ObservableObject {
         }
     }
     
+    struct UserStats: Decodable {
+        let playcount: Int
+        let artistCount: Int
+        let lovedCount: Int
+        let registered: String
+        
+        enum RootKeys: String, CodingKey { case user }
+        enum UserKeys: String, CodingKey { case playcount, artist_count, track_count, registered }
+        enum RegisteredKeys: String, CodingKey { case unixtime }
+        
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: RootKeys.self)
+            let userContainer = try container.nestedContainer(keyedBy: UserKeys.self, forKey: .user)
+            
+            let playcountString = try userContainer.decode(String.self, forKey: .playcount)
+            self.playcount = Int(playcountString) ?? 0
+            
+            let artistCountString = try userContainer.decode(String.self, forKey: .artist_count)
+            self.artistCount = Int(artistCountString) ?? 0
+            
+            if let trackCountString = try? userContainer.decode(String.self, forKey: .track_count) {
+                self.lovedCount = Int(trackCountString) ?? 0
+            } else {
+                self.lovedCount = 0
+            }
+            
+            let registeredContainer = try userContainer.nestedContainer(keyedBy: RegisteredKeys.self, forKey: .registered)
+            let timestampString = try registeredContainer.decode(String.self, forKey: .unixtime)
+            if let timestamp = Int(timestampString) {
+                let date = Date(timeIntervalSince1970: TimeInterval(timestamp))
+                let formatter = DateFormatter()
+                formatter.dateStyle = .medium
+                self.registered = formatter.string(from: date)
+            } else {
+                self.registered = "Unknown"
+            }
+        }
+    }
+    
     let apiKey = "227d67ffb2b5f671bcaba9a1b465d8e1"
     let apiSecret = "b85d94beb2f214fba7ef7260bbe522a8"
     let baseURL = URL(string: "https://ws.audioscrobbler.com/2.0/")!
@@ -398,5 +437,12 @@ class WebService: ObservableObject {
             // Track not found or other API error - return nil instead of throwing
             return nil
         }
+    }
+    
+    func getUserStats(username: String) async throws -> UserStats {
+        let data = try await executeRequest(method: "user.getInfo", args: [
+            "user": username
+        ])
+        return try decodeJSON(data)
     }
 }
