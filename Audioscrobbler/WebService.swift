@@ -51,6 +51,76 @@ class WebService: ObservableObject {
         }
     }
     
+    struct RecentTrack: Decodable {
+        let name: String
+        let artist: String
+        let album: String
+        let date: Int?
+        let isNowPlaying: Bool
+        
+        struct Artist: Decodable {
+            let name: String
+            enum CodingKeys: String, CodingKey {
+                case name = "#text"
+            }
+        }
+        
+        struct Album: Decodable {
+            let name: String
+            enum CodingKeys: String, CodingKey {
+                case name = "#text"
+            }
+        }
+        
+        struct Date: Decodable {
+            let uts: String
+        }
+        
+        struct Attr: Decodable {
+            let nowplaying: String
+        }
+        
+        enum CodingKeys: String, CodingKey {
+            case name, artist, album, date, attr
+        }
+        
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            self.name = try container.decode(String.self, forKey: .name)
+            
+            let artistContainer = try container.decode(Artist.self, forKey: .artist)
+            self.artist = artistContainer.name
+            
+            let albumContainer = try container.decode(Album.self, forKey: .album)
+            self.album = albumContainer.name
+            
+            if let dateContainer = try? container.decode(Date.self, forKey: .date) {
+                self.date = Int(dateContainer.uts)
+            } else {
+                self.date = nil
+            }
+            
+            if let attrContainer = try? container.decode(Attr.self, forKey: .attr) {
+                self.isNowPlaying = attrContainer.nowplaying == "true"
+            } else {
+                self.isNowPlaying = false
+            }
+        }
+    }
+    
+    struct RecentTracksResponse: Decodable {
+        let tracks: [RecentTrack]
+        
+        enum RootKeys: String, CodingKey { case recenttracks }
+        enum TracksKeys: String, CodingKey { case track }
+        
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: RootKeys.self)
+            let tracksContainer = try container.nestedContainer(keyedBy: TracksKeys.self, forKey: .recenttracks)
+            self.tracks = try tracksContainer.decode([RecentTrack].self, forKey: .track)
+        }
+    }
+    
     struct AuthenticationResult: Decodable {
         let name: String
         let key: String
@@ -223,5 +293,14 @@ class WebService: ObservableObject {
             "timestamp": String(format: "%d", track.startedAt),
             "sk": token
         ])
+    }
+    
+    func getRecentTracks(username: String, limit: Int = 10) async throws -> [RecentTrack] {
+        let data = try await executeRequest(method: "user.getRecentTracks", args: [
+            "user": username,
+            "limit": String(limit)
+        ])
+        let response: RecentTracksResponse = try decodeJSON(data)
+        return response.tracks.filter { !$0.isNowPlaying }
     }
 }

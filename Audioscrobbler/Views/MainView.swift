@@ -9,9 +9,11 @@ import SwiftUI
 
 struct MainView: View {
     @EnvironmentObject var watcher: Watcher
+    @EnvironmentObject var webService: WebService
     @EnvironmentObject var defaults: Defaults
     @State var privateSession: Bool = false
     @State var showPrivateSessionPopover: Bool = false
+    @State var recentTracks: [WebService.RecentTrack] = []
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -32,6 +34,33 @@ struct MainView: View {
                 }.padding()
             }
             Divider()
+            
+            // History section
+            if !recentTracks.isEmpty {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Recently Scrobbled")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 12)
+                        .padding(.bottom, 8)
+                    
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 0) {
+                            ForEach(Array(recentTracks.enumerated()), id: \.offset) { index, track in
+                                HistoryItemView(track: track)
+                                if index < recentTracks.count - 1 {
+                                    Divider()
+                                        .padding(.horizontal, 16)
+                                }
+                            }
+                        }
+                    }
+                    .frame(maxHeight: 200)
+                }
+                Divider()
+            }
+            
             HStack {
                 Toggle("", isOn: $defaults.privateSession)
                     .toggleStyle(.switch)
@@ -47,6 +76,26 @@ struct MainView: View {
             }.padding()
             Divider()
             HeaderView()
+        }
+        .onAppear {
+            loadRecentTracks()
+        }
+        .onChange(of: watcher.currentTrack?.name) { _ in
+            loadRecentTracks()
+        }
+    }
+    
+    func loadRecentTracks() {
+        guard let username = defaults.name else { return }
+        Task {
+            do {
+                let tracks = try await webService.getRecentTracks(username: username, limit: 10)
+                await MainActor.run {
+                    recentTracks = tracks
+                }
+            } catch {
+                print("Failed to load recent tracks: \(error)")
+            }
         }
     }
 }
