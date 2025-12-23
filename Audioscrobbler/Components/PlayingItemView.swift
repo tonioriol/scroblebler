@@ -45,46 +45,48 @@ struct PlayingItemView: View {
     }
 
     var body: some View {
-        HStack(alignment: .top) {
-            artworkImage()
-                .resizable()
-                .cornerRadius(3)
-                .frame(width: 92, height: 92)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(track!.name)
-                    .font(.system(size: 18, weight: .bold))
-                HStack(spacing: 3) {
-                    Text("by")
-                    Link(track!.artist, destination: urlFor(artist: track!.artist))
-                        .foregroundColor(redColor)
+        ZStack(alignment: .topTrailing) {
+            HStack(alignment: .top) {
+                artworkImage()
+                    .resizable()
+                    .cornerRadius(3)
+                    .frame(width: 92, height: 92)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(track!.name)
+                        .font(.system(size: 18, weight: .bold))
+                        .padding(.trailing, 28)
+                    HStack(spacing: 3) {
+                        Text("by")
+                        Link(track!.artist, destination: urlFor(artist: track!.artist))
+                            .foregroundColor(redColor)
+                    }
+                    HStack(spacing: 3) {
+                        Text("on")
+                        Link(track!.album, destination: urlFor(artist: track!.artist, album: track!.album))
+                            .foregroundColor(redColor)
+                    }
+                    HStack(spacing: 3) {
+                        Text("released")
+                        Text("\(String(format: "%04d", track!.year))")
+                    }
+                    HStack(spacing: 8) {
+                        Text(formatDuration(currentPosition!))
+                            .font(.caption)
+                        ProgressBar(value: currentPosition!, maxValue: track!.length)
+                            .frame(height: 8)
+                        Text(formatDuration(track!.length))
+                            .font(.caption)
+                    }
                 }
-                HStack(spacing: 3) {
-                    Text("on")
-                    Link(track!.album, destination: urlFor(artist: track!.artist, album: track!.album))
-                        .foregroundColor(redColor)
-                }
-                HStack(spacing: 3) {
-                    Text("released")
-                    Text("\(String(format: "%04d", track!.year))")
-                }
-                HStack(spacing: 8) {
-                    Text(formatDuration(currentPosition!))
-                        .font(.caption)
-                    ProgressBar(value: currentPosition!, maxValue: track!.length)
-                        .frame(height: 8)
-                    Text(formatDuration(track!.length))
-                        .font(.caption)
-                }
-                HStack(spacing: 8) {
-                    LoveButton(loved: Binding(
-                        get: { track?.loved ?? false },
-                        set: { track?.loved = $0 }
-                    ), artist: track!.artist, trackName: track!.name, fontSize: 12)
-                }
-                .padding(.top, 4)
             }
-        }.padding()
-            .animation(nil)
+            LoveButton(loved: Binding(
+                get: { track?.loved ?? false },
+                set: { track?.loved = $0 }
+            ), artist: track!.artist, trackName: track!.name, fontSize: 12)
+            .padding(.top, 4)
+        }
+        .padding()
+        .animation(nil)
     }
 }
 

@@ -31,40 +31,40 @@ struct HistoryItemView: View {
     }
     
     var body: some View {
-        HStack(alignment: .center, spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(track.name)
-                    .font(.system(size: 13, weight: .semibold))
-                    .lineLimit(1)
-                HStack(spacing: 3) {
-                    Text("by")
-                        .font(.system(size: 11))
-                        .foregroundColor(.secondary)
-                    Link(track.artist, destination: urlFor(artist: track.artist))
-                        .font(.system(size: 11))
-                        .foregroundColor(redColor)
+        ZStack(alignment: .topTrailing) {
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(track.name)
+                        .font(.system(size: 13, weight: .semibold))
                         .lineLimit(1)
-                }
-                if !track.album.isEmpty {
+                        .padding(.trailing, 24)
                     HStack(spacing: 3) {
-                        Text("on")
+                        Text("by")
                             .font(.system(size: 11))
                             .foregroundColor(.secondary)
-                        Link(track.album, destination: urlFor(artist: track.artist, album: track.album))
+                        Link(track.artist, destination: urlFor(artist: track.artist))
                             .font(.system(size: 11))
                             .foregroundColor(redColor)
                             .lineLimit(1)
                     }
+                    if !track.album.isEmpty {
+                        HStack(spacing: 3) {
+                            Text("on")
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
+                            Link(track.album, destination: urlFor(artist: track.artist, album: track.album))
+                                .font(.system(size: 11))
+                                .foregroundColor(redColor)
+                                .lineLimit(1)
+                        }
+                    }
                 }
-            }
-            Spacer()
-            HStack(spacing: 8) {
-                LoveButton(loved: $loved, artist: track.artist, trackName: track.name, fontSize: 11)
-                
+                Spacer()
                 Text(formatDate(track.date))
                     .font(.system(size: 10))
                     .foregroundColor(.secondary)
             }
+            LoveButton(loved: $loved, artist: track.artist, trackName: track.name, fontSize: 11)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
