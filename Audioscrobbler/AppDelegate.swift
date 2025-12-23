@@ -95,6 +95,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
                         popoverWindow.collectionBehavior = .fullScreenAuxiliary
                         popoverWindow.makeKey()
                     }
+                    NotificationCenter.default.post(name: NSNotification.Name("AudioscrobblerDidShow"), object: nil)
                     startMonitoring()
                 }
             }

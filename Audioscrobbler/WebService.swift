@@ -212,7 +212,36 @@ class WebService: ObservableObject {
         return args
     }
     
-    private func executeRequest(method: String) async throws -> Data { try await executeRequest(method: method, args: [:]) }
+    private func executeRequest(method: String) async throws -> Data {
+        try await executeRequest(method: method, args: [:])
+    }
+    
+    private func executeRequestWithRetry(method: String, args: [String:String] = [:], maxRetries: Int = 3) async throws -> Data {
+        var lastError: Error?
+        
+        for attempt in 0..<maxRetries {
+            do {
+                return try await executeRequest(method: method, args: args)
+            } catch let error as WSError {
+                lastError = error
+                
+                // Only retry on specific error codes (backend failures)
+                if case .APIError(let apiError) = error, apiError.code == 8 {
+                    let delay = UInt64(pow(2.0, Double(attempt)) * 1_000_000_000) // Exponential backoff
+                    print("API call failed (attempt \(attempt + 1)/\(maxRetries)), retrying in \(Int(delay / 1_000_000_000))s...")
+                    try await Task.sleep(nanoseconds: delay)
+                    continue
+                }
+                
+                // Don't retry other errors
+                throw error
+            } catch {
+                throw error
+            }
+        }
+        
+        throw lastError ?? WSError.UnexpectedResponse
+    }
 
     private static let percentEncodingAllowedCharacters: CharacterSet = {
         var allowed = CharacterSet.urlQueryAllowed
@@ -347,7 +376,7 @@ class WebService: ObservableObject {
     }
     
     func getRecentTracks(username: String, limit: Int = 10, page: Int = 1) async throws -> [RecentTrack] {
-        let data = try await executeRequest(method: "user.getRecentTracks", args: [
+        let data = try await executeRequestWithRetry(method: "user.getRecentTracks", args: [
             "user": username,
             "limit": String(limit),
             "page": String(page)
