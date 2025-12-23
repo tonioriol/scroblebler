@@ -64,6 +64,7 @@ struct ScrollingText: View {
                     }
                 }
             )
+            .help(shouldAnimate ? text : "")
     }
     
     private func measureTextWidth() {
