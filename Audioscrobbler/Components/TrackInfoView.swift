@@ -39,7 +39,8 @@ struct TrackInfoView: View {
         loveFontSize: CGFloat = 11,
         timestamp: Int? = nil,
         currentPosition: Double? = nil,
-        trackLength: Double? = nil
+        trackLength: Double? = nil,
+        playCount: Int? = nil
     ) {
         self.trackName = trackName
         self.artist = artist
@@ -55,6 +56,7 @@ struct TrackInfoView: View {
         self.timestamp = timestamp
         self.currentPosition = currentPosition
         self.trackLength = trackLength
+        self._playCount = State(initialValue: playCount)
     }
     
     func formatDate(_ timestamp: Int?) -> String {
@@ -160,12 +162,14 @@ struct TrackInfoView: View {
                     
                     if let timestamp = timestamp {
                         VStack(alignment: .trailing, spacing: 4) {
-                            HStack(spacing: 6) {
-                                if let count = playCount, count > 0 {
-                                    Text("\(count) \(count == 1 ? "scrobble" : "scrobbles")")
-                                        .font(.system(size: loveFontSize - 1))
-                                        .foregroundColor(.secondary)
-                                }
+                            HStack(spacing: 4) {
+                                let count = playCount ?? 0
+                                Text("\(count) \(count == 1 ? "scrobble" : "scrobbles")")
+                                    .font(.system(size: loveFontSize - 1))
+                                    .foregroundColor(.secondary)
+                                Text("·")
+                                    .font(.system(size: loveFontSize - 1))
+                                    .foregroundColor(.secondary)
                                 LoveButton(loved: $loved, artist: artist, trackName: trackName, fontSize: loveFontSize)
                             }
                             Spacer()
@@ -174,12 +178,14 @@ struct TrackInfoView: View {
                                 .foregroundColor(.secondary)
                         }
                     } else {
-                        HStack(spacing: 6) {
-                            if let count = playCount, count > 0 {
-                                Text("\(count) \(count == 1 ? "scrobble" : "scrobbles")")
-                                    .font(.system(size: loveFontSize - 1))
-                                    .foregroundColor(.secondary)
-                            }
+                        HStack(spacing: 4) {
+                            let count = playCount ?? 0
+                            Text("\(count) \(count == 1 ? "scrobble" : "scrobbles")")
+                                .font(.system(size: loveFontSize - 1))
+                                .foregroundColor(.secondary)
+                            Text("·")
+                                .font(.system(size: loveFontSize - 1))
+                                .foregroundColor(.secondary)
                             LoveButton(loved: $loved, artist: artist, trackName: trackName, fontSize: loveFontSize)
                         }
                     }
@@ -212,10 +218,14 @@ struct TrackInfoView: View {
             }
         }
         .onAppear {
-            fetchPlayCount()
+            if playCount == nil {
+                fetchPlayCount()
+            }
         }
         .onChange(of: trackName) { _ in
-            fetchPlayCount()
+            if playCount == nil {
+                fetchPlayCount()
+            }
         }
     }
     

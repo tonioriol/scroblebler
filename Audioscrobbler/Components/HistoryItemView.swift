@@ -2,10 +2,12 @@ import SwiftUI
 
 struct HistoryItemView: View {
     let track: WebService.RecentTrack
+    let playCount: Int?
     @State private var loved: Bool
     
-    init(track: WebService.RecentTrack) {
+    init(track: WebService.RecentTrack, playCount: Int? = nil) {
         self.track = track
+        self.playCount = playCount
         self._loved = State(initialValue: track.loved)
     }
     
@@ -16,7 +18,8 @@ struct HistoryItemView: View {
             album: track.album,
             loved: $loved,
             artworkImageUrl: track.imageUrl,
-            timestamp: track.date
+            timestamp: track.date,
+            playCount: playCount
         )
         .padding(.horizontal, 16)
         .padding(.vertical, 8)

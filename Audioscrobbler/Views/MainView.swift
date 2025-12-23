@@ -14,6 +14,7 @@ struct MainView: View {
     @State var privateSession: Bool = false
     @State var showPrivateSessionPopover: Bool = false
     @State var recentTracks: [WebService.RecentTrack] = []
+    @State var trackPlayCounts: [String: Int] = [:]
     @State var currentPage: Int = 1
     @State var isLoadingMore: Bool = false
     @State var hasMoreTracks: Bool = true
@@ -51,7 +52,7 @@ struct MainView: View {
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 0) {
                             ForEach(Array(recentTracks.enumerated()), id: \.offset) { index, track in
-                                HistoryItemView(track: track)
+                                HistoryItemView(track: track, playCount: trackPlayCounts["\(track.artist)|\(track.name)"])
                                     .onAppear {
                                         if index == recentTracks.count - 1 && !isLoadingMore && hasMoreTracks {
                                             loadMoreTracks()
@@ -107,12 +108,13 @@ struct MainView: View {
     }
     
     func loadRecentTracks() {
-        guard let username = defaults.name else { return }
+        guard let username = defaults.name, let token = defaults.token else { return }
         currentPage = 1
         hasMoreTracks = true
         Task {
             do {
                 let tracks = try await webService.getRecentTracks(username: username, limit: 20, page: 1)
+                await fetchPlayCountsForTracks(tracks, token: token)
                 await MainActor.run {
                     recentTracks = tracks
                     hasMoreTracks = tracks.count >= 20
@@ -124,13 +126,14 @@ struct MainView: View {
     }
     
     func loadMoreTracks() {
-        guard let username = defaults.name, !isLoadingMore, hasMoreTracks else { return }
+        guard let username = defaults.name, let token = defaults.token, !isLoadingMore, hasMoreTracks else { return }
         isLoadingMore = true
         let nextPage = currentPage + 1
         
         Task {
             do {
                 let tracks = try await webService.getRecentTracks(username: username, limit: 20, page: nextPage)
+                await fetchPlayCountsForTracks(tracks, token: token)
                 await MainActor.run {
                     if !tracks.isEmpty {
                         recentTracks.append(contentsOf: tracks)
@@ -146,6 +149,26 @@ struct MainView: View {
                     isLoadingMore = false
                 }
                 print("Failed to load more tracks: \(error)")
+            }
+        }
+    }
+    
+    func fetchPlayCountsForTracks(_ tracks: [WebService.RecentTrack], token: String) async {
+        await withTaskGroup(of: (String, Int?).self) { group in
+            for track in tracks {
+                group.addTask {
+                    let key = "\(track.artist)|\(track.name)"
+                    let count = try? await self.webService.getTrackUserPlaycount(token: token, artist: track.artist, track: track.name)
+                    return (key, count)
+                }
+            }
+            
+            for await (key, count) in group {
+                await MainActor.run {
+                    if let count = count {
+                        trackPlayCounts[key] = count
+                    }
+                }
             }
         }
     }
