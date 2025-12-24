@@ -22,7 +22,7 @@ struct MainView: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            // Main content with footer at bottom
+            // Main content with footer at bottom - slides up
             VStack(spacing: 0) {
                 mainContent
                     .frame(height: 600)
@@ -35,7 +35,7 @@ struct MainView: View {
                 }
             }
             .frame(height: 655)
-            .opacity(showProfileView ? 0 : 1)
+            .offset(y: showProfileView ? -655 : 0)
             
             // Profile view slides up from bottom
             if showProfileView {
@@ -51,6 +51,7 @@ struct MainView: View {
             }
         }
         .frame(width: 400, height: 655)
+        .clipped()
         .animation(.spring(response: 0.5, dampingFraction: 0.75), value: showProfileView)
     }
     
