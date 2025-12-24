@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct TrackInfoView: View {
-    @EnvironmentObject var webService: WebService
+    @EnvironmentObject var serviceManager: ServiceManager
     @EnvironmentObject var defaults: Defaults
     
     let trackName: String
@@ -231,8 +231,9 @@ struct TrackInfoView: View {
     
     func fetchPlayCount() {
         guard let token = defaults.token else { return }
+        guard let client = serviceManager.client(for: .lastfm) else { return }
         Task {
-            let count = try? await webService.getTrackUserPlaycount(token: token, artist: artist, track: trackName)
+            let count = try? await client.getTrackUserPlaycount(token: token, artist: artist, track: trackName)
             await MainActor.run {
                 playCount = count
             }

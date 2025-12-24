@@ -9,16 +9,18 @@ import SwiftUI
 
 struct MainView: View {
     @EnvironmentObject var watcher: Watcher
-    @EnvironmentObject var webService: WebService
+    @EnvironmentObject var serviceManager: ServiceManager
     @EnvironmentObject var defaults: Defaults
     @State var privateSession: Bool = false
     @State var showPrivateSessionPopover: Bool = false
-    @State var recentTracks: [WebService.RecentTrack] = []
-    @State var trackPlayCounts: [String: Int] = [:]
-    @State var currentPage: Int = 1
-    @State var isLoadingMore: Bool = false
-    @State var hasMoreTracks: Bool = true
     @State var showProfileView: Bool = false
+    @State var loginService: ScrobbleService?
+    @State var recentTracks: [RecentTrack] = []
+    @State var trackPlayCounts: [String: Int] = [:]
+    @State var currentPage = 1
+    @State var isLoadingMore = false
+    @State var hasMoreTracks = true
+    @State var loginState: WaitingLoginView.Status = .generatingToken
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -127,7 +129,44 @@ struct MainView: View {
                     Text("A private session will prevent tracks from being scrobbled as long as it is turned on")
                         .padding()
                 }
-            }.padding()
+            }.padding(.horizontal)
+            
+            Divider()
+            
+            // Dynamic service management
+            VStack(spacing: 8) {
+                ForEach(ScrobbleService.allCases) { service in
+                    ServiceRow(
+                        service: service,
+                        credentials: defaults.credentials(for: service),
+                        onLogin: {
+                            loginService = service
+                            loginState = .generatingToken
+                            Task {
+                                await doServiceLogin(service: service)
+                            }
+                        },
+                        onLogout: {
+                            defaults.removeCredentials(for: service)
+                        },
+                        onToggle: { enabled in
+                            defaults.toggleService(service, enabled: enabled)
+                        }
+                    )
+                }
+            }
+            .padding(.horizontal)
+            .padding(.bottom)
+            .sheet(isPresented: Binding(
+                get: { loginService != nil },
+                set: { if !$0 { loginService = nil } }
+            )) {
+                if loginService != nil {
+                    WaitingLoginView(status: $loginState, onCancel: {
+                        loginService = nil
+                    })
+                }
+            }
         }
         .onAppear {
             loadRecentTracks()
@@ -141,32 +180,45 @@ struct MainView: View {
     }
     
     func loadRecentTracks() {
-        guard let username = defaults.name, let token = defaults.token else { return }
+        guard let primary = defaults.primaryService else {
+            print("No primary service found")
+            return
+        }
+        print("Loading recent tracks for \(primary.service.displayName) user: \(primary.username)")
+        guard let client = serviceManager.client(for: primary.service) else {
+            print("No client found for \(primary.service.displayName)")
+            return
+        }
+        print("Client type: \(type(of: client))")
         currentPage = 1
         hasMoreTracks = true
         Task {
             do {
-                let tracks = try await webService.getRecentTracks(username: username, limit: 20, page: 1)
-                await fetchPlayCountsForTracks(tracks, token: token)
+                print("About to call getRecentTracks...")
+                let tracks = try await client.getRecentTracks(username: primary.username, limit: 20, page: 1)
+                print("Loaded \(tracks.count) recent tracks")
+                await fetchPlayCountsForTracks(tracks, token: primary.token, service: primary.service)
                 await MainActor.run {
                     recentTracks = tracks
                     hasMoreTracks = tracks.count >= 20
                 }
             } catch {
                 print("Failed to load recent tracks: \(error)")
+                print("Error type: \(type(of: error))")
             }
         }
     }
     
     func loadMoreTracks() {
-        guard let username = defaults.name, let token = defaults.token, !isLoadingMore, hasMoreTracks else { return }
+        guard let primary = defaults.primaryService, !isLoadingMore, hasMoreTracks else { return }
+        guard let client = serviceManager.client(for: primary.service) else { return }
         isLoadingMore = true
         let nextPage = currentPage + 1
         
         Task {
             do {
-                let tracks = try await webService.getRecentTracks(username: username, limit: 20, page: nextPage)
-                await fetchPlayCountsForTracks(tracks, token: token)
+                let tracks = try await client.getRecentTracks(username: primary.username, limit: 20, page: nextPage)
+                await fetchPlayCountsForTracks(tracks, token: primary.token, service: primary.service)
                 await MainActor.run {
                     if !tracks.isEmpty {
                         recentTracks.append(contentsOf: tracks)
@@ -186,12 +238,13 @@ struct MainView: View {
         }
     }
     
-    func fetchPlayCountsForTracks(_ tracks: [WebService.RecentTrack], token: String) async {
+    func fetchPlayCountsForTracks(_ tracks: [RecentTrack], token: String, service: ScrobbleService) async {
+        guard let client = serviceManager.client(for: service) else { return }
         await withTaskGroup(of: (String, Int?).self) { group in
             for track in tracks {
                 group.addTask {
                     let key = "\(track.artist)|\(track.name)"
-                    let count = try? await self.webService.getTrackUserPlaycount(token: token, artist: track.artist, track: track.name)
+                    let count = try? await client.getTrackUserPlaycount(token: token, artist: track.artist, track: track.name)
                     return (key, count)
                 }
             }
@@ -202,6 +255,100 @@ struct MainView: View {
                         trackPlayCounts[key] = count
                     }
                 }
+            }
+        }
+    }
+    
+    func doServiceLogin(service: ScrobbleService) async {
+        let token: String
+        let targetURL: URL
+        do {
+            (token, targetURL) = try await serviceManager.authenticate(service: service)
+            NSWorkspace.shared.open(targetURL)
+        } catch {
+            await MainActor.run {
+                loginService = nil
+            }
+            print("Error preparing \(service.displayName) authentication: \(error)")
+            return
+        }
+        
+        await MainActor.run {
+            loginState = .waitingForLogin
+        }
+        
+        var credentials: ServiceCredentials?
+        while loginService != nil {
+            guard ((try? await Task.sleep(nanoseconds: 2_000_000_000)) != nil) else { return }
+            do {
+                credentials = try await serviceManager.completeAuthentication(service: service, token: token)
+                break
+            } catch LastFmClient.WSError.APIError(let err) {
+                if err.code == 14 {
+                    continue
+                }
+                await MainActor.run {
+                    loginService = nil
+                }
+                print("Error during \(service.displayName) authentication: \(err.message)")
+                return
+            } catch {
+                await MainActor.run {
+                    loginService = nil
+                }
+                print("Error during \(service.displayName) authentication: \(error)")
+                return
+            }
+        }
+        
+        if loginService == nil {
+            return
+        }
+        
+        guard let credentials = credentials else { return }
+        
+        await MainActor.run {
+            loginState = .finishingUp
+            defaults.addOrUpdateCredentials(credentials)
+            loginService = nil
+        }
+    }
+}
+
+struct ServiceRow: View {
+    let service: ScrobbleService
+    let credentials: ServiceCredentials?
+    let onLogin: () -> Void
+    let onLogout: () -> Void
+    let onToggle: (Bool) -> Void
+    
+    var body: some View {
+        HStack {
+            Toggle("", isOn: Binding(
+                get: { credentials?.isEnabled ?? false },
+                set: { onToggle($0) }
+            ))
+            .toggleStyle(.switch)
+            .disabled(credentials == nil)
+            
+            Text("Scrobble to \(service.displayName)")
+                .foregroundColor(credentials == nil ? .secondary : .primary)
+            
+            Spacer()
+            
+            if let credentials = credentials {
+                Text(credentials.username)
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+                Button("Logout") {
+                    onLogout()
+                }
+                .buttonStyle(.link)
+            } else {
+                Button("Login") {
+                    onLogin()
+                }
+                .buttonStyle(.link)
             }
         }
     }

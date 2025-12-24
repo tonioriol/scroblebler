@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct PlayingItemView: View {
-    @EnvironmentObject var webService: WebService
+    @EnvironmentObject var serviceManager: ServiceManager
     @EnvironmentObject var defaults: Defaults
     @Binding var track: Track?
     @Binding var currentPosition: Double?

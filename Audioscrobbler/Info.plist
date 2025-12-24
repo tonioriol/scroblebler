@@ -12,6 +12,7 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>vioaudioscrobbler</string>
+				<string>io.vito.audioscrobbler</string>
 			</array>
 		</dict>
 	</array>

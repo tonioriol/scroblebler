@@ -9,11 +9,11 @@ import SwiftUI
 
 struct ProfileView: View {
     @EnvironmentObject var defaults: Defaults
-    @EnvironmentObject var webService: WebService
-    @State private var userStats: WebService.UserStats?
-    @State private var topArtists: [WebService.TopArtist] = []
-    @State private var topAlbums: [WebService.TopAlbum] = []
-    @State private var topTracks: [WebService.TopTrack] = []
+    @EnvironmentObject var serviceManager: ServiceManager
+    @State private var userStats: UserStats?
+    @State private var topArtists: [TopArtist] = []
+    @State private var topAlbums: [TopAlbum] = []
+    @State private var topTracks: [TopTrack] = []
     @State private var isLoading = true
     @State private var selectedPeriod: String = "7day"
     @Binding var isPresented: Bool
@@ -143,13 +143,14 @@ struct ProfileView: View {
     
     private func loadUserData() {
         guard let username = defaults.name else { return }
+        guard let client = serviceManager.client(for: .lastfm) else { return }
         isLoading = true
         Task {
             do {
-                async let stats = webService.getUserStats(username: username)
-                async let artists = webService.getTopArtists(username: username, period: selectedPeriod, limit: 10)
-                async let albums = webService.getTopAlbums(username: username, period: selectedPeriod, limit: 10)
-                async let tracks = webService.getTopTracks(username: username, period: selectedPeriod, limit: 10)
+                async let stats = client.getUserStats(username: username)
+                async let artists = client.getTopArtists(username: username, period: selectedPeriod, limit: 10)
+                async let albums = client.getTopAlbums(username: username, period: selectedPeriod, limit: 10)
+                async let tracks = client.getTopTracks(username: username, period: selectedPeriod, limit: 10)
                 
                 let (fetchedStats, fetchedArtists, fetchedAlbums, fetchedTracks) = try await (stats, artists, albums, tracks)
                 
@@ -171,11 +172,12 @@ struct ProfileView: View {
     
     private func loadTopContent() {
         guard let username = defaults.name else { return }
+        guard let client = serviceManager.client(for: .lastfm) else { return }
         Task {
             do {
-                async let artists = webService.getTopArtists(username: username, period: selectedPeriod, limit: 10)
-                async let albums = webService.getTopAlbums(username: username, period: selectedPeriod, limit: 10)
-                async let tracks = webService.getTopTracks(username: username, period: selectedPeriod, limit: 10)
+                async let artists = client.getTopArtists(username: username, period: selectedPeriod, limit: 10)
+                async let albums = client.getTopAlbums(username: username, period: selectedPeriod, limit: 10)
+                async let tracks = client.getTopTracks(username: username, period: selectedPeriod, limit: 10)
                 
                 let (fetchedArtists, fetchedAlbums, fetchedTracks) = try await (artists, albums, tracks)
                 
@@ -289,7 +291,7 @@ struct RemoteImage: View {
 }
 
 struct TopArtistRow: View {
-    let artist: WebService.TopArtist
+    let artist: TopArtist
     let rank: Int
     
     var body: some View {
@@ -334,7 +336,7 @@ struct TopArtistRow: View {
 }
 
 struct TopAlbumCard: View {
-    let album: WebService.TopAlbum
+    let album: TopAlbum
     
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -376,7 +378,7 @@ struct TopAlbumCard: View {
 }
 
 struct TopTrackRow: View {
-    let track: WebService.TopTrack
+    let track: TopTrack
     let rank: Int
     
     var body: some View {

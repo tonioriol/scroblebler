@@ -1,5 +1,5 @@
 //
-//  WebService.swift
+//  LastFmClient.swift
 //  Audioscrobbler
 //
 //  Created by Victor Gama on 24/11/2022.
@@ -8,7 +8,9 @@
 import Foundation
 import CryptoKit
 
-class WebService: ObservableObject {
+typealias ProtocolRecentTrack = Audioscrobbler.RecentTrack
+
+class LastFmClient: ObservableObject, ScrobbleClient {
     public enum WSError: Error {
         case HTTPError(Data, HTTPURLResponse)
         case UnexpectedResponse
@@ -132,10 +134,22 @@ class WebService: ObservableObject {
                 self.imageUrl = nil
             }
         }
+        
+        func toProtocolType() -> ProtocolRecentTrack {
+            return ProtocolRecentTrack(
+                name: name,
+                artist: artist,
+                album: album,
+                date: date,
+                isNowPlaying: isNowPlaying,
+                loved: loved,
+                imageUrl: imageUrl
+            )
+        }
     }
     
     struct RecentTracksResponse: Decodable {
-        let tracks: [RecentTrack]
+        let tracks: [LastFmClient.RecentTrack]
         
         enum RootKeys: String, CodingKey { case recenttracks }
         enum TracksKeys: String, CodingKey { case track }
@@ -143,7 +157,7 @@ class WebService: ObservableObject {
         init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: RootKeys.self)
             let tracksContainer = try container.nestedContainer(keyedBy: TracksKeys.self, forKey: .recenttracks)
-            self.tracks = try tracksContainer.decode([RecentTrack].self, forKey: .track)
+            self.tracks = try tracksContainer.decode([LastFmClient.RecentTrack].self, forKey: .track)
         }
     }
     
@@ -403,7 +417,8 @@ class WebService: ObservableObject {
     
     let apiKey = "227d67ffb2b5f671bcaba9a1b465d8e1"
     let apiSecret = "b85d94beb2f214fba7ef7260bbe522a8"
-    let baseURL = URL(string: "https://ws.audioscrobbler.com/2.0/")!
+    var baseURL: URL { URL(string: "https://ws.audioscrobbler.com/2.0/")! }
+    var authURL: String { "https://www.last.fm/api/auth/" }
     
     private func prepareCall(method: String, args: [String:String]) -> [String:String] {
         var args = args
@@ -477,7 +492,7 @@ class WebService: ObservableObject {
         request.setValue("appleMusicAudioscrobbler/1.0", forHTTPHeaderField: "User-Agent")
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         var formComponents = URLComponents()
-        formComponents.queryItems = prepareCall(method: method, args: args).map { URLQueryItem(name: $0, value: WebService.escape($1)) }
+        formComponents.queryItems = prepareCall(method: method, args: args).map { URLQueryItem(name: $0, value: LastFmClient.escape($1)) }
         request.httpBody = formComponents.query?.data(using: .utf8)
         
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -514,14 +529,14 @@ class WebService: ObservableObject {
         return try JSONDecoder().decode(T.self, from: data)
     }
 
-    func prepareAuthenticationToken() async throws -> (String, URL) {
+    func authenticate() async throws -> (token: String, authURL: URL) {
         let data = try await executeRequest(method: "auth.gettoken")
         let json: [String: String] = try parseJSON(data)
         guard let token = json["token"] else {
             throw WSError.ResponseMissingKey("token")
         }
         
-        var url = URLComponents(string: "https://www.last.fm/api/auth/")!
+        var url = URLComponents(string: authURL)!
         url.queryItems = [
             URLQueryItem(name: "api_key", value: apiKey),
             URLQueryItem(name: "token", value: token)
@@ -529,11 +544,18 @@ class WebService: ObservableObject {
         return (token, url.url!)
     }
 
-    func getAuthenticationResult(token: String) async throws -> AuthenticationResult {
+    func completeAuthentication(token: String) async throws -> (username: String, sessionKey: String, profileUrl: String?, isSubscriber: Bool) {
         let data = try await executeRequest(method: "auth.getSession", args: [
             "token": token
         ])
-        return try decodeJSON(data)
+        let authResult: AuthenticationResult = try decodeJSON(data)
+        
+        let userInfoData = try await executeRequest(method: "user.getInfo", args: [
+            "sk": authResult.key
+        ])
+        let userInfo: UserInfo = try decodeJSON(userInfoData)
+        
+        return (authResult.name, authResult.key, userInfo.url, authResult.subscriber)
     }
 
     func getUserInfo(token: String) async throws -> UserInfo {
@@ -554,46 +576,48 @@ class WebService: ObservableObject {
         return data
     }
 
-    func updateLove(token: String, artist: String, track: String, loved: Bool) async throws {
+    func updateLove(sessionKey: String, artist: String, track: String, loved: Bool) async throws {
         _ = try await executeRequest(method: "track.\(loved ? "" : "un")love", args: [
             "artist": artist,
             "track": track,
-            "sk": token
+            "sk": sessionKey
         ])
     }
 
-    func updateNowListening(token: String, track: Track) async throws {
+    func updateNowPlaying(sessionKey: String, track: Track) async throws {
         if Defaults.shared.privateSession { return }
         _ = try await executeRequest(method: "track.updateNowPlaying", args: [
             "artist": track.artist,
             "track": track.name,
             "album": track.album,
             "duration": String(format: "%.0f", track.length),
-            "sk": token
+            "sk": sessionKey
         ])
     }
 
-    func doScrobble(token: String, track: Track) async throws {
+    func scrobble(sessionKey: String, track: Track) async throws {
         if Defaults.shared.privateSession { return }
-        _ = try await updateLove(token: token, artist: track.artist, track: track.name, loved: track.loved)
+        _ = try await updateLove(sessionKey: sessionKey, artist: track.artist, track: track.name, loved: track.loved)
         _ = try await executeRequest(method: "track.scrobble", args: [
             "artist": track.artist,
             "track": track.name,
             "album": track.album,
             "duration": String(format: "%.0f", track.length),
             "timestamp": String(format: "%d", track.startedAt),
-            "sk": token
+            "sk": sessionKey
         ])
     }
     
-    func getRecentTracks(username: String, limit: Int = 10, page: Int = 1) async throws -> [RecentTrack] {
+    func getRecentTracks(username: String, limit: Int, page: Int) async throws -> [ProtocolRecentTrack] {
+        print("✅ LastFmClient.getRecentTracks called!")
         let data = try await executeRequestWithRetry(method: "user.getRecentTracks", args: [
             "user": username,
             "limit": String(limit),
             "page": String(page)
         ])
         let response: RecentTracksResponse = try decodeJSON(data)
-        return response.tracks.filter { !$0.isNowPlaying }
+        print("API returned \(response.tracks.count) tracks total")
+        return response.tracks.filter { !$0.isNowPlaying }.map { $0.toProtocolType() }
     }
     
     func getTrackUserPlaycount(token: String, artist: String, track: String) async throws -> Int? {
@@ -611,40 +635,54 @@ class WebService: ObservableObject {
         }
     }
     
-    func getUserStats(username: String) async throws -> UserStats {
+    func getUserStats(username: String) async throws -> Audioscrobbler.UserStats? {
         let data = try await executeRequest(method: "user.getInfo", args: [
             "user": username
         ])
-        return try decodeJSON(data)
+        let stats: UserStats = try decodeJSON(data)
+        return Audioscrobbler.UserStats(
+            playcount: stats.playcount,
+            artistCount: stats.artistCount,
+            trackCount: stats.trackCount,
+            albumCount: stats.albumCount,
+            lovedCount: stats.lovedCount,
+            registered: stats.registered,
+            country: stats.country,
+            realname: stats.realname,
+            gender: stats.gender,
+            age: stats.age,
+            playlistCount: stats.playlistCount
+        )
     }
     
-    func getTopArtists(username: String, period: String = "7day", limit: Int = 10) async throws -> [TopArtist] {
+    func getTopArtists(username: String, period: String, limit: Int) async throws -> [Audioscrobbler.TopArtist] {
         let data = try await executeRequest(method: "user.getTopArtists", args: [
             "user": username,
             "period": period,
             "limit": String(limit)
         ])
         let response: TopArtistsResponse = try decodeJSON(data)
-        return response.artists
+        return response.artists.map { Audioscrobbler.TopArtist(name: $0.name, playcount: $0.playcount, imageUrl: $0.imageUrl) }
     }
     
-    func getTopAlbums(username: String, period: String = "7day", limit: Int = 10) async throws -> [TopAlbum] {
+    func getTopAlbums(username: String, period: String, limit: Int) async throws -> [Audioscrobbler.TopAlbum] {
         let data = try await executeRequest(method: "user.getTopAlbums", args: [
             "user": username,
             "period": period,
             "limit": String(limit)
         ])
         let response: TopAlbumsResponse = try decodeJSON(data)
-        return response.albums
+        return response.albums.map { Audioscrobbler.TopAlbum(artist: $0.artist, name: $0.name, playcount: $0.playcount, imageUrl: $0.imageUrl) }
     }
     
-    func getTopTracks(username: String, period: String = "7day", limit: Int = 10) async throws -> [TopTrack] {
+    func getTopTracks(username: String, period: String, limit: Int) async throws -> [Audioscrobbler.TopTrack] {
         let data = try await executeRequest(method: "user.getTopTracks", args: [
             "user": username,
             "period": period,
             "limit": String(limit)
         ])
         let response: TopTracksResponse = try decodeJSON(data)
-        return response.tracks
+        return response.tracks.map { Audioscrobbler.TopTrack(artist: $0.artist, name: $0.name, playcount: $0.playcount, imageUrl: nil) }
     }
+    
 }

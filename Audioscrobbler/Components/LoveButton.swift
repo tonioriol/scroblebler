@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct LoveButton: View {
-    @EnvironmentObject var webService: WebService
+    @EnvironmentObject var serviceManager: ServiceManager
     @EnvironmentObject var defaults: Defaults
     
     @Binding var loved: Bool
@@ -33,7 +33,8 @@ struct LoveButton: View {
         
         Task {
             do {
-                try await webService.updateLove(token: token, artist: artist, track: trackName, loved: loved)
+                guard let client = serviceManager.client(for: .lastfm) else { return }
+                try await client.updateLove(sessionKey: token, artist: artist, track: trackName, loved: loved)
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                     isAnimating = false
                 }
