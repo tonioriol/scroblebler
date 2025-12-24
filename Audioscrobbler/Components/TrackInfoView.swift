@@ -94,7 +94,7 @@ struct TrackInfoView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         // Track name - always visible
                         Link(destination: .lastFmTrack(artist: artist, track: trackName)) {
-                            ScrollingText(
+                            MarqueeText(
                                 text: trackName,
                                 font: .system(size: titleFontSize, weight: .semibold),
                                 foregroundColor: .lastFmRed,
@@ -110,7 +110,7 @@ struct TrackInfoView: View {
                                     .font(.system(size: detailFontSize))
                                     .foregroundColor(.secondary)
                                 Link(destination: .lastFmArtist(artist)) {
-                                    ScrollingText(
+                                    MarqueeText(
                                         text: artist,
                                         font: .system(size: detailFontSize),
                                         foregroundColor: .lastFmRed,
@@ -131,7 +131,7 @@ struct TrackInfoView: View {
                                     .font(.system(size: detailFontSize))
                                     .foregroundColor(.secondary)
                                 Link(destination: .lastFmAlbum(artist: artist, album: album)) {
-                                    ScrollingText(
+                                    MarqueeText(
                                         text: album,
                                         font: .system(size: detailFontSize),
                                         foregroundColor: .lastFmRed,

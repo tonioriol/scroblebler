@@ -13,7 +13,7 @@
 		AA2222222222222222222222 /* PlayCountBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB2222222222222222222222 /* PlayCountBadge.swift */; };
 		AA3333333333333333333333 /* LastFmURL.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB3333333333333333333333 /* LastFmURL.swift */; };
 		AA4444444444444444444444 /* TrackInfoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB4444444444444444444444 /* TrackInfoView.swift */; };
-		AA5555555555555555555555 /* ScrollingText.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB5555555555555555555555 /* ScrollingText.swift */; };
+		AA5555555555555555555555 /* MarqueeText.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB5555555555555555555555 /* MarqueeText.swift */; };
 		DA6859CC292FDE66009143B3 /* PlayingItemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA6859CB292FDE66009143B3 /* PlayingItemView.swift */; };
 		DA6859CD292FDE67009143B3 /* HistoryItemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA6859CA292FDE67009143B3 /* HistoryItemView.swift */; };
 		DA6859CE29300A27009143B3 /* HeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA6859CD29300A27009143B3 /* HeaderView.swift */; };
@@ -44,7 +44,7 @@
 		BB2222222222222222222222 /* PlayCountBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayCountBadge.swift; sourceTree = "<group>"; };
 		BB3333333333333333333333 /* LastFmURL.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LastFmURL.swift; sourceTree = "<group>"; };
 		BB4444444444444444444444 /* TrackInfoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackInfoView.swift; sourceTree = "<group>"; };
-		BB5555555555555555555555 /* ScrollingText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrollingText.swift; sourceTree = "<group>"; };
+		BB5555555555555555555555 /* MarqueeText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarqueeText.swift; sourceTree = "<group>"; };
 		DA6859CA292FDE67009143B3 /* HistoryItemView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryItemView.swift; sourceTree = "<group>"; };
 		DA6859CB292FDE66009143B3 /* PlayingItemView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayingItemView.swift; sourceTree = "<group>"; };
 		DA6859CD29300A27009143B3 /* HeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeaderView.swift; sourceTree = "<group>"; };
@@ -97,7 +97,7 @@
 				BB1111111111111111111111 /* AlbumArtwork.swift */,
 				BB2222222222222222222222 /* PlayCountBadge.swift */,
 				BB4444444444444444444444 /* TrackInfoView.swift */,
-				BB5555555555555555555555 /* ScrollingText.swift */,
+				BB5555555555555555555555 /* MarqueeText.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -269,7 +269,7 @@
 				AA2222222222222222222222 /* PlayCountBadge.swift in Sources */,
 				AA3333333333333333333333 /* LastFmURL.swift in Sources */,
 				AA4444444444444444444444 /* TrackInfoView.swift in Sources */,
-				AA5555555555555555555555 /* ScrollingText.swift in Sources */,
+				AA5555555555555555555555 /* MarqueeText.swift in Sources */,
 				CC6666666666666666666666 /* ProfileView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
