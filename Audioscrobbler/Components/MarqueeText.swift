@@ -10,18 +10,13 @@ struct MarqueeText: View {
     @State private var offset: CGFloat = 0
     @State private var textWidth: CGFloat = 0
     @State private var containerWidth: CGFloat = 0
-    @State private var isHovered = false
     @State private var timer: Timer?
-    @State private var isScrollingForward = true
-    @State private var isPaused = false
-    @State private var pauseEndTime: Date?
+    @State private var direction: CGFloat = 1
+    @State private var pauseUntil: Date?
     
-    // Fixed scrolling speed in points per second
-    private let scrollSpeed: CGFloat = 25
-    // Pause duration at edges in seconds
-    private let pauseDuration: Double = 1.0
-    // Update interval in seconds (higher = smoother but more CPU)
-    private let updateInterval: TimeInterval = 0.016 // ~60 FPS
+    private let speed: CGFloat = 25
+    private let pauseDuration: TimeInterval = 1.0
+    private let fps: TimeInterval = 1.0 / 60.0
     
     var shouldAnimate: Bool {
         textWidth > containerWidth && containerWidth > 0
@@ -41,11 +36,9 @@ struct MarqueeText: View {
             .foregroundColor(shouldAnimate ? .clear : foregroundColor)
             .lineLimit(1)
             .truncationMode(.tail)
-            .background(
-                GeometryReader { geo in
-                    Color.clear.preference(key: WidthPreferenceKey.self, value: geo.size.width)
-                }
-            )
+            .background(GeometryReader { geo in
+                Color.clear.preference(key: WidthPreferenceKey.self, value: geo.size.width)
+            })
             .onPreferenceChange(WidthPreferenceKey.self) { width in
                 containerWidth = width
                 measureTextWidth()
@@ -65,7 +58,6 @@ struct MarqueeText: View {
                 }
             )
             .onHover { hovering in
-                isHovered = hovering
                 if hovering && shouldAnimate {
                     startScrolling()
                 } else {
@@ -76,73 +68,45 @@ struct MarqueeText: View {
     }
     
     private func measureTextWidth() {
-        let weight: NSFont.Weight = {
-            switch fontWeight {
-            case .ultraLight: return .ultraLight
-            case .thin: return .thin
-            case .light: return .light
-            case .regular: return .regular
-            case .medium: return .medium
-            case .semibold: return .semibold
-            case .bold: return .bold
-            case .heavy: return .heavy
-            case .black: return .black
-            default: return .regular
-            }
-        }()
+        let weight: NSFont.Weight = switch fontWeight {
+            case .ultraLight: .ultraLight
+            case .thin: .thin
+            case .light: .light
+            case .medium: .medium
+            case .semibold: .semibold
+            case .bold: .bold
+            case .heavy: .heavy
+            case .black: .black
+            default: .regular
+        }
         
         let nsFont = NSFont.systemFont(ofSize: fontSize, weight: weight)
-        let attributes: [NSAttributedString.Key: Any] = [.font: nsFont]
-        let size = (text as NSString).size(withAttributes: attributes)
+        let size = (text as NSString).size(withAttributes: [.font: nsFont])
         textWidth = size.width
     }
     
     private func startScrolling() {
-        // If already scrolling, don't restart
         guard timer == nil else { return }
         
-        // Start with a pause if we're at the beginning or end
         if offset == 0 || offset == textWidth - containerWidth {
-            isPaused = true
-            pauseEndTime = Date().addingTimeInterval(pauseDuration)
+            pauseUntil = Date().addingTimeInterval(pauseDuration)
         }
         
-        timer = Timer.scheduledTimer(withTimeInterval: updateInterval, repeats: true) { _ in
-            guard isHovered else { return }
+        timer = Timer.scheduledTimer(withTimeInterval: fps, repeats: true) { _ in
+            if let pause = pauseUntil, Date() < pause { return }
+            pauseUntil = nil
             
-            let now = Date()
             let maxOffset = textWidth - containerWidth
+            offset += speed * CGFloat(fps) * direction
             
-            // Handle pause
-            if isPaused {
-                if let endTime = pauseEndTime, now >= endTime {
-                    isPaused = false
-                    pauseEndTime = nil
-                }
-                return
-            }
-            
-            // Calculate movement
-            let movement = scrollSpeed * CGFloat(updateInterval)
-            
-            if isScrollingForward {
-                offset += movement
-                
-                if offset >= maxOffset {
-                    offset = maxOffset
-                    isScrollingForward = false
-                    isPaused = true
-                    pauseEndTime = now.addingTimeInterval(pauseDuration)
-                }
-            } else {
-                offset -= movement
-                
-                if offset <= 0 {
-                    offset = 0
-                    isScrollingForward = true
-                    isPaused = true
-                    pauseEndTime = now.addingTimeInterval(pauseDuration)
-                }
+            if offset >= maxOffset {
+                offset = maxOffset
+                direction = -1
+                pauseUntil = Date().addingTimeInterval(pauseDuration)
+            } else if offset <= 0 {
+                offset = 0
+                direction = 1
+                pauseUntil = Date().addingTimeInterval(pauseDuration)
             }
         }
     }
