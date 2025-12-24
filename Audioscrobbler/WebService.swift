@@ -193,11 +193,20 @@ class WebService: ObservableObject {
     struct UserStats: Decodable {
         let playcount: Int
         let artistCount: Int
+        let trackCount: Int
+        let albumCount: Int
         let lovedCount: Int
         let registered: String
+        let country: String?
+        let realname: String?
+        let gender: String?
+        let age: String?
+        let playlistCount: Int?
         
         enum RootKeys: String, CodingKey { case user }
-        enum UserKeys: String, CodingKey { case playcount, artist_count, track_count, registered }
+        enum UserKeys: String, CodingKey {
+            case playcount, artist_count, track_count, album_count, registered, country, realname, gender, age, playlists
+        }
         enum RegisteredKeys: String, CodingKey { case unixtime }
         
         init(from decoder: Decoder) throws {
@@ -211,10 +220,19 @@ class WebService: ObservableObject {
             self.artistCount = Int(artistCountString) ?? 0
             
             if let trackCountString = try? userContainer.decode(String.self, forKey: .track_count) {
-                self.lovedCount = Int(trackCountString) ?? 0
+                self.trackCount = Int(trackCountString) ?? 0
             } else {
-                self.lovedCount = 0
+                self.trackCount = 0
             }
+            
+            if let albumCountString = try? userContainer.decode(String.self, forKey: .album_count) {
+                self.albumCount = Int(albumCountString) ?? 0
+            } else {
+                self.albumCount = 0
+            }
+            
+            // For backwards compatibility, lovedCount is set to trackCount
+            self.lovedCount = self.trackCount
             
             let registeredContainer = try userContainer.nestedContainer(keyedBy: RegisteredKeys.self, forKey: .registered)
             let timestampString = try registeredContainer.decode(String.self, forKey: .unixtime)
@@ -226,6 +244,160 @@ class WebService: ObservableObject {
             } else {
                 self.registered = "Unknown"
             }
+            
+            self.country = try? userContainer.decode(String.self, forKey: .country)
+            self.realname = try? userContainer.decode(String.self, forKey: .realname)
+            self.gender = try? userContainer.decode(String.self, forKey: .gender)
+            
+            if let ageString = try? userContainer.decode(String.self, forKey: .age), !ageString.isEmpty {
+                self.age = ageString
+            } else {
+                self.age = nil
+            }
+            
+            if let playlistsString = try? userContainer.decode(String.self, forKey: .playlists) {
+                self.playlistCount = Int(playlistsString)
+            } else {
+                self.playlistCount = nil
+            }
+        }
+    }
+    
+    struct TopArtist: Decodable {
+        let name: String
+        let playcount: Int
+        let imageUrl: String?
+        
+        struct Image: Decodable {
+            let size: String
+            let url: String
+            enum CodingKeys: String, CodingKey {
+                case size
+                case url = "#text"
+            }
+        }
+        
+        enum CodingKeys: String, CodingKey {
+            case name, playcount, image
+        }
+        
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            self.name = try container.decode(String.self, forKey: .name)
+            
+            let playcountString = try container.decode(String.self, forKey: .playcount)
+            self.playcount = Int(playcountString) ?? 0
+            
+            if let images = try? container.decode([Image].self, forKey: .image) {
+                self.imageUrl = images.last(where: { !$0.url.isEmpty })?.url
+            } else {
+                self.imageUrl = nil
+            }
+        }
+    }
+    
+    struct TopAlbum: Decodable {
+        let name: String
+        let artist: String
+        let playcount: Int
+        let imageUrl: String?
+        
+        struct Artist: Decodable {
+            let name: String
+        }
+        
+        struct Image: Decodable {
+            let size: String
+            let url: String
+            enum CodingKeys: String, CodingKey {
+                case size
+                case url = "#text"
+            }
+        }
+        
+        enum CodingKeys: String, CodingKey {
+            case name, artist, playcount, image
+        }
+        
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            self.name = try container.decode(String.self, forKey: .name)
+            
+            let artistContainer = try container.decode(Artist.self, forKey: .artist)
+            self.artist = artistContainer.name
+            
+            let playcountString = try container.decode(String.self, forKey: .playcount)
+            self.playcount = Int(playcountString) ?? 0
+            
+            if let images = try? container.decode([Image].self, forKey: .image) {
+                self.imageUrl = images.last(where: { !$0.url.isEmpty })?.url
+            } else {
+                self.imageUrl = nil
+            }
+        }
+    }
+    
+    struct TopTrack: Decodable {
+        let name: String
+        let artist: String
+        let playcount: Int
+        
+        struct Artist: Decodable {
+            let name: String
+        }
+        
+        enum CodingKeys: String, CodingKey {
+            case name, artist, playcount
+        }
+        
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            self.name = try container.decode(String.self, forKey: .name)
+            
+            let artistContainer = try container.decode(Artist.self, forKey: .artist)
+            self.artist = artistContainer.name
+            
+            let playcountString = try container.decode(String.self, forKey: .playcount)
+            self.playcount = Int(playcountString) ?? 0
+        }
+    }
+    
+    struct TopArtistsResponse: Decodable {
+        let artists: [TopArtist]
+        
+        enum RootKeys: String, CodingKey { case topartists }
+        enum ArtistsKeys: String, CodingKey { case artist }
+        
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: RootKeys.self)
+            let artistsContainer = try container.nestedContainer(keyedBy: ArtistsKeys.self, forKey: .topartists)
+            self.artists = try artistsContainer.decode([TopArtist].self, forKey: .artist)
+        }
+    }
+    
+    struct TopAlbumsResponse: Decodable {
+        let albums: [TopAlbum]
+        
+        enum RootKeys: String, CodingKey { case topalbums }
+        enum AlbumsKeys: String, CodingKey { case album }
+        
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: RootKeys.self)
+            let albumsContainer = try container.nestedContainer(keyedBy: AlbumsKeys.self, forKey: .topalbums)
+            self.albums = try albumsContainer.decode([TopAlbum].self, forKey: .album)
+        }
+    }
+    
+    struct TopTracksResponse: Decodable {
+        let tracks: [TopTrack]
+        
+        enum RootKeys: String, CodingKey { case toptracks }
+        enum TracksKeys: String, CodingKey { case track }
+        
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: RootKeys.self)
+            let tracksContainer = try container.nestedContainer(keyedBy: TracksKeys.self, forKey: .toptracks)
+            self.tracks = try tracksContainer.decode([TopTrack].self, forKey: .track)
         }
     }
     
@@ -444,5 +616,35 @@ class WebService: ObservableObject {
             "user": username
         ])
         return try decodeJSON(data)
+    }
+    
+    func getTopArtists(username: String, period: String = "7day", limit: Int = 10) async throws -> [TopArtist] {
+        let data = try await executeRequest(method: "user.getTopArtists", args: [
+            "user": username,
+            "period": period,
+            "limit": String(limit)
+        ])
+        let response: TopArtistsResponse = try decodeJSON(data)
+        return response.artists
+    }
+    
+    func getTopAlbums(username: String, period: String = "7day", limit: Int = 10) async throws -> [TopAlbum] {
+        let data = try await executeRequest(method: "user.getTopAlbums", args: [
+            "user": username,
+            "period": period,
+            "limit": String(limit)
+        ])
+        let response: TopAlbumsResponse = try decodeJSON(data)
+        return response.albums
+    }
+    
+    func getTopTracks(username: String, period: String = "7day", limit: Int = 10) async throws -> [TopTrack] {
+        let data = try await executeRequest(method: "user.getTopTracks", args: [
+            "user": username,
+            "period": period,
+            "limit": String(limit)
+        ])
+        let response: TopTracksResponse = try decodeJSON(data)
+        return response.tracks
     }
 }

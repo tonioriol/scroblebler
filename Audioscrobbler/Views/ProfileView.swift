@@ -11,8 +11,19 @@ struct ProfileView: View {
     @EnvironmentObject var defaults: Defaults
     @EnvironmentObject var webService: WebService
     @State private var userStats: WebService.UserStats?
+    @State private var topArtists: [WebService.TopArtist] = []
+    @State private var topAlbums: [WebService.TopAlbum] = []
+    @State private var topTracks: [WebService.TopTrack] = []
     @State private var isLoading = true
+    @State private var selectedPeriod: String = "7day"
     @Binding var isPresented: Bool
+    
+    let periods = [
+        ("7day", "Week"),
+        ("1month", "Month"),
+        ("3month", "3 Months"),
+        ("12month", "Year")
+    ]
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -31,89 +42,94 @@ struct ProfileView: View {
                 ScrollView {
                     VStack(spacing: 0) {
                         if let stats = userStats {
-                            // Stats Section Header
-                            Text("Your Stats")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundColor(.secondary)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.horizontal, 16)
-                                .padding(.top, 16)
-                                .padding(.bottom, 8)
-                            
-                            // Stats Grid
-                            VStack(spacing: 12) {
-                                HStack(spacing: 12) {
-                                    StatCard(
-                                        label: "Scrobbles",
-                                        value: formatNumber(stats.playcount),
-                                        icon: "music.note"
-                                    )
-                                    
-                                    StatCard(
-                                        label: "Artists",
-                                        value: formatNumber(stats.artistCount),
-                                        icon: "person.2"
-                                    )
-                                }
-                                
-                                HStack(spacing: 12) {
-                                    StatCard(
-                                        label: "Tracks",
-                                        value: formatNumber(stats.lovedCount),
-                                        icon: "music.quarternote.3"
-                                    )
-                                    
-                                    StatCard(
-                                        label: "Avg/Day",
-                                        value: calculateAvgPerDay(stats.playcount, since: stats.registered),
-                                        icon: "chart.line.uptrend.xyaxis"
-                                    )
-                                }
+                            // Quick Stats Header
+                            HStack(spacing: 16) {
+                                QuickStat(label: "Scrobbles", value: formatNumber(stats.playcount))
+                                QuickStat(label: "Artists", value: formatNumber(stats.artistCount))
+                                QuickStat(label: "Albums", value: formatNumber(stats.albumCount))
                             }
                             .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
                             
-                            // Member Info Section
-                            VStack(spacing: 12) {
-                                Divider()
-                                    .padding(.vertical, 8)
-                                
-                                Text("Member Info")
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundColor(.secondary)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(.horizontal, 16)
-                                
-                                InfoRow(icon: "calendar", label: "Member Since", value: stats.registered)
-                                InfoRow(icon: "music.note.list", label: "Total Plays", value: formatNumber(stats.playcount))
-                                
-                                if let url = defaults.url {
-                                    Divider()
-                                        .padding(.horizontal, 16)
-                                    
-                                    Link(destination: URL(string: url)!) {
-                                        HStack(spacing: 12) {
-                                            Image(systemName: "safari")
-                                                .font(.system(size: 14))
-                                                .foregroundColor(.accentColor)
-                                                .frame(width: 24)
-                                            
-                                            Text("View Full Profile on Last.fm")
-                                                .font(.system(size: 13))
-                                                .foregroundColor(.primary)
-                                            
-                                            Spacer()
-                                            
-                                            Image(systemName: "arrow.up.forward")
-                                                .font(.system(size: 11, weight: .semibold))
-                                                .foregroundColor(.secondary)
-                                        }
-                                        .padding(.horizontal, 16)
-                                        .padding(.vertical, 12)
+                            Divider()
+                            
+                            // Period Selector
+                            HStack(spacing: 8) {
+                                ForEach(periods, id: \.0) { period in
+                                    Button(action: {
+                                        selectedPeriod = period.0
+                                        loadTopContent()
+                                    }) {
+                                        Text(period.1)
+                                            .font(.system(size: 11, weight: selectedPeriod == period.0 ? .semibold : .regular))
+                                            .foregroundColor(selectedPeriod == period.0 ? .white : .primary)
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 6)
+                                            .background(
+                                                selectedPeriod == period.0 ?
+                                                LinearGradient(colors: [
+                                                    Color(hue: 1.0/100.0, saturation: 87.0/100.0, brightness: 61.0/100.0),
+                                                    Color(hue: 1.0/100.0, saturation: 87.0/100.0, brightness: 89.0/100.0),
+                                                ], startPoint: .leading, endPoint: .trailing) :
+                                                LinearGradient(colors: [Color.secondary.opacity(0.08)], startPoint: .leading, endPoint: .trailing)
+                                            )
+                                            .cornerRadius(6)
                                     }
                                     .buttonStyle(.plain)
                                 }
                             }
-                            .padding(.bottom, 20)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                            
+                            // Top Artists Section
+                            if !topArtists.isEmpty {
+                                SectionHeader(title: "Top Artists")
+                                
+                                VStack(spacing: 0) {
+                                    ForEach(Array(topArtists.prefix(5).enumerated()), id: \.offset) { index, artist in
+                                        TopArtistRow(artist: artist, rank: index + 1)
+                                        if index < min(4, topArtists.count - 1) {
+                                            Divider()
+                                                .padding(.leading, 56)
+                                        }
+                                    }
+                                }
+                                .padding(.horizontal, 16)
+                            }
+                            
+                            // Top Albums Section
+                            if !topAlbums.isEmpty {
+                                SectionHeader(title: "Top Albums")
+                                    .padding(.top, 8)
+                                
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 12) {
+                                        ForEach(Array(topAlbums.prefix(6).enumerated()), id: \.offset) { index, album in
+                                            TopAlbumCard(album: album)
+                                        }
+                                    }
+                                    .padding(.horizontal, 16)
+                                }
+                                .frame(height: 160)
+                            }
+                            
+                            // Top Tracks Section
+                            if !topTracks.isEmpty {
+                                SectionHeader(title: "Top Tracks")
+                                    .padding(.top, 8)
+                                
+                                VStack(spacing: 0) {
+                                    ForEach(Array(topTracks.prefix(10).enumerated()), id: \.offset) { index, track in
+                                        TopTrackRow(track: track, rank: index + 1)
+                                        if index < min(9, topTracks.count - 1) {
+                                            Divider()
+                                                .padding(.leading, 40)
+                                        }
+                                    }
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.bottom, 20)
+                            }
                         }
                     }
                 }
@@ -121,22 +137,31 @@ struct ProfileView: View {
         }
         .frame(height: 600)
         .onAppear {
-            loadUserStats()
+            loadUserData()
         }
     }
     
-    private func loadUserStats() {
+    private func loadUserData() {
         guard let username = defaults.name else { return }
         isLoading = true
         Task {
             do {
-                let stats = try await webService.getUserStats(username: username)
+                async let stats = webService.getUserStats(username: username)
+                async let artists = webService.getTopArtists(username: username, period: selectedPeriod, limit: 10)
+                async let albums = webService.getTopAlbums(username: username, period: selectedPeriod, limit: 10)
+                async let tracks = webService.getTopTracks(username: username, period: selectedPeriod, limit: 10)
+                
+                let (fetchedStats, fetchedArtists, fetchedAlbums, fetchedTracks) = try await (stats, artists, albums, tracks)
+                
                 await MainActor.run {
-                    userStats = stats
+                    userStats = fetchedStats
+                    topArtists = fetchedArtists
+                    topAlbums = fetchedAlbums
+                    topTracks = fetchedTracks
                     isLoading = false
                 }
             } catch {
-                print("Failed to load user stats: \(error)")
+                print("Failed to load user data: \(error)")
                 await MainActor.run {
                     isLoading = false
                 }
@@ -144,91 +169,240 @@ struct ProfileView: View {
         }
     }
     
+    private func loadTopContent() {
+        guard let username = defaults.name else { return }
+        Task {
+            do {
+                async let artists = webService.getTopArtists(username: username, period: selectedPeriod, limit: 10)
+                async let albums = webService.getTopAlbums(username: username, period: selectedPeriod, limit: 10)
+                async let tracks = webService.getTopTracks(username: username, period: selectedPeriod, limit: 10)
+                
+                let (fetchedArtists, fetchedAlbums, fetchedTracks) = try await (artists, albums, tracks)
+                
+                await MainActor.run {
+                    topArtists = fetchedArtists
+                    topAlbums = fetchedAlbums
+                    topTracks = fetchedTracks
+                }
+            } catch {
+                print("Failed to load top content: \(error)")
+            }
+        }
+    }
+    
     private func formatNumber(_ number: Int) -> String {
+        if number >= 1000000 {
+            return String(format: "%.1fM", Double(number) / 1000000.0)
+        } else if number >= 1000 {
+            return String(format: "%.1fK", Double(number) / 1000.0)
+        }
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
         return formatter.string(from: NSNumber(value: number)) ?? "\(number)"
     }
-    
-    private func calculateAvgPerDay(_ totalScrobbles: Int, since registeredDate: String) -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        
-        guard let date = formatter.date(from: registeredDate) else {
-            return "—"
-        }
-        
-        let daysSince = Calendar.current.dateComponents([.day], from: date, to: Date()).day ?? 1
-        let avgPerDay = daysSince > 0 ? Double(totalScrobbles) / Double(daysSince) : 0
-        
-        if avgPerDay >= 100 {
-            return String(format: "%.0f", avgPerDay)
-        } else if avgPerDay >= 10 {
-            return String(format: "%.1f", avgPerDay)
-        } else {
-            return String(format: "%.1f", avgPerDay)
-        }
-    }
 }
 
-struct StatCard: View {
+struct QuickStat: View {
     let label: String
     let value: String
-    let icon: String
     
     var body: some View {
-        VStack(spacing: 8) {
-            Image(systemName: icon)
-                .font(.system(size: 22, weight: .medium))
-                .foregroundColor(.white.opacity(0.9))
-                .frame(width: 44, height: 44)
-                .background(
-                    LinearGradient(colors: [
-                        Color(hue: 1.0/100.0, saturation: 87.0/100.0, brightness: 61.0/100.0),
-                        Color(hue: 1.0/100.0, saturation: 87.0/100.0, brightness: 89.0/100.0),
-                    ], startPoint: .topLeading, endPoint: .bottomTrailing)
-                )
-                .cornerRadius(10)
-            
+        VStack(spacing: 4) {
             Text(value)
-                .font(.system(size: 18, weight: .bold))
+                .font(.system(size: 16, weight: .bold))
                 .foregroundColor(.primary)
-            
             Text(label)
-                .font(.system(size: 11))
+                .font(.system(size: 10))
                 .foregroundColor(.secondary)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 16)
-        .background(Color.secondary.opacity(0.06))
-        .cornerRadius(12)
     }
 }
 
-struct InfoRow: View {
-    let icon: String
-    let label: String
-    let value: String
+struct SectionHeader: View {
+    let title: String
+    
+    var body: some View {
+        Text(title)
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundColor(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
+    }
+}
+
+struct RemoteImage: View {
+    let url: URL?
+    let width: CGFloat
+    let height: CGFloat
+    let cornerRadius: CGFloat
+    let placeholder: String
+    
+    @State private var image: NSImage?
+    @State private var isLoading = false
+    
+    var body: some View {
+        Group {
+            if let image = image {
+                Image(nsImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: width, height: height)
+                    .clipped()
+                    .cornerRadius(cornerRadius)
+            } else {
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .fill(Color.secondary.opacity(0.2))
+                    .frame(width: width, height: height)
+                    .overlay(
+                        Image(systemName: placeholder)
+                            .font(.system(size: width * 0.4))
+                            .foregroundColor(.secondary)
+                    )
+            }
+        }
+        .onAppear {
+            loadImage()
+        }
+    }
+    
+    private func loadImage() {
+        guard let url = url, !isLoading else { return }
+        isLoading = true
+        
+        Task {
+            do {
+                let (data, _) = try await URLSession.shared.data(from: url)
+                await MainActor.run {
+                    self.image = NSImage(data: data)
+                    isLoading = false
+                }
+            } catch {
+                await MainActor.run {
+                    isLoading = false
+                }
+            }
+        }
+    }
+}
+
+struct TopArtistRow: View {
+    let artist: WebService.TopArtist
+    let rank: Int
     
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.system(size: 14))
+            Text("\(rank)")
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(.secondary)
                 .frame(width: 24)
             
-            Text(label)
-                .font(.system(size: 13))
+            if let imageUrl = artist.imageUrl {
+                RemoteImage(
+                    url: URL(string: imageUrl),
+                    width: 40,
+                    height: 40,
+                    cornerRadius: 20,
+                    placeholder: "music.mic"
+                )
+            } else {
+                Circle()
+                    .fill(Color.secondary.opacity(0.2))
+                    .frame(width: 40, height: 40)
+                    .overlay(
+                        Image(systemName: "music.mic")
+                            .font(.system(size: 16))
+                            .foregroundColor(.secondary)
+                    )
+            }
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(artist.name)
+                    .font(.system(size: 13, weight: .medium))
+                    .lineLimit(1)
+                Text("\(artist.playcount) scrobbles")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+        }
+        .padding(.vertical, 8)
+    }
+}
+
+struct TopAlbumCard: View {
+    let album: WebService.TopAlbum
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if let imageUrl = album.imageUrl {
+                RemoteImage(
+                    url: URL(string: imageUrl),
+                    width: 100,
+                    height: 100,
+                    cornerRadius: 6,
+                    placeholder: "photo"
+                )
+            } else {
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color.secondary.opacity(0.2))
+                    .frame(width: 100, height: 100)
+                    .overlay(
+                        Image(systemName: "photo")
+                            .font(.system(size: 24))
+                            .foregroundColor(.secondary)
+                    )
+            }
+            
+            Text(album.name)
+                .font(.system(size: 11, weight: .medium))
+                .lineLimit(1)
+                .frame(width: 100, alignment: .leading)
+            
+            Text(album.artist)
+                .font(.system(size: 10))
                 .foregroundColor(.secondary)
+                .lineLimit(1)
+                .frame(width: 100, alignment: .leading)
+            
+            Text("\(album.playcount) plays")
+                .font(.system(size: 9))
+                .foregroundColor(.secondary)
+        }
+    }
+}
+
+struct TopTrackRow: View {
+    let track: WebService.TopTrack
+    let rank: Int
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            Text("\(rank)")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(.secondary)
+                .frame(width: 20)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(track.name)
+                    .font(.system(size: 12, weight: .medium))
+                    .lineLimit(1)
+                Text(track.artist)
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+            }
             
             Spacer()
             
-            Text(value)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundColor(.primary)
+            Text("\(track.playcount)")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.secondary)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
+        .padding(.vertical, 6)
     }
 }
 
