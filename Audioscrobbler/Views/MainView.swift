@@ -215,12 +215,9 @@ struct AnimatedHeaderView: View {
     var body: some View {
         VStack(alignment: .center) {
             HStack {
-                if !showProfileView {
-                    Image("as-logo")
-                        .resizable()
-                        .frame(width: 46.25, height: 25)
-                        .transition(.opacity)
-                }
+                Image("as-logo")
+                    .resizable()
+                    .frame(width: 46.25, height: 25)
                 
                 Spacer()
                 
@@ -273,7 +270,7 @@ struct AnimatedHeaderView: View {
                             .transition(.opacity)
                         }
                         
-                        Button(action: { 
+                        Button(action: {
                             withAnimation {
                                 showProfileView.toggle()
                             }
