@@ -21,19 +21,37 @@ struct MainView: View {
     @State var showProfileView: Bool = false
 
     var body: some View {
-        ZStack(alignment: .leading) {
-            mainContent
-                .offset(x: showProfileView ? -400 : 0)
-                .animation(.easeInOut(duration: 0.3), value: showProfileView)
+        ZStack(alignment: .bottom) {
+            // Main content with footer at bottom
+            VStack(spacing: 0) {
+                mainContent
+                    .frame(height: 600)
+                
+                Divider()
+                
+                if !showProfileView {
+                    AnimatedHeaderView(showProfileView: $showProfileView)
+                        .zIndex(10)
+                }
+            }
+            .frame(height: 655)
+            .opacity(showProfileView ? 0 : 1)
             
+            // Profile view slides up from bottom
             if showProfileView {
-                ProfileView(isPresented: $showProfileView)
-                    .transition(.move(edge: .trailing))
-                    .offset(x: showProfileView ? 0 : 400)
-                    .animation(.easeInOut(duration: 0.3), value: showProfileView)
+                VStack(spacing: 0) {
+                    AnimatedHeaderView(showProfileView: $showProfileView)
+                        .zIndex(10)
+                    
+                    ProfileView(isPresented: $showProfileView)
+                        .frame(height: 600)
+                }
+                .frame(height: 655)
+                .transition(.move(edge: .bottom))
             }
         }
-        .clipped()
+        .frame(width: 400, height: 655)
+        .animation(.spring(response: 0.5, dampingFraction: 0.75), value: showProfileView)
     }
     
     var mainContent: some View {
@@ -92,7 +110,6 @@ struct MainView: View {
                             }
                         }
                     }
-                    .frame(maxHeight: 500)
                 }
                 Divider()
             }
@@ -110,10 +127,7 @@ struct MainView: View {
                         .padding()
                 }
             }.padding()
-            Divider()
-            HeaderView(showProfileView: $showProfileView)
         }
-        .frame(width: 400)
         .onAppear {
             loadRecentTracks()
         }
@@ -189,6 +203,102 @@ struct MainView: View {
                 }
             }
         }
+    }
+}
+
+struct AnimatedHeaderView: View {
+    @EnvironmentObject var defaults: Defaults
+    @Binding var showProfileView: Bool
+    @State var showSignoutScreen = false
+    
+    var body: some View {
+        VStack(alignment: .center) {
+            HStack {
+                if !showProfileView {
+                    Image("as-logo")
+                        .resizable()
+                        .frame(width: 46.25, height: 25)
+                        .transition(.opacity)
+                }
+                
+                Spacer()
+                
+                if defaults.name != nil {
+                    HStack(spacing: 12) {
+                        if showProfileView {
+                            VStack(alignment: .trailing, spacing: 4) {
+                                HStack(spacing: 4) {
+                                    Text(defaults.name ?? "")
+                                        .font(.system(size: 14, weight: .semibold))
+                                    if defaults.pro ?? false {
+                                        Text("PRO")
+                                            .font(.system(size: 8, weight: .bold))
+                                            .foregroundColor(.white)
+                                            .padding(.horizontal, 4)
+                                            .padding(.vertical, 2)
+                                            .background(Color.red)
+                                            .cornerRadius(2)
+                                    }
+                                }
+                                
+                                if let url = defaults.url {
+                                    Link("View on Last.fm", destination: URL(string: url)!)
+                                        .font(.system(size: 11))
+                                }
+                            }
+                            .transition(.opacity)
+                        } else {
+                            VStack(spacing: 2) {
+                                HStack(spacing: 0) {
+                                    Text(defaults.name ?? "")
+                                    if defaults.pro ?? false {
+                                        Text("PRO")
+                                            .fontWeight(.light)
+                                            .font(.system(size: 9))
+                                            .offset(y: -5)
+                                    }
+                                }
+                                Button("Sign Out") { showSignoutScreen = true }
+                                    .buttonStyle(.link)
+                                    .foregroundColor(.white.opacity(0.7))
+                                    .alert(isPresented: $showSignoutScreen) {
+                                        Alert(title: Text("Signing out will stop scrobbling on this account and remove all local data. Do you wish to continue?"),
+                                              primaryButton: .cancel(),
+                                              secondaryButton: .default(Text("Continue")) {
+                                            defaults.reset()
+                                        })
+                                    }
+                            }
+                            .transition(.opacity)
+                        }
+                        
+                        Button(action: { 
+                            withAnimation {
+                                showProfileView.toggle()
+                            }
+                        }) {
+                            if defaults.picture == nil {
+                                Image("avatar")
+                                    .resizable()
+                                    .frame(width: 42, height: 42)
+                                    .cornerRadius(4)
+                            } else {
+                                Image(nsImage: NSImage(data: defaults.picture!) ?? NSImage(named: "avatar")!)
+                                    .resizable()
+                                    .frame(width: 42, height: 42)
+                                    .cornerRadius(4)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }.padding()
+        }
+        .frame(width: 400, height: 55)
+        .background(LinearGradient(colors: [
+            Color(hue: 1.0/100.0, saturation: 87.0/100.0, brightness: 61.0/100.0),
+            Color(hue: 1.0/100.0, saturation: 87.0/100.0, brightness: 89.0/100.0),
+        ], startPoint: .top, endPoint: .bottom))
     }
 }
 

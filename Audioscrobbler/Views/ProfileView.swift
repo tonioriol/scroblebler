@@ -16,90 +16,52 @@ struct ProfileView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            // Back button
             HStack {
-                Button(action: { isPresented = false }) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 16, weight: .semibold))
+                Button(action: { 
+                    withAnimation {
+                        isPresented = false
+                    }
+                }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 12, weight: .semibold))
+                        Text("Back")
+                            .font(.system(size: 14))
+                    }
+                    .foregroundColor(.primary)
                 }
                 .buttonStyle(.plain)
+                .padding()
                 Spacer()
-                Text("Profile")
-                    .font(.system(size: 16, weight: .semibold))
-                Spacer()
-                Button(action: { isPresented = false }) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 12, weight: .semibold))
-                }
-                .buttonStyle(.plain)
             }
-            .padding()
-            
-            Divider()
             
             if isLoading {
                 VStack {
                     Spacer()
                     ProgressView()
+                        .scaleEffect(1.2)
                     Spacer()
                 }
             } else {
                 ScrollView {
-                    VStack(alignment: .center, spacing: 16) {
-                        if defaults.picture == nil {
-                            Image("avatar")
-                                .resizable()
-                                .frame(width: 80, height: 80)
-                                .cornerRadius(8)
-                        } else {
-                            Image(nsImage: NSImage(data: defaults.picture!) ?? NSImage(named: "avatar")!)
-                                .resizable()
-                                .frame(width: 80, height: 80)
-                                .cornerRadius(8)
-                        }
-                        
-                        VStack(spacing: 4) {
-                            HStack(spacing: 4) {
-                                Text(defaults.name ?? "")
-                                    .font(.system(size: 18, weight: .semibold))
-                                if defaults.pro ?? false {
-                                    Text("PRO")
-                                        .font(.system(size: 9, weight: .bold))
-                                        .foregroundColor(.white)
-                                        .padding(.horizontal, 4)
-                                        .padding(.vertical, 2)
-                                        .background(Color.red)
-                                        .cornerRadius(3)
-                                }
-                            }
-                            
-                            if let url = defaults.url {
-                                Link("View on Last.fm", destination: URL(string: url)!)
-                                    .font(.system(size: 12))
-                            }
-                        }
-                        .padding(.bottom, 8)
-                        
+                    VStack(spacing: 20) {
                         if let stats = userStats {
-                            VStack(spacing: 12) {
-                                StatRow(label: "Scrobbles", value: formatNumber(stats.playcount))
-                                Divider()
-                                StatRow(label: "Artists", value: formatNumber(stats.artistCount))
-                                Divider()
-                                StatRow(label: "Tracks", value: formatNumber(stats.lovedCount))
-                                Divider()
-                                StatRow(label: "Member Since", value: stats.registered)
+                            VStack(spacing: 16) {
+                                StatCard(label: "Scrobbles", value: formatNumber(stats.playcount), icon: "music.note.list")
+                                StatCard(label: "Artists", value: formatNumber(stats.artistCount), icon: "person.2.fill")
+                                StatCard(label: "Tracks", value: formatNumber(stats.lovedCount), icon: "heart.fill")
+                                StatCard(label: "Member Since", value: stats.registered, icon: "calendar")
                             }
-                            .padding()
-                            .background(Color.secondary.opacity(0.1))
-                            .cornerRadius(8)
+                            .padding(.horizontal, 20)
+                            .padding(.top, 10)
+                            .padding(.bottom, 20)
                         }
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding()
                 }
             }
         }
-        .frame(width: 400, height: 600)
+        .frame(height: 600)
         .onAppear {
             loadUserStats()
         }
@@ -131,19 +93,38 @@ struct ProfileView: View {
     }
 }
 
-struct StatRow: View {
+struct StatCard: View {
     let label: String
     let value: String
+    let icon: String
     
     var body: some View {
-        HStack {
-            Text(label)
-                .font(.system(size: 13))
-                .foregroundColor(.secondary)
+        HStack(spacing: 16) {
+            Image(systemName: icon)
+                .font(.system(size: 24))
+                .foregroundColor(.white.opacity(0.8))
+                .frame(width: 40, height: 40)
+                .background(
+                    LinearGradient(colors: [
+                        Color(hue: 1.0/100.0, saturation: 87.0/100.0, brightness: 61.0/100.0),
+                        Color(hue: 1.0/100.0, saturation: 87.0/100.0, brightness: 89.0/100.0),
+                    ], startPoint: .topLeading, endPoint: .bottomTrailing)
+                )
+                .cornerRadius(8)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(label)
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+                Text(value)
+                    .font(.system(size: 16, weight: .semibold))
+            }
+            
             Spacer()
-            Text(value)
-                .font(.system(size: 13, weight: .semibold))
         }
+        .padding(12)
+        .background(Color.secondary.opacity(0.08))
+        .cornerRadius(10)
     }
 }
 
