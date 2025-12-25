@@ -67,7 +67,6 @@ class LastFmClient: ObservableObject, ScrobbleClient {
     // MARK: - Scrobbling
     
     func updateNowPlaying(sessionKey: String, track: Track) async throws {
-        if Defaults.shared.privateSession { return }
         _ = try await executeRequest(method: "track.updateNowPlaying", args: [
             "artist": track.artist,
             "track": track.name,
@@ -78,7 +77,6 @@ class LastFmClient: ObservableObject, ScrobbleClient {
     }
     
     func scrobble(sessionKey: String, track: Track) async throws {
-        if Defaults.shared.privateSession { return }
         // Fetch current loved state from Last.fm instead of using stale Apple Music data
         let currentLovedState = try? await getTrackLoved(token: sessionKey, artist: track.artist, track: track.name)
         if let loved = currentLovedState {

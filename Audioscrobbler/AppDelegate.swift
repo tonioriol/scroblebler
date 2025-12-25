@@ -58,7 +58,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             }
         }
 
-        self.updateIcon()
+        if let button = self.statusBarItem.button {
+            button.image = NSImage(named: "as-logo-opaque")
+        }
+        
         NSApp.activate(ignoringOtherApps: true)
     }
 
@@ -67,12 +70,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             launchAtLoginItem.state = .on
         } else {
             launchAtLoginItem.state = .off
-        }
-    }
-
-    func updateIcon() {
-        if let button = self.statusBarItem.button {
-            button.image = NSImage(named: "as-logo-\(Defaults.shared.privateSession ? "alpha" : "opaque")")
         }
     }
 

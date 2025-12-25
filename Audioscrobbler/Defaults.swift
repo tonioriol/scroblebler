@@ -16,15 +16,6 @@ class Defaults: ObservableObject {
         }
     }
     
-    @Published var privateSession: Bool {
-        didSet {
-            defaults.set(privateSession, forKey: "privateSession")
-            if let appDelegate = NSApplication.shared.delegate as? AppDelegate {
-                appDelegate.updateIcon()
-            }
-        }
-    }
-    
     @Published var serviceCredentials: [ServiceCredentials] = [] {
         didSet {
             saveServiceCredentials()
@@ -43,7 +34,6 @@ class Defaults: ObservableObject {
     
     init() {
         firstRun = defaults.string(forKey: "firstRun") == nil
-        privateSession = defaults.bool(forKey: "privateSession")
         picture = defaults.data(forKey: "picture")
         
         if let serviceRaw = defaults.string(forKey: "mainServicePreference"),
@@ -175,7 +165,6 @@ class Defaults: ObservableObject {
     }
     
     func reset() {
-        privateSession = false
         serviceCredentials = []
         picture = nil
     }

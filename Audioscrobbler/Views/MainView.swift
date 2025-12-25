@@ -4,8 +4,6 @@ struct MainView: View {
     @EnvironmentObject var watcher: Watcher
     @EnvironmentObject var serviceManager: ServiceManager
     @EnvironmentObject var defaults: Defaults
-    @State private var privateSession = false
-    @State private var showPrivateSessionPopover = false
     @State private var showProfileView = false
     @State private var loginService: ScrobbleService?
     @State private var tokenInput = ""
@@ -52,9 +50,6 @@ struct MainView: View {
         VStack(alignment: .leading, spacing: 0) {
             if watcher.currentTrack != nil {
                 NowPlaying(track: $watcher.currentTrack, currentPosition: $watcher.currentPosition)
-                    .opacity(defaults.privateSession ? 0.6 : 1)
-                    .scaleEffect(defaults.privateSession ? 0.9 : 1)
-                    .animation(.easeOut, value: defaults.privateSession)
             } else {
                 HStack(alignment: .top, spacing: 16) {
                     Image("nocover")
@@ -110,23 +105,6 @@ struct MainView: View {
                 Divider()
             }
             
-            HStack {
-                Toggle("", isOn: $defaults.privateSession)
-                    .toggleStyle(.switch)
-                Text("Private Session")
-                Button(action: { showPrivateSessionPopover = true }) {
-                    Image(nsImage: NSImage(named: NSImage.Name("NSTouchBarGetInfoTemplate"))!)
-                }
-                .buttonStyle(.borderless)
-                .popover(isPresented: $showPrivateSessionPopover) {
-                    Text("A private session will prevent tracks from being scrobbled as long as it is turned on")
-                        .padding()
-                }
-            }
-            .padding(.horizontal)
-            
-            Divider()
-            
             // Service management
             VStack(spacing: 8) {
                 ForEach(ScrobbleService.allCases) { service in
@@ -152,6 +130,7 @@ struct MainView: View {
                 }
             }
             .padding(.horizontal)
+            .padding(.top)
             .padding(.bottom)
             .sheet(isPresented: Binding(
                 get: { loginService != nil && loginService != .listenbrainz },
@@ -343,6 +322,7 @@ struct ServiceRow: View {
                     .foregroundColor(isMainService ? .accentColor : .secondary)
             }
             .buttonStyle(.plain)
+            .focusable(false)
             .disabled(credentials?.isEnabled != true)
             .help("Set as main client for profile view")
             
@@ -351,6 +331,7 @@ struct ServiceRow: View {
                 set: { onToggle($0) }
             ))
             .toggleStyle(.switch)
+            .focusable(false)
             .disabled(credentials == nil)
             
             Text("Scrobble to \(service.displayName)")
@@ -364,9 +345,11 @@ struct ServiceRow: View {
                     .foregroundColor(.secondary)
                 Button("Logout") { onLogout() }
                     .buttonStyle(.link)
+                    .focusable(false)
             } else {
                 Button("Login") { onLogin() }
                     .buttonStyle(.link)
+                    .focusable(false)
             }
         }
     }
