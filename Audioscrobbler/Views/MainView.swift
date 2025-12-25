@@ -1,27 +1,20 @@
-//
-//  MainView.swift
-//  Audioscrobbler
-//
-//  Created by Victor Gama on 24/11/2022.
-//
-
 import SwiftUI
 
 struct MainView: View {
     @EnvironmentObject var watcher: Watcher
     @EnvironmentObject var serviceManager: ServiceManager
     @EnvironmentObject var defaults: Defaults
-    @State var privateSession: Bool = false
-    @State var showPrivateSessionPopover: Bool = false
-    @State var showProfileView: Bool = false
-    @State var loginService: ScrobbleService?
-    @State var tokenInput: String = ""
-    @State var recentTracks: [Audioscrobbler.RecentTrack] = []
-    @State var trackPlayCounts: [String: Int] = [:]
-    @State var currentPage = 1
-    @State var isLoadingMore = false
-    @State var hasMoreTracks = true
-    @State var loginState: WaitingLoginView.Status = .generatingToken
+    @State private var privateSession = false
+    @State private var showPrivateSessionPopover = false
+    @State private var showProfileView = false
+    @State private var loginService: ScrobbleService?
+    @State private var tokenInput = ""
+    @State private var recentTracks: [RecentTrack] = []
+    @State private var trackPlayCounts: [String: Int] = [:]
+    @State private var currentPage = 1
+    @State private var isLoadingMore = false
+    @State private var hasMoreTracks = true
+    @State private var loginState: WaitingLoginView.Status = .generatingToken
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -62,7 +55,7 @@ struct MainView: View {
                 PlayingItemView(track: $watcher.currentTrack, currentPosition: $watcher.currentPosition)
                     .opacity(defaults.privateSession ? 0.6 : 1)
                     .scaleEffect(defaults.privateSession ? 0.9 : 1)
-                    .animation(.easeOut)
+                    .animation(.easeOut, value: defaults.privateSession)
             } else {
                 HStack(alignment: .top, spacing: 16) {
                     Image("nocover")
@@ -72,8 +65,10 @@ struct MainView: View {
                     VStack(alignment: .leading) {
                         Text("It's silent here... There's nothing playing.")
                     }
-                }.padding()
+                }
+                .padding()
             }
+            
             Divider()
             
             // History section
@@ -128,11 +123,12 @@ struct MainView: View {
                     Text("A private session will prevent tracks from being scrobbled as long as it is turned on")
                         .padding()
                 }
-            }.padding(.horizontal)
+            }
+            .padding(.horizontal)
             
             Divider()
             
-            // Dynamic service management
+            // Service management
             VStack(spacing: 8) {
                 ForEach(ScrobbleService.allCases) { service in
                     ServiceRow(
@@ -141,9 +137,7 @@ struct MainView: View {
                         onLogin: {
                             loginService = service
                             loginState = .generatingToken
-                            Task {
-                                await doServiceLogin(service: service)
-                            }
+                            Task { await doServiceLogin(service: service) }
                         },
                         onLogout: {
                             defaults.removeCredentials(for: service)
@@ -160,9 +154,7 @@ struct MainView: View {
                 get: { loginService != nil && loginService != .listenbrainz },
                 set: { if !$0 { loginService = nil } }
             )) {
-                WaitingLoginView(status: $loginState, onCancel: {
-                    loginService = nil
-                })
+                WaitingLoginView(status: $loginState, onCancel: { loginService = nil })
             }
             .sheet(isPresented: Binding(
                 get: { loginService == .listenbrainz },
@@ -170,15 +162,8 @@ struct MainView: View {
             )) {
                 TokenInputSheet(
                     token: $tokenInput,
-                    onSubmit: {
-                        Task {
-                            await submitListenBrainzToken()
-                        }
-                    },
-                    onCancel: {
-                        loginService = nil
-                        tokenInput = ""
-                    }
+                    onSubmit: { Task { await submitListenBrainzToken() } },
+                    onCancel: { loginService = nil; tokenInput = "" }
                 )
             }
         }
@@ -193,24 +178,18 @@ struct MainView: View {
         }
     }
     
-    func loadRecentTracks() {
-        guard let primary = defaults.primaryService else {
-            print("No primary service found")
+    private func loadRecentTracks() {
+        guard let primary = defaults.primaryService,
+              let client = serviceManager.client(for: primary.service) else {
             return
         }
-        print("Loading recent tracks for \(primary.service.displayName) user: \(primary.username)")
-        guard let client = serviceManager.client(for: primary.service) else {
-            print("No client found for \(primary.service.displayName)")
-            return
-        }
-        print("Client type: \(type(of: client))")
+        
         currentPage = 1
         hasMoreTracks = true
+        
         Task {
             do {
-                print("About to call getRecentTracks...")
                 let tracks = try await client.getRecentTracks(username: primary.username, limit: 20, page: 1)
-                print("Loaded \(tracks.count) recent tracks")
                 await fetchPlayCountsForTracks(tracks, token: primary.token, service: primary.service)
                 await MainActor.run {
                     recentTracks = tracks
@@ -218,14 +197,17 @@ struct MainView: View {
                 }
             } catch {
                 print("Failed to load recent tracks: \(error)")
-                print("Error type: \(type(of: error))")
             }
         }
     }
     
-    func loadMoreTracks() {
-        guard let primary = defaults.primaryService, !isLoadingMore, hasMoreTracks else { return }
-        guard let client = serviceManager.client(for: primary.service) else { return }
+    private func loadMoreTracks() {
+        guard let primary = defaults.primaryService,
+              let client = serviceManager.client(for: primary.service),
+              !isLoadingMore, hasMoreTracks else {
+            return
+        }
+        
         isLoadingMore = true
         let nextPage = currentPage + 1
         
@@ -252,40 +234,30 @@ struct MainView: View {
         }
     }
     
-    func fetchPlayCountsForTracks(_ tracks: [Audioscrobbler.RecentTrack], token: String, service: ScrobbleService) async {
-        guard let client = serviceManager.client(for: service) else {
-            print("❌ fetchPlayCounts: No client for \(service.displayName)")
-            return
-        }
-        print("🔢 fetchPlayCounts: Fetching play counts for \(tracks.count) tracks on \(service.displayName)")
+    private func fetchPlayCountsForTracks(_ tracks: [RecentTrack], token: String, service: ScrobbleService) async {
+        guard let client = serviceManager.client(for: service) else { return }
         
         await withTaskGroup(of: (String, Int?).self) { group in
             for track in tracks {
                 group.addTask {
                     let key = "\(track.artist)|\(track.name)"
                     let count = try? await client.getTrackUserPlaycount(token: token, artist: track.artist, track: track.name)
-                    print("🔢 fetchPlayCounts: \(track.name) by \(track.artist) = \(count?.description ?? "nil")")
                     return (key, count)
                 }
             }
             
-            var fetchedCount = 0
             for await (key, count) in group {
                 await MainActor.run {
                     if let count = count {
                         trackPlayCounts[key] = count
-                        fetchedCount += 1
                     }
                 }
             }
-            print("🔢 fetchPlayCounts: Successfully fetched \(fetchedCount) play counts")
         }
     }
     
-    func doServiceLogin(service: ScrobbleService) async {
-        if service == .listenbrainz {
-            return
-        }
+    private func doServiceLogin(service: ScrobbleService) async {
+        guard service != .listenbrainz else { return }
         
         let token: String
         let targetURL: URL
@@ -293,16 +265,12 @@ struct MainView: View {
             (token, targetURL) = try await serviceManager.authenticate(service: service)
             NSWorkspace.shared.open(targetURL)
         } catch {
-            await MainActor.run {
-                loginService = nil
-            }
+            await MainActor.run { loginService = nil }
             print("Error preparing \(service.displayName) authentication: \(error)")
             return
         }
         
-        await MainActor.run {
-            loginState = .waitingForLogin
-        }
+        await MainActor.run { loginState = .waitingForLogin }
         
         var credentials: ServiceCredentials?
         while loginService != nil {
@@ -310,38 +278,37 @@ struct MainView: View {
             do {
                 credentials = try await serviceManager.completeAuthentication(service: service, token: token)
                 break
-            } catch LastFmClient.WSError.APIError(let err) {
-                if err.code == 14 {
-                    continue
-                }
-                await MainActor.run {
-                    loginService = nil
-                }
-                print("Error during \(service.displayName) authentication: \(err.message)")
-                return
+            } catch LastFmClient.Error.apiError(14, _) {
+                continue
             } catch {
-                await MainActor.run {
-                    loginService = nil
-                }
+                await MainActor.run { loginService = nil }
                 print("Error during \(service.displayName) authentication: \(error)")
                 return
             }
         }
         
-        if loginService == nil {
-            return
-        }
-        
-        guard let credentials = credentials else { return }
+        guard loginService != nil, let credentials = credentials else { return }
         
         await MainActor.run {
             loginState = .finishingUp
             defaults.addOrUpdateCredentials(credentials)
+        }
+        
+        // Fetch profile picture for Last.fm
+        if service == .lastfm, let client = serviceManager.client(for: .lastfm) as? LastFmClient {
+            if let imageData = try? await client.getUserImage(username: credentials.username) {
+                await MainActor.run {
+                    defaults.picture = imageData
+                }
+            }
+        }
+        
+        await MainActor.run {
             loginService = nil
         }
     }
     
-    func submitListenBrainzToken() async {
+    private func submitListenBrainzToken() async {
         guard loginService == .listenbrainz else { return }
         
         let token = tokenInput.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -388,15 +355,11 @@ struct ServiceRow: View {
                 Text(credentials.username)
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
-                Button("Logout") {
-                    onLogout()
-                }
-                .buttonStyle(.link)
+                Button("Logout") { onLogout() }
+                    .buttonStyle(.link)
             } else {
-                Button("Login") {
-                    onLogin()
-                }
-                .buttonStyle(.link)
+                Button("Login") { onLogin() }
+                    .buttonStyle(.link)
             }
         }
     }
@@ -405,7 +368,7 @@ struct ServiceRow: View {
 struct AnimatedHeaderView: View {
     @EnvironmentObject var defaults: Defaults
     @Binding var showProfileView: Bool
-    @State var showSignoutScreen = false
+    @State private var showSignoutScreen = false
     
     var body: some View {
         VStack(alignment: .center) {
@@ -455,11 +418,13 @@ struct AnimatedHeaderView: View {
                                     .buttonStyle(.link)
                                     .foregroundColor(.white.opacity(0.7))
                                     .alert(isPresented: $showSignoutScreen) {
-                                        Alert(title: Text("Signing out will stop scrobbling on this account and remove all local data. Do you wish to continue?"),
-                                              primaryButton: .cancel(),
-                                              secondaryButton: .default(Text("Continue")) {
-                                            defaults.reset()
-                                        })
+                                        Alert(
+                                            title: Text("Signing out will stop scrobbling on this account and remove all local data. Do you wish to continue?"),
+                                            primaryButton: .cancel(),
+                                            secondaryButton: .default(Text("Continue")) {
+                                                defaults.reset()
+                                            }
+                                        )
                                     }
                             }
                             .transition(.opacity)
@@ -470,13 +435,14 @@ struct AnimatedHeaderView: View {
                                 showProfileView.toggle()
                             }
                         }) {
-                            if defaults.picture == nil {
-                                Image("avatar")
+                            if let pictureData = defaults.picture,
+                               let nsImage = NSImage(data: pictureData) {
+                                Image(nsImage: nsImage)
                                     .resizable()
                                     .frame(width: 42, height: 42)
                                     .cornerRadius(4)
                             } else {
-                                Image(nsImage: NSImage(data: defaults.picture!) ?? NSImage(named: "avatar")!)
+                                Image("avatar")
                                     .resizable()
                                     .frame(width: 42, height: 42)
                                     .cornerRadius(4)
@@ -485,18 +451,17 @@ struct AnimatedHeaderView: View {
                         .buttonStyle(.plain)
                     }
                 }
-            }.padding()
+            }
+            .padding()
         }
         .frame(width: 400, height: 55)
-        .background(LinearGradient(colors: [
-            Color(hue: 1.0/100.0, saturation: 87.0/100.0, brightness: 61.0/100.0),
-            Color(hue: 1.0/100.0, saturation: 87.0/100.0, brightness: 89.0/100.0),
-        ], startPoint: .top, endPoint: .bottom))
-    }
-}
-
-struct MainView_Previews: PreviewProvider {
-    static var previews: some View {
-        MainView()
+        .background(LinearGradient(
+            colors: [
+                Color(hue: 1.0/100.0, saturation: 87.0/100.0, brightness: 61.0/100.0),
+                Color(hue: 1.0/100.0, saturation: 87.0/100.0, brightness: 89.0/100.0),
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        ))
     }
 }

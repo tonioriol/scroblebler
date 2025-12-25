@@ -1,41 +1,28 @@
-//
-//  ServiceManager.swift
-//  Audioscrobbler
-//
-//  Created by Audioscrobbler on 24/12/2024.
-//
-
 import Foundation
 
 class ServiceManager: ObservableObject {
     static let shared = ServiceManager()
     
-    private var clients: [ScrobbleService: ScrobbleClient] = [:]
-    
-    init() {
-        clients[.lastfm] = LastFmClient()
-        clients[.librefm] = LibreFmClient()
-        clients[.listenbrainz] = ListenBrainzClient()
-    }
-    
-    private func getClient(for service: ScrobbleService) -> ScrobbleClient? {
-        return clients[service]
-    }
+    private let clients: [ScrobbleService: ScrobbleClient] = [
+        .lastfm: LastFmClient(),
+        .librefm: LibreFmClient(),
+        .listenbrainz: ListenBrainzClient()
+    ]
     
     func client(for service: ScrobbleService) -> ScrobbleClient? {
-        return getClient(for: service)
+        clients[service]
     }
     
     func authenticate(service: ScrobbleService) async throws -> (token: String, authURL: URL) {
-        guard let client = getClient(for: service) else {
-            throw NSError(domain: "ServiceManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "Service not registered"])
+        guard let client = clients[service] else {
+            throw NSError(domain: "ServiceManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "Service not found"])
         }
         return try await client.authenticate()
     }
     
     func completeAuthentication(service: ScrobbleService, token: String) async throws -> ServiceCredentials {
-        guard let client = getClient(for: service) else {
-            throw NSError(domain: "ServiceManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "Service not registered"])
+        guard let client = clients[service] else {
+            throw NSError(domain: "ServiceManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "Service not found"])
         }
         let result = try await client.completeAuthentication(token: token)
         return ServiceCredentials(
@@ -49,24 +36,28 @@ class ServiceManager: ObservableObject {
     }
     
     func updateNowPlaying(credentials: ServiceCredentials, track: Track) async throws {
-        guard let client = getClient(for: credentials.service) else { return }
+        guard let client = clients[credentials.service] else { return }
         try await client.updateNowPlaying(sessionKey: credentials.token, track: track)
     }
     
     func scrobble(credentials: ServiceCredentials, track: Track) async throws {
-        guard let client = getClient(for: credentials.service) else { return }
+        guard let client = clients[credentials.service] else { return }
         try await client.scrobble(sessionKey: credentials.token, track: track)
     }
     
     func scrobbleAll(track: Track) async {
         let enabledServices = Defaults.shared.enabledServices
         
-        for credentials in enabledServices {
-            do {
-                try await scrobble(credentials: credentials, track: track)
-                print("Scrobbled to \(credentials.service.displayName): \(track.description)")
-            } catch {
-                print("Failed to scrobble to \(credentials.service.displayName): \(error)")
+        await withTaskGroup(of: Void.self) { group in
+            for credentials in enabledServices {
+                group.addTask {
+                    do {
+                        try await self.scrobble(credentials: credentials, track: track)
+                        print("✓ Scrobbled to \(credentials.service.displayName): \(track.description)")
+                    } catch {
+                        print("✗ Failed to scrobble to \(credentials.service.displayName): \(error)")
+                    }
+                }
             }
         }
     }
@@ -74,12 +65,16 @@ class ServiceManager: ObservableObject {
     func updateNowPlayingAll(track: Track) async {
         let enabledServices = Defaults.shared.enabledServices
         
-        for credentials in enabledServices {
-            do {
-                try await updateNowPlaying(credentials: credentials, track: track)
-                print("Updated now playing on \(credentials.service.displayName): \(track.description)")
-            } catch {
-                print("Failed to update now playing on \(credentials.service.displayName): \(error)")
+        await withTaskGroup(of: Void.self) { group in
+            for credentials in enabledServices {
+                group.addTask {
+                    do {
+                        try await self.updateNowPlaying(credentials: credentials, track: track)
+                        print("✓ Updated now playing on \(credentials.service.displayName): \(track.description)")
+                    } catch {
+                        print("✗ Failed to update now playing on \(credentials.service.displayName): \(error)")
+                    }
+                }
             }
         }
     }

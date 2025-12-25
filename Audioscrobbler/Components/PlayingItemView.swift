@@ -31,6 +31,6 @@ struct PlayingItemView: View {
 
 struct PlayingItemView_Previews: PreviewProvider {
     static var previews: some View {
-        PlayingItemView(track: .constant(.init(artist: "Alexisonfire", album: "Watch Out!", name: "It Was Fear Of Myself That Made Me Odd", year: 2004, length: 123.10293, artwork: nil, loved: true, startedAt: 0)), currentPosition: .constant(61.5))
+        PlayingItemView(track: .constant(.init(artist: "Alexisonfire", album: "Watch Out!", name: "It Was Fear Of Myself That Made Me Odd", length: 123.10293, artwork: nil, year: 2004, loved: true, startedAt: 0)), currentPosition: .constant(61.5))
     }
 }

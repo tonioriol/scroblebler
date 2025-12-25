@@ -24,7 +24,8 @@ struct LoveButton: View {
     }
     
     func toggleLove() {
-        guard let token = defaults.token else { return }
+        guard let primary = defaults.primaryService,
+              primary.service == .lastfm else { return }
         
         withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
             loved.toggle()
@@ -34,7 +35,7 @@ struct LoveButton: View {
         Task {
             do {
                 guard let client = serviceManager.client(for: .lastfm) else { return }
-                try await client.updateLove(sessionKey: token, artist: artist, track: trackName, loved: loved)
+                try await client.updateLove(sessionKey: primary.token, artist: artist, track: trackName, loved: loved)
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                     isAnimating = false
                 }

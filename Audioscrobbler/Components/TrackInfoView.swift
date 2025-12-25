@@ -230,10 +230,11 @@ struct TrackInfoView: View {
     }
     
     func fetchPlayCount() {
-        guard let token = defaults.token else { return }
+        guard let primary = defaults.primaryService,
+              primary.service == .lastfm else { return }
         guard let client = serviceManager.client(for: .lastfm) else { return }
         Task {
-            let count = try? await client.getTrackUserPlaycount(token: token, artist: artist, track: trackName)
+            let count = try? await client.getTrackUserPlaycount(token: primary.token, artist: artist, track: trackName)
             await MainActor.run {
                 playCount = count
             }

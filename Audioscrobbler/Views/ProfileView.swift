@@ -1,21 +1,14 @@
-//
-//  ProfileView.swift
-//  Audioscrobbler
-//
-//  Created by Audioscrobbler on 23/12/2024.
-//
-
 import SwiftUI
 
 struct ProfileView: View {
     @EnvironmentObject var defaults: Defaults
     @EnvironmentObject var serviceManager: ServiceManager
-    @State private var userStats: Audioscrobbler.UserStats?
-    @State private var topArtists: [Audioscrobbler.TopArtist] = []
-    @State private var topAlbums: [Audioscrobbler.TopAlbum] = []
-    @State private var topTracks: [Audioscrobbler.TopTrack] = []
+    @State private var userStats: UserStats?
+    @State private var topArtists: [TopArtist] = []
+    @State private var topAlbums: [TopAlbum] = []
+    @State private var topTracks: [TopTrack] = []
     @State private var isLoading = true
-    @State private var selectedPeriod: String = "7day"
+    @State private var selectedPeriod = "7day"
     @Binding var isPresented: Bool
     
     let periods = [
@@ -42,7 +35,7 @@ struct ProfileView: View {
                 ScrollView {
                     VStack(spacing: 0) {
                         if let stats = userStats {
-                            // Quick Stats Header
+                            // Quick Stats
                             HStack(spacing: 16) {
                                 QuickStat(label: "Scrobbles", value: formatNumber(stats.playcount))
                                 QuickStat(label: "Artists", value: formatNumber(stats.artistCount))
@@ -81,7 +74,7 @@ struct ProfileView: View {
                             .padding(.horizontal, 16)
                             .padding(.vertical, 12)
                             
-                            // Top Artists Section
+                            // Top Artists
                             if !topArtists.isEmpty {
                                 SectionHeader(title: "Top Artists")
                                 
@@ -97,14 +90,14 @@ struct ProfileView: View {
                                 .padding(.horizontal, 16)
                             }
                             
-                            // Top Albums Section
+                            // Top Albums
                             if !topAlbums.isEmpty {
                                 SectionHeader(title: "Top Albums")
                                     .padding(.top, 8)
                                 
                                 ScrollView(.horizontal, showsIndicators: false) {
                                     HStack(spacing: 12) {
-                                        ForEach(Array(topAlbums.prefix(6).enumerated()), id: \.offset) { index, album in
+                                        ForEach(Array(topAlbums.prefix(6).enumerated()), id: \.offset) { _, album in
                                             TopAlbumCard(album: album)
                                         }
                                     }
@@ -113,7 +106,7 @@ struct ProfileView: View {
                                 .frame(height: 160)
                             }
                             
-                            // Top Tracks Section
+                            // Top Tracks
                             if !topTracks.isEmpty {
                                 SectionHeader(title: "Top Tracks")
                                     .padding(.top, 8)
@@ -142,22 +135,14 @@ struct ProfileView: View {
     }
     
     private func loadUserData() {
-        guard let primary = defaults.primaryService else {
-            print("❌ ProfileView: No primary service found")
+        guard let primary = defaults.primaryService,
+              let client = serviceManager.client(for: primary.service) else {
             return
         }
-        print("✅ ProfileView: Primary service is \(primary.service.displayName) with username: \(primary.username)")
-        
-        guard let client = serviceManager.client(for: primary.service) else {
-            print("❌ ProfileView: No client found for \(primary.service.displayName)")
-            return
-        }
-        print("✅ ProfileView: Got client for \(primary.service.displayName)")
         
         isLoading = true
         Task {
             do {
-                print("📊 ProfileView: Fetching user stats for \(primary.username)...")
                 async let stats = client.getUserStats(username: primary.username)
                 async let artists = client.getTopArtists(username: primary.username, period: selectedPeriod, limit: 10)
                 async let albums = client.getTopAlbums(username: primary.username, period: selectedPeriod, limit: 10)
@@ -165,30 +150,15 @@ struct ProfileView: View {
                 
                 let (fetchedStats, fetchedArtists, fetchedAlbums, fetchedTracks) = try await (stats, artists, albums, tracks)
                 
-                print("📊 ProfileView: Stats received:")
-                if let stats = fetchedStats {
-                    print("  - Playcount: \(stats.playcount)")
-                    print("  - Artists: \(stats.artistCount)")
-                    print("  - Albums: \(stats.albumCount)")
-                    print("  - Tracks: \(stats.trackCount)")
-                } else {
-                    print("  - Stats are nil!")
-                }
-                print("  - Top artists count: \(fetchedArtists.count)")
-                print("  - Top albums count: \(fetchedAlbums.count)")
-                print("  - Top tracks count: \(fetchedTracks.count)")
-                
                 await MainActor.run {
                     userStats = fetchedStats
                     topArtists = fetchedArtists
                     topAlbums = fetchedAlbums
                     topTracks = fetchedTracks
                     isLoading = false
-                    print("✅ ProfileView: UI updated with stats")
                 }
             } catch {
-                print("❌ ProfileView: Failed to load user data: \(error)")
-                print("   Error type: \(type(of: error))")
+                print("Failed to load user data: \(error)")
                 await MainActor.run {
                     isLoading = false
                 }
@@ -197,8 +167,11 @@ struct ProfileView: View {
     }
     
     private func loadTopContent() {
-        guard let primary = defaults.primaryService else { return }
-        guard let client = serviceManager.client(for: primary.service) else { return }
+        guard let primary = defaults.primaryService,
+              let client = serviceManager.client(for: primary.service) else {
+            return
+        }
+        
         Task {
             do {
                 async let artists = client.getTopArtists(username: primary.username, period: selectedPeriod, limit: 10)
@@ -238,7 +211,6 @@ struct QuickStat: View {
         VStack(spacing: 4) {
             Text(value)
                 .font(.system(size: 16, weight: .bold))
-                .foregroundColor(.primary)
             Text(label)
                 .font(.system(size: 10))
                 .foregroundColor(.secondary)
@@ -317,7 +289,7 @@ struct RemoteImage: View {
 }
 
 struct TopArtistRow: View {
-    let artist: Audioscrobbler.TopArtist
+    let artist: TopArtist
     let rank: Int
     
     var body: some View {
@@ -362,7 +334,7 @@ struct TopArtistRow: View {
 }
 
 struct TopAlbumCard: View {
-    let album: Audioscrobbler.TopAlbum
+    let album: TopAlbum
     
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -404,7 +376,7 @@ struct TopAlbumCard: View {
 }
 
 struct TopTrackRow: View {
-    let track: Audioscrobbler.TopTrack
+    let track: TopTrack
     let rank: Int
     
     var body: some View {
@@ -431,11 +403,5 @@ struct TopTrackRow: View {
                 .foregroundColor(.secondary)
         }
         .padding(.vertical, 6)
-    }
-}
-
-struct ProfileView_Previews: PreviewProvider {
-    static var previews: some View {
-        ProfileView(isPresented: .constant(true))
     }
 }

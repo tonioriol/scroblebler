@@ -1,10 +1,3 @@
-//
-//  ScrobbleClient.swift
-//  Audioscrobbler
-//
-//  Created by Audioscrobbler on 24/12/2024.
-//
-
 import Foundation
 
 protocol ScrobbleClient {
@@ -16,23 +9,22 @@ protocol ScrobbleClient {
     func updateNowPlaying(sessionKey: String, track: Track) async throws
     func scrobble(sessionKey: String, track: Track) async throws
     
-    // Profile methods - return types from Audioscrobbler namespace
-    func getRecentTracks(username: String, limit: Int, page: Int) async throws -> [Audioscrobbler.RecentTrack]
-    func getUserStats(username: String) async throws -> Audioscrobbler.UserStats?
-    func getTopArtists(username: String, period: String, limit: Int) async throws -> [Audioscrobbler.TopArtist]
-    func getTopAlbums(username: String, period: String, limit: Int) async throws -> [Audioscrobbler.TopAlbum]
-    func getTopTracks(username: String, period: String, limit: Int) async throws -> [Audioscrobbler.TopTrack]
+    // Profile methods
+    func getRecentTracks(username: String, limit: Int, page: Int) async throws -> [RecentTrack]
+    func getUserStats(username: String) async throws -> UserStats?
+    func getTopArtists(username: String, period: String, limit: Int) async throws -> [TopArtist]
+    func getTopAlbums(username: String, period: String, limit: Int) async throws -> [TopAlbum]
+    func getTopTracks(username: String, period: String, limit: Int) async throws -> [TopTrack]
     func getTrackUserPlaycount(token: String, artist: String, track: String) async throws -> Int?
 }
 
-// Default implementations for truly optional features
+// Optional features with default implementations
 extension ScrobbleClient {
     func updateLove(sessionKey: String, artist: String, track: String, loved: Bool) async throws {
         // Optional - not all services support this
     }
     
     func getTrackUserPlaycount(token: String, artist: String, track: String) async throws -> Int? {
-        // Optional - not all services support this
         return nil
     }
 }
