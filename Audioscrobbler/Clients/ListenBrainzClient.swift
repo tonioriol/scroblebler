@@ -96,6 +96,8 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
                   let artist = metadata["artist_name"] as? String,
                   let name = metadata["track_name"] as? String else { return nil }
             
+            let imageUrl = extractCoverArtUrl(from: metadata)
+            
             return RecentTrack(
                 name: name,
                 artist: artist,
@@ -103,7 +105,7 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
                 date: listen["listened_at"] as? Int,
                 isNowPlaying: false,
                 loved: false,
-                imageUrl: nil
+                imageUrl: imageUrl
             )
         }
     }
@@ -146,7 +148,12 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         return artists.compactMap { artist in
             guard let name = artist["artist_name"] as? String,
                   let count = artist["listen_count"] as? Int else { return nil }
-            return TopArtist(name: name, playcount: count, imageUrl: nil)
+            
+            let imageUrl = (artist["artist_mbids"] as? [String])?.first.flatMap { mbid in
+                "https://coverartarchive.org/release-group/\(mbid)/front-250"
+            }
+            
+            return TopArtist(name: name, playcount: count, imageUrl: imageUrl)
         }
     }
     
@@ -167,7 +174,12 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
             guard let name = release["release_name"] as? String,
                   let artist = release["artist_name"] as? String,
                   let count = release["listen_count"] as? Int else { return nil }
-            return TopAlbum(artist: artist, name: name, playcount: count, imageUrl: nil)
+            
+            let imageUrl = (release["release_mbid"] as? String).flatMap { mbid in
+                "https://coverartarchive.org/release/\(mbid)/front-250"
+            }
+            
+            return TopAlbum(artist: artist, name: name, playcount: count, imageUrl: imageUrl)
         }
     }
     
@@ -188,7 +200,12 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
             guard let name = recording["track_name"] as? String,
                   let artist = recording["artist_name"] as? String,
                   let count = recording["listen_count"] as? Int else { return nil }
-            return TopTrack(artist: artist, name: name, playcount: count, imageUrl: nil)
+            
+            let imageUrl = (recording["release_mbid"] as? String).flatMap { mbid in
+                "https://coverartarchive.org/release/\(mbid)/front-250"
+            }
+            
+            return TopTrack(artist: artist, name: name, playcount: count, imageUrl: imageUrl)
         }
     }
     
@@ -220,5 +237,20 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         case "12month": return "year"
         default: return "week"
         }
+    }
+    
+    private func extractCoverArtUrl(from metadata: [String: Any]) -> String? {
+        // Try to get release MBID from additional_info or mbid_mapping
+        if let additionalInfo = metadata["additional_info"] as? [String: Any],
+           let releaseMbid = additionalInfo["release_mbid"] as? String {
+            return "https://coverartarchive.org/release/\(releaseMbid)/front-250"
+        }
+        
+        if let mbidMapping = metadata["mbid_mapping"] as? [String: Any],
+           let releaseMbid = mbidMapping["release_mbid"] as? String {
+            return "https://coverartarchive.org/release/\(releaseMbid)/front-250"
+        }
+        
+        return nil
     }
 }
