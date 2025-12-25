@@ -22,7 +22,10 @@ struct HistoryItem: View {
             loved: $loved,
             artworkImageUrl: track.imageUrl,
             timestamp: track.date,
-            playCount: playCount
+            playCount: playCount,
+            artistURL: track.artistURL,
+            albumURL: track.albumURL,
+            trackURL: track.trackURL
         )
         .padding(.horizontal, 16)
         .padding(.vertical, 8)

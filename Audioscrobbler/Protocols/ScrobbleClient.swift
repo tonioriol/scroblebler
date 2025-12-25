@@ -1,8 +1,10 @@
 import Foundation
+import SwiftUI
 
 protocol ScrobbleClient {
     var baseURL: URL { get }
     var authURL: String { get }
+    var linkColor: Color { get }
     
     func authenticate() async throws -> (token: String, authURL: URL)
     func completeAuthentication(token: String) async throws -> (username: String, sessionKey: String, profileUrl: String?, isSubscriber: Bool)

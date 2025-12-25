@@ -23,6 +23,11 @@ struct TrackInfo: View {
     let currentPosition: Double?
     let trackLength: Double?
     
+    // Pre-built URLs (from RecentTrack)
+    let artistURL: URL?
+    let albumURL: URL?
+    let trackURL: URL?
+    
     @State private var playCount: Int? = nil
     
     init(
@@ -40,7 +45,10 @@ struct TrackInfo: View {
         timestamp: Int? = nil,
         currentPosition: Double? = nil,
         trackLength: Double? = nil,
-        playCount: Int? = nil
+        playCount: Int? = nil,
+        artistURL: URL? = nil,
+        albumURL: URL? = nil,
+        trackURL: URL? = nil
     ) {
         self.trackName = trackName
         self.artist = artist
@@ -57,6 +65,9 @@ struct TrackInfo: View {
         self.currentPosition = currentPosition
         self.trackLength = trackLength
         self._playCount = State(initialValue: playCount)
+        self.artistURL = artistURL
+        self.albumURL = albumURL
+        self.trackURL = trackURL
     }
     
     func formatDate(_ timestamp: Int?) -> String {
@@ -82,6 +93,15 @@ struct TrackInfo: View {
     }
     
     var body: some View {
+        let primaryService = defaults.primaryService?.service ?? .lastfm
+        let client = serviceManager.client(for: primaryService)
+        let linkColor = client?.linkColor ?? Color.primary
+        
+        // Build URLs on the fly if not provided (for NowPlaying)
+        let finalTrackURL = trackURL ?? buildTrackURL(client: client)
+        let finalArtistURL = artistURL ?? buildArtistURL(client: client)
+        let finalAlbumURL = albumURL ?? buildAlbumURL(client: client)
+        
         HStack(alignment: .top, spacing: 12) {
             if let imageData = artworkImageData {
                 AlbumArtwork(imageData: imageData, size: artworkSize)
@@ -92,28 +112,28 @@ struct TrackInfo: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(alignment: .top, spacing: 0) {
                     VStack(alignment: .leading, spacing: 2) {
-                        // Track name - always visible
-                        Link(destination: .lastFmTrack(artist: artist, track: trackName)) {
+                        // Track name
+                        Link(destination: finalTrackURL) {
                             MarqueeText(
                                 text: trackName,
                                 font: .system(size: titleFontSize, weight: .semibold),
-                                foregroundColor: .lastFmRed,
+                                foregroundColor: linkColor,
                                 fontSize: titleFontSize,
                                 fontWeight: .semibold
                             )
                         }
                         
-                        // Artist - always reserve space
+                        // Artist
                         HStack(spacing: 3) {
                             if !artist.isEmpty {
                                 Text("by")
                                     .font(.system(size: detailFontSize))
                                     .foregroundColor(.secondary)
-                                Link(destination: .lastFmArtist(artist)) {
+                                Link(destination: finalArtistURL) {
                                     MarqueeText(
                                         text: artist,
                                         font: .system(size: detailFontSize),
-                                        foregroundColor: .lastFmRed,
+                                        foregroundColor: linkColor,
                                         fontSize: detailFontSize,
                                         fontWeight: .regular
                                     )
@@ -124,17 +144,17 @@ struct TrackInfo: View {
                             }
                         }
                         
-                        // Album - always reserve space
+                        // Album
                         HStack(spacing: 3) {
                             if !album.isEmpty {
                                 Text("on")
                                     .font(.system(size: detailFontSize))
                                     .foregroundColor(.secondary)
-                                Link(destination: .lastFmAlbum(artist: artist, album: album)) {
+                                Link(destination: finalAlbumURL) {
                                     MarqueeText(
                                         text: album,
                                         font: .system(size: detailFontSize),
-                                        foregroundColor: .lastFmRed,
+                                        foregroundColor: linkColor,
                                         fontSize: detailFontSize,
                                         fontWeight: .regular
                                     )
@@ -238,6 +258,54 @@ struct TrackInfo: View {
             await MainActor.run {
                 playCount = count
             }
+        }
+    }
+    
+    // Fallback URL builders for NowPlaying (when URLs not pre-built)
+    private func buildArtistURL(client: ScrobbleClient?) -> URL {
+        guard let service = defaults.primaryService?.service else {
+            return URL(string: "https://www.last.fm")!
+        }
+        let encoded = artist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
+        switch service {
+        case .lastfm:
+            return URL(string: "https://www.last.fm/music/\(encoded)")!
+        case .librefm:
+            return URL(string: "https://libre.fm/music/\(encoded)")!
+        case .listenbrainz:
+            return URL(string: "https://musicbrainz.org/search?query=artist:%22\(encoded)%22&type=artist&limit=1&method=advanced")!
+        }
+    }
+    
+    private func buildAlbumURL(client: ScrobbleClient?) -> URL {
+        guard let service = defaults.primaryService?.service else {
+            return URL(string: "https://www.last.fm")!
+        }
+        let encodedArtist = artist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
+        let encodedAlbum = album.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
+        switch service {
+        case .lastfm:
+            return URL(string: "https://www.last.fm/music/\(encodedArtist)/\(encodedAlbum)")!
+        case .librefm:
+            return URL(string: "https://libre.fm/music/\(encodedArtist)/\(encodedAlbum)")!
+        case .listenbrainz:
+            return URL(string: "https://musicbrainz.org/search?query=artist:%22\(encodedArtist)%22%20AND%20release:%22\(encodedAlbum)%22&type=release&limit=1&method=advanced")!
+        }
+    }
+    
+    private func buildTrackURL(client: ScrobbleClient?) -> URL {
+        guard let service = defaults.primaryService?.service else {
+            return URL(string: "https://www.last.fm")!
+        }
+        let encodedArtist = artist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
+        let encodedTrack = trackName.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
+        switch service {
+        case .lastfm:
+            return URL(string: "https://www.last.fm/music/\(encodedArtist)/_/\(encodedTrack)")!
+        case .librefm:
+            return URL(string: "https://libre.fm/music/\(encodedArtist)/_/\(encodedTrack)")!
+        case .listenbrainz:
+            return URL(string: "https://musicbrainz.org/search?query=artist:%22\(encodedArtist)%22%20AND%20recording:%22\(encodedTrack)%22&type=recording&limit=1&method=advanced")!
         }
     }
 }

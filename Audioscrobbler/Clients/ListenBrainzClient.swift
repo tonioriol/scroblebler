@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 class ListenBrainzClient: ObservableObject, ScrobbleClient {
     enum Error: Swift.Error {
@@ -8,6 +9,34 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
     
     var baseURL: URL { URL(string: "https://api.listenbrainz.org/1/")! }
     var authURL: String { "https://listenbrainz.org/settings/" }
+    var linkColor: Color { Color(hue: 0.08, saturation: 0.80, brightness: 0.85) }
+    
+    // URL building helpers
+    private func artistURL(artist: String, mbid: String?) -> URL {
+        if let mbid = mbid {
+            return URL(string: "https://listenbrainz.org/artist/\(mbid)/")!
+        }
+        let encoded = artist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
+        return URL(string: "https://musicbrainz.org/search?query=artist:%22\(encoded)%22&type=artist&limit=1&method=advanced")!
+    }
+    
+    private func albumURL(artist: String, album: String, mbid: String?) -> URL {
+        if let mbid = mbid {
+            return URL(string: "https://listenbrainz.org/album/\(mbid)/")!
+        }
+        let encodedArtist = artist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
+        let encodedAlbum = album.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
+        return URL(string: "https://musicbrainz.org/search?query=artist:%22\(encodedArtist)%22%20AND%20release:%22\(encodedAlbum)%22&type=release&limit=1&method=advanced")!
+    }
+    
+    private func trackURL(artist: String, track: String, mbid: String?) -> URL {
+        if let mbid = mbid {
+            return URL(string: "https://listenbrainz.org/track/\(mbid)/")!
+        }
+        let encodedArtist = artist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
+        let encodedTrack = track.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
+        return URL(string: "https://musicbrainz.org/search?query=artist:%22\(encodedArtist)%22%20AND%20recording:%22\(encodedTrack)%22&type=recording&limit=1&method=advanced")!
+    }
     
     // MARK: - Authentication
     
@@ -145,16 +174,21 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
                   let artist = metadata["artist_name"] as? String,
                   let name = metadata["track_name"] as? String else { return nil }
             
+            let album = metadata["release_name"] as? String ?? ""
             let imageUrl = extractCoverArtUrl(from: metadata)
+            let (artistMbid, releaseMbid, recordingMbid) = extractMbids(from: metadata)
             
             return RecentTrack(
                 name: name,
                 artist: artist,
-                album: metadata["release_name"] as? String ?? "",
+                album: album,
                 date: listen["listened_at"] as? Int,
                 isNowPlaying: false,
                 loved: false,
-                imageUrl: imageUrl
+                imageUrl: imageUrl,
+                artistURL: self.artistURL(artist: artist, mbid: artistMbid),
+                albumURL: self.albumURL(artist: artist, album: album, mbid: releaseMbid),
+                trackURL: self.trackURL(artist: artist, track: name, mbid: recordingMbid)
             )
         }
     }
@@ -301,5 +335,33 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         }
         
         return nil
+    }
+    
+    private func extractMbids(from metadata: [String: Any]) -> (artistMbid: String?, releaseMbid: String?, recordingMbid: String?) {
+        var artistMbid: String?
+        var releaseMbid: String?
+        var recordingMbid: String?
+        
+        // Check mbid_mapping first (preferred)
+        if let mbidMapping = metadata["mbid_mapping"] as? [String: Any] {
+            artistMbid = (mbidMapping["artist_mbids"] as? [String])?.first
+            releaseMbid = mbidMapping["release_mbid"] as? String
+            recordingMbid = mbidMapping["recording_mbid"] as? String
+        }
+        
+        // Fallback to additional_info
+        if let additionalInfo = metadata["additional_info"] as? [String: Any] {
+            if artistMbid == nil {
+                artistMbid = (additionalInfo["artist_mbids"] as? [String])?.first
+            }
+            if releaseMbid == nil {
+                releaseMbid = additionalInfo["release_mbid"] as? String
+            }
+            if recordingMbid == nil {
+                recordingMbid = additionalInfo["recording_mbid"] as? String
+            }
+        }
+        
+        return (artistMbid, releaseMbid, recordingMbid)
     }
 }

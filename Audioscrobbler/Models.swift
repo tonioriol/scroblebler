@@ -10,6 +10,9 @@ struct RecentTrack: Codable {
     let isNowPlaying: Bool
     let loved: Bool
     let imageUrl: String?
+    let artistURL: URL
+    let albumURL: URL
+    let trackURL: URL
 }
 
 struct UserStats: Codable {

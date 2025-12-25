@@ -1,5 +1,6 @@
 import Foundation
 import CryptoKit
+import SwiftUI
 
 class LastFmClient: ObservableObject, ScrobbleClient {
     enum Error: Swift.Error {
@@ -15,6 +16,25 @@ class LastFmClient: ObservableObject, ScrobbleClient {
     
     var baseURL: URL { URL(string: "https://ws.audioscrobbler.com/2.0/")! }
     var authURL: String { "https://www.last.fm/api/auth/" }
+    var linkColor: Color { Color(hue: 0, saturation: 0.70, brightness: 0.75) }
+    
+    // URL building helpers
+    private func artistURL(artist: String, mbid: String?) -> URL {
+        let encoded = artist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
+        return URL(string: "https://www.last.fm/music/\(encoded)")!
+    }
+    
+    private func albumURL(artist: String, album: String, mbid: String?) -> URL {
+        let encodedArtist = artist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
+        let encodedAlbum = album.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
+        return URL(string: "https://www.last.fm/music/\(encodedArtist)/\(encodedAlbum)")!
+    }
+    
+    private func trackURL(artist: String, track: String, mbid: String?) -> URL {
+        let encodedArtist = artist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
+        let encodedTrack = track.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
+        return URL(string: "https://www.last.fm/music/\(encodedArtist)/_/\(encodedTrack)")!
+    }
     
     // MARK: - Authentication
     
@@ -98,7 +118,7 @@ class LastFmClient: ObservableObject, ScrobbleClient {
             "page": String(page)
         ])
         let response = try JSONDecoder().decode(RecentTracksResponse.self, from: data)
-        return response.recenttracks.track.filter { $0.attr?.nowplaying != "true" }.map { $0.toDomain() }
+        return response.recenttracks.track.filter { $0.attr?.nowplaying != "true" }.map { $0.toDomain(client: self) }
     }
     
     func getUserStats(username: String) async throws -> UserStats? {
@@ -360,15 +380,22 @@ private extension LastFmClient {
                 case name, artist, album, date, loved, image, attr = "@attr"
             }
             
-            func toDomain() -> RecentTrack {
-                RecentTrack(
-                    name: name,
-                    artist: artist.text,
-                    album: album.text,
+            func toDomain(client: LastFmClient) -> RecentTrack {
+                let artistName = artist.text
+                let albumName = album.text
+                let trackName = name
+                
+                return RecentTrack(
+                    name: trackName,
+                    artist: artistName,
+                    album: albumName,
                     date: date.flatMap { Int($0.uts) },
                     isNowPlaying: false,
                     loved: loved == "1",
-                    imageUrl: image?.last(where: { !$0.text.isEmpty })?.text
+                    imageUrl: image?.last(where: { !$0.text.isEmpty })?.text,
+                    artistURL: client.artistURL(artist: artistName, mbid: nil),
+                    albumURL: client.albumURL(artist: artistName, album: albumName, mbid: nil),
+                    trackURL: client.trackURL(artist: artistName, track: trackName, mbid: nil)
                 )
             }
         }
