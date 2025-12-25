@@ -105,8 +105,8 @@ struct TrackInfo: View {
         HStack(alignment: .top, spacing: 12) {
             if let imageData = artworkImageData {
                 AlbumArtwork(imageData: imageData, size: artworkSize)
-            } else if let imageUrl = artworkImageUrl {
-                AlbumArtwork(imageUrl: imageUrl, size: artworkSize)
+            } else {
+                AlbumArtwork(imageUrl: artworkImageUrl, size: artworkSize)
             }
             
             VStack(alignment: .leading, spacing: 3) {
