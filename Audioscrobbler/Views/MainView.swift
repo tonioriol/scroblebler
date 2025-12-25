@@ -314,7 +314,7 @@ struct ServiceRow: View {
     var body: some View {
         HStack {
             Button(action: {
-                if credentials?.isEnabled == true {
+                if credentials != nil {
                     onSetMain()
                 }
             }) {
@@ -323,7 +323,7 @@ struct ServiceRow: View {
             }
             .buttonStyle(.plain)
             .focusable(false)
-            .disabled(credentials?.isEnabled != true)
+            .disabled(credentials == nil)
             .help("Set as main client for profile view")
             
             Toggle("", isOn: Binding(

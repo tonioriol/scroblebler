@@ -129,11 +129,6 @@ class Defaults: ObservableObject {
     func toggleService(_ service: ScrobbleService, enabled: Bool) {
         if let index = serviceCredentials.firstIndex(where: { $0.service == service }) {
             serviceCredentials[index].isEnabled = enabled
-            
-            // Clear main preference if disabling the main service
-            if !enabled && mainServicePreference == service {
-                mainServicePreference = nil
-            }
         }
     }
     
@@ -142,11 +137,11 @@ class Defaults: ObservableObject {
     }
     
     var primaryService: ServiceCredentials? {
-        let enabled = enabledServices
-        if let preference = mainServicePreference {
-            return enabled.first { $0.service == preference }
+        if let preference = mainServicePreference,
+           let credential = serviceCredentials.first(where: { $0.service == preference }) {
+            return credential
         }
-        return enabled.first
+        return enabledServices.first
     }
     
     // Legacy properties for backward compatibility with views
