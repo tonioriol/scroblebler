@@ -14,7 +14,7 @@ struct MainView: View {
     @State private var currentPage = 1
     @State private var isLoadingMore = false
     @State private var hasMoreTracks = true
-    @State private var loginState: WaitingLoginView.Status = .generatingToken
+    @State private var loginState: WaitingLogin.Status = .generatingToken
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -52,7 +52,7 @@ struct MainView: View {
     var mainContent: some View {
         VStack(alignment: .leading, spacing: 0) {
             if watcher.currentTrack != nil {
-                PlayingItemView(track: $watcher.currentTrack, currentPosition: $watcher.currentPosition)
+                NowPlaying(track: $watcher.currentTrack, currentPosition: $watcher.currentPosition)
                     .opacity(defaults.privateSession ? 0.6 : 1)
                     .scaleEffect(defaults.privateSession ? 0.9 : 1)
                     .animation(.easeOut, value: defaults.privateSession)
@@ -84,7 +84,7 @@ struct MainView: View {
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 0) {
                             ForEach(Array(recentTracks.enumerated()), id: \.offset) { index, track in
-                                HistoryItemView(track: track, playCount: trackPlayCounts["\(track.artist)|\(track.name)"])
+                                HistoryItem(track: track, playCount: trackPlayCounts["\(track.artist)|\(track.name)"])
                                     .onAppear {
                                         if index == recentTracks.count - 1 && !isLoadingMore && hasMoreTracks {
                                             loadMoreTracks()
@@ -154,7 +154,7 @@ struct MainView: View {
                 get: { loginService != nil && loginService != .listenbrainz },
                 set: { if !$0 { loginService = nil } }
             )) {
-                WaitingLoginView(status: $loginState, onCancel: { loginService = nil })
+                WaitingLogin(status: $loginState, onCancel: { loginService = nil })
             }
             .sheet(isPresented: Binding(
                 get: { loginService == .listenbrainz },
