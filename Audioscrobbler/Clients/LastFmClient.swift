@@ -58,7 +58,11 @@ class LastFmClient: ObservableObject, ScrobbleClient {
     
     func scrobble(sessionKey: String, track: Track) async throws {
         if Defaults.shared.privateSession { return }
-        _ = try await updateLove(sessionKey: sessionKey, artist: track.artist, track: track.name, loved: track.loved)
+        // Fetch current loved state from Last.fm instead of using stale Apple Music data
+        let currentLovedState = try? await getTrackLoved(token: sessionKey, artist: track.artist, track: track.name)
+        if let loved = currentLovedState {
+            _ = try await updateLove(sessionKey: sessionKey, artist: track.artist, track: track.name, loved: loved)
+        }
         _ = try await executeRequest(method: "track.scrobble", args: [
             "artist": track.artist,
             "track": track.name,
@@ -144,6 +148,20 @@ class LastFmClient: ObservableObject, ScrobbleClient {
             return response.track.userplaycount.flatMap { Int($0) }
         } catch {
             return nil
+        }
+    }
+    
+    func getTrackLoved(token: String, artist: String, track: String) async throws -> Bool {
+        do {
+            let data = try await executeRequestWithRetry(method: "track.getInfo", args: [
+                "artist": artist,
+                "track": track,
+                "sk": token
+            ])
+            let response = try JSONDecoder().decode(TrackInfoResponse.self, from: data)
+            return response.track.userloved == "1"
+        } catch {
+            return false
         }
     }
     
@@ -430,6 +448,7 @@ private extension LastFmClient {
         let track: Track
         struct Track: Decodable {
             let userplaycount: String?
+            let userloved: String?
         }
     }
 }

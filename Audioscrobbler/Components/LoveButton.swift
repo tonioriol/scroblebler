@@ -41,22 +41,37 @@ struct LoveButton: View {
         print("UI updated - new loved state: \(loved)")
         
         Task {
-            do {
-                guard let client = serviceManager.client(for: primary.service) else {
-                    print("✗ No client available for \(primary.service)")
-                    return
+            var allSucceeded = true
+            
+            // Update love state on all enabled services
+            for service in ScrobbleService.allCases {
+                guard let credentials = defaults.credentials(for: service),
+                      credentials.isEnabled,
+                      let client = serviceManager.client(for: service) else {
+                    continue
                 }
-                print("✓ Client found for \(primary.service), calling updateLove...")
-                try await client.updateLove(sessionKey: primary.token, artist: artist, track: trackName, loved: loved)
+                
+                do {
+                    print("✓ Updating love state on \(service.displayName)...")
+                    try await client.updateLove(sessionKey: credentials.token, artist: artist, track: trackName, loved: loved)
+                    print("✓ Love state updated on \(service.displayName)")
+                } catch {
+                    print("✗ Failed to update love on \(service.displayName): \(error)")
+                    allSucceeded = false
+                }
+            }
+            
+            if allSucceeded {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                     isAnimating = false
                 }
-            } catch {
+                // Notify that love state changed so history can refresh
+                NotificationCenter.default.post(name: NSNotification.Name("TrackLoveStateChanged"), object: nil)
+            } else {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
                     loved.toggle()
                     isAnimating = false
                 }
-                print("✗ Failed to toggle love: \(error)")
             }
         }
     }

@@ -1,6 +1,9 @@
 import SwiftUI
 
 struct HistoryItem: View {
+    @EnvironmentObject var serviceManager: ServiceManager
+    @EnvironmentObject var defaults: Defaults
+    
     let track: RecentTrack
     let playCount: Int?
     @State private var loved: Bool
@@ -23,5 +26,28 @@ struct HistoryItem: View {
         )
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
+        .onAppear {
+            fetchLovedState()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TrackLoveStateChanged"))) { _ in
+            fetchLovedState()
+        }
+    }
+    
+    private func fetchLovedState() {
+        guard let primary = defaults.primaryService,
+              primary.service == .lastfm,
+              let client = serviceManager.client(for: .lastfm) else {
+            return
+        }
+        
+        Task {
+            let lovedState = try? await client.getTrackLoved(token: primary.token, artist: track.artist, track: track.name)
+            await MainActor.run {
+                if let lovedState = lovedState {
+                    loved = lovedState
+                }
+            }
+        }
     }
 }

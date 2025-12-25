@@ -17,6 +17,7 @@ protocol ScrobbleClient {
     func getTopAlbums(username: String, period: String, limit: Int) async throws -> [TopAlbum]
     func getTopTracks(username: String, period: String, limit: Int) async throws -> [TopTrack]
     func getTrackUserPlaycount(token: String, artist: String, track: String) async throws -> Int?
+    func getTrackLoved(token: String, artist: String, track: String) async throws -> Bool
 }
 
 // Optional features with default implementations
@@ -27,5 +28,9 @@ extension ScrobbleClient {
     
     func getTrackUserPlaycount(token: String, artist: String, track: String) async throws -> Int? {
         return nil
+    }
+    
+    func getTrackLoved(token: String, artist: String, track: String) async throws -> Bool {
+        return false
     }
 }

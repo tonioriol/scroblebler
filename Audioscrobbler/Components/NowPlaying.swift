@@ -5,16 +5,15 @@ struct NowPlaying: View {
     @EnvironmentObject var defaults: Defaults
     @Binding var track: Track?
     @Binding var currentPosition: Double?
+    
+    @State private var lovedState: Bool = false
 
     var body: some View {
         TrackInfo(
             trackName: track!.name,
             artist: track!.artist,
             album: track!.album,
-            loved: Binding(
-                get: { track?.loved ?? false },
-                set: { track?.loved = $0 }
-            ),
+            loved: $lovedState,
             year: Int(track!.year),
             artworkSize: 92,
             artworkImageData: track?.artwork,
@@ -26,6 +25,29 @@ struct NowPlaying: View {
         )
         .padding()
         .animation(nil)
+        .onAppear {
+            fetchLovedState()
+        }
+        .onChange(of: track?.name) { _ in
+            fetchLovedState()
+        }
+    }
+    
+    private func fetchLovedState() {
+        guard let currentTrack = track,
+              let primary = defaults.primaryService,
+              primary.service == .lastfm,
+              let client = serviceManager.client(for: .lastfm) else {
+            lovedState = track?.loved ?? false
+            return
+        }
+        
+        Task {
+            let loved = try? await client.getTrackLoved(token: primary.token, artist: currentTrack.artist, track: currentTrack.name)
+            await MainActor.run {
+                lovedState = loved ?? currentTrack.loved
+            }
+        }
     }
 }
 
