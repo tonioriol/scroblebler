@@ -177,6 +177,9 @@ struct MainView: View {
         .onChange(of: watcher.currentTrack?.name) { _ in
             loadRecentTracks()
         }
+        .onChange(of: defaults.mainServicePreference) { _ in
+            loadRecentTracks()
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("AudioscrobblerDidShow"))) { _ in
             loadRecentTracks()
         }

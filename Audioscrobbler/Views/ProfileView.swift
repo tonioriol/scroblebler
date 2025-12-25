@@ -132,6 +132,9 @@ struct ProfileView: View {
         .onAppear {
             loadUserData()
         }
+        .onChange(of: defaults.mainServicePreference) { _ in
+            loadUserData()
+        }
     }
     
     private func loadUserData() {
