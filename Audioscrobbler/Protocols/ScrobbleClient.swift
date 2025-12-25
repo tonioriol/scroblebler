@@ -22,6 +22,7 @@ protocol ScrobbleClient {
     func getTopArtists(username: String, period: String, limit: Int) async throws -> [TopArtist]
     func getTopAlbums(username: String, period: String, limit: Int) async throws -> [TopAlbum]
     func getTopTracks(username: String, period: String, limit: Int) async throws -> [TopTrack]
+    func getTrackUserPlaycount(token: String, artist: String, track: String) async throws -> Int?
 }
 
 // Default implementations for truly optional features

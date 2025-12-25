@@ -142,17 +142,41 @@ struct ProfileView: View {
     }
     
     private func loadUserData() {
-        guard let username = defaults.name else { return }
-        guard let client = serviceManager.client(for: .lastfm) else { return }
+        guard let primary = defaults.primaryService else {
+            print("❌ ProfileView: No primary service found")
+            return
+        }
+        print("✅ ProfileView: Primary service is \(primary.service.displayName) with username: \(primary.username)")
+        
+        guard let client = serviceManager.client(for: primary.service) else {
+            print("❌ ProfileView: No client found for \(primary.service.displayName)")
+            return
+        }
+        print("✅ ProfileView: Got client for \(primary.service.displayName)")
+        
         isLoading = true
         Task {
             do {
-                async let stats = client.getUserStats(username: username)
-                async let artists = client.getTopArtists(username: username, period: selectedPeriod, limit: 10)
-                async let albums = client.getTopAlbums(username: username, period: selectedPeriod, limit: 10)
-                async let tracks = client.getTopTracks(username: username, period: selectedPeriod, limit: 10)
+                print("📊 ProfileView: Fetching user stats for \(primary.username)...")
+                async let stats = client.getUserStats(username: primary.username)
+                async let artists = client.getTopArtists(username: primary.username, period: selectedPeriod, limit: 10)
+                async let albums = client.getTopAlbums(username: primary.username, period: selectedPeriod, limit: 10)
+                async let tracks = client.getTopTracks(username: primary.username, period: selectedPeriod, limit: 10)
                 
                 let (fetchedStats, fetchedArtists, fetchedAlbums, fetchedTracks) = try await (stats, artists, albums, tracks)
+                
+                print("📊 ProfileView: Stats received:")
+                if let stats = fetchedStats {
+                    print("  - Playcount: \(stats.playcount)")
+                    print("  - Artists: \(stats.artistCount)")
+                    print("  - Albums: \(stats.albumCount)")
+                    print("  - Tracks: \(stats.trackCount)")
+                } else {
+                    print("  - Stats are nil!")
+                }
+                print("  - Top artists count: \(fetchedArtists.count)")
+                print("  - Top albums count: \(fetchedAlbums.count)")
+                print("  - Top tracks count: \(fetchedTracks.count)")
                 
                 await MainActor.run {
                     userStats = fetchedStats
@@ -160,9 +184,11 @@ struct ProfileView: View {
                     topAlbums = fetchedAlbums
                     topTracks = fetchedTracks
                     isLoading = false
+                    print("✅ ProfileView: UI updated with stats")
                 }
             } catch {
-                print("Failed to load user data: \(error)")
+                print("❌ ProfileView: Failed to load user data: \(error)")
+                print("   Error type: \(type(of: error))")
                 await MainActor.run {
                     isLoading = false
                 }
@@ -171,13 +197,13 @@ struct ProfileView: View {
     }
     
     private func loadTopContent() {
-        guard let username = defaults.name else { return }
-        guard let client = serviceManager.client(for: .lastfm) else { return }
+        guard let primary = defaults.primaryService else { return }
+        guard let client = serviceManager.client(for: primary.service) else { return }
         Task {
             do {
-                async let artists = client.getTopArtists(username: username, period: selectedPeriod, limit: 10)
-                async let albums = client.getTopAlbums(username: username, period: selectedPeriod, limit: 10)
-                async let tracks = client.getTopTracks(username: username, period: selectedPeriod, limit: 10)
+                async let artists = client.getTopArtists(username: primary.username, period: selectedPeriod, limit: 10)
+                async let albums = client.getTopAlbums(username: primary.username, period: selectedPeriod, limit: 10)
+                async let tracks = client.getTopTracks(username: primary.username, period: selectedPeriod, limit: 10)
                 
                 let (fetchedArtists, fetchedAlbums, fetchedTracks) = try await (artists, albums, tracks)
                 

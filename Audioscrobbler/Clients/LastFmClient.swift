@@ -621,26 +621,52 @@ class LastFmClient: ObservableObject, ScrobbleClient {
     }
     
     func getTrackUserPlaycount(token: String, artist: String, track: String) async throws -> Int? {
+        print("🎵 getTrackUserPlaycount: Requesting \(track) by \(artist)")
         do {
             let data = try await executeRequestWithRetry(method: "track.getInfo", args: [
                 "artist": artist,
                 "track": track,
                 "sk": token
             ])
+            
+            // Log raw response
+            if let jsonString = String(data: data, encoding: .utf8) {
+                print("🎵 getTrackUserPlaycount: Raw response for \(track):")
+                print(jsonString.prefix(500))
+            }
+            
             let trackInfo: TrackInfo = try decodeJSON(data)
+            print("🎵 getTrackUserPlaycount: \(track) userPlaycount = \(trackInfo.userPlaycount?.description ?? "nil")")
             return trackInfo.userPlaycount
         } catch {
+            print("🎵 getTrackUserPlaycount: Error for \(track) - \(error)")
             // Track not found or other API error - return nil instead of throwing
             return nil
         }
     }
     
     func getUserStats(username: String) async throws -> Audioscrobbler.UserStats? {
+        print("📡 LastFmClient: Calling user.getInfo for username: \(username)")
         let data = try await executeRequest(method: "user.getInfo", args: [
             "user": username
         ])
+        print("📡 LastFmClient: Received response data (\(data.count) bytes)")
+        
+        // Log raw JSON for debugging
+        if let jsonString = String(data: data, encoding: .utf8) {
+            print("📡 LastFmClient: Raw JSON response:")
+            print(jsonString)
+        }
+        
         let stats: UserStats = try decodeJSON(data)
-        return Audioscrobbler.UserStats(
+        print("📡 LastFmClient: Decoded UserStats:")
+        print("  - playcount: \(stats.playcount)")
+        print("  - artistCount: \(stats.artistCount)")
+        print("  - trackCount: \(stats.trackCount)")
+        print("  - albumCount: \(stats.albumCount)")
+        print("  - lovedCount: \(stats.lovedCount)")
+        
+        let result = Audioscrobbler.UserStats(
             playcount: stats.playcount,
             artistCount: stats.artistCount,
             trackCount: stats.trackCount,
@@ -653,6 +679,8 @@ class LastFmClient: ObservableObject, ScrobbleClient {
             age: stats.age,
             playlistCount: stats.playlistCount
         )
+        print("📡 LastFmClient: Returning UserStats with playcount: \(result.playcount)")
+        return result
     }
     
     func getTopArtists(username: String, period: String, limit: Int) async throws -> [Audioscrobbler.TopArtist] {

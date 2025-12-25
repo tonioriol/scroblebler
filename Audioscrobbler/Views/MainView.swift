@@ -253,23 +253,32 @@ struct MainView: View {
     }
     
     func fetchPlayCountsForTracks(_ tracks: [RecentTrack], token: String, service: ScrobbleService) async {
-        guard let client = serviceManager.client(for: service) else { return }
+        guard let client = serviceManager.client(for: service) else {
+            print("❌ fetchPlayCounts: No client for \(service.displayName)")
+            return
+        }
+        print("🔢 fetchPlayCounts: Fetching play counts for \(tracks.count) tracks on \(service.displayName)")
+        
         await withTaskGroup(of: (String, Int?).self) { group in
             for track in tracks {
                 group.addTask {
                     let key = "\(track.artist)|\(track.name)"
                     let count = try? await client.getTrackUserPlaycount(token: token, artist: track.artist, track: track.name)
+                    print("🔢 fetchPlayCounts: \(track.name) by \(track.artist) = \(count?.description ?? "nil")")
                     return (key, count)
                 }
             }
             
+            var fetchedCount = 0
             for await (key, count) in group {
                 await MainActor.run {
                     if let count = count {
                         trackPlayCounts[key] = count
+                        fetchedCount += 1
                     }
                 }
             }
+            print("🔢 fetchPlayCounts: Successfully fetched \(fetchedCount) play counts")
         }
     }
     
