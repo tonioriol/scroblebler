@@ -13,7 +13,11 @@ struct NowPlaying: View {
             album: track!.album,
             loved: Binding(
                 get: { track?.loved ?? false },
-                set: { track?.loved = $0 }
+                set: { newValue in
+                    if track != nil {
+                        track!.loved = newValue
+                    }
+                }
             ),
             year: Int(track!.year),
             artworkSize: 92,
