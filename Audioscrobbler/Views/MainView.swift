@@ -48,6 +48,12 @@ struct MainView: View {
     
     var mainContent: some View {
         VStack(alignment: .leading, spacing: 0) {
+            // Focus trap
+            TextField("", text: .constant(""))
+                .frame(width: 0, height: 0)
+                .opacity(0)
+                .accessibilityHidden(true)
+            
             if watcher.currentTrack != nil {
                 NowPlaying(track: $watcher.currentTrack, currentPosition: $watcher.currentPosition)
             } else {
@@ -322,7 +328,6 @@ struct ServiceRow: View {
                     .foregroundColor(isMainService ? .accentColor : .secondary)
             }
             .buttonStyle(.plain)
-            .focusable(false)
             .disabled(credentials == nil)
             .help("Set as main client for profile view")
             
@@ -331,7 +336,6 @@ struct ServiceRow: View {
                 set: { onToggle($0) }
             ))
             .toggleStyle(.switch)
-            .focusable(false)
             .disabled(credentials == nil)
             
             Text("Scrobble to \(service.displayName)")
@@ -345,11 +349,9 @@ struct ServiceRow: View {
                     .foregroundColor(.secondary)
                 Button("Logout") { onLogout() }
                     .buttonStyle(.link)
-                    .focusable(false)
             } else {
                 Button("Login") { onLogin() }
                     .buttonStyle(.link)
-                    .focusable(false)
             }
         }
     }
