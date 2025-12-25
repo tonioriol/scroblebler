@@ -134,6 +134,7 @@ struct MainView: View {
                     ServiceRow(
                         service: service,
                         credentials: defaults.credentials(for: service),
+                        isMainService: defaults.mainServicePreference == service,
                         onLogin: {
                             loginService = service
                             loginState = .generatingToken
@@ -144,6 +145,9 @@ struct MainView: View {
                         },
                         onToggle: { enabled in
                             defaults.toggleService(service, enabled: enabled)
+                        },
+                        onSetMain: {
+                            defaults.mainServicePreference = service
                         }
                     )
                 }
@@ -292,6 +296,11 @@ struct MainView: View {
         await MainActor.run {
             loginState = .finishingUp
             defaults.addOrUpdateCredentials(credentials)
+            
+            // Auto-set as main if no main service configured
+            if defaults.mainServicePreference == nil {
+                defaults.mainServicePreference = service
+            }
         }
         
         // Fetch profile picture for Last.fm
@@ -317,6 +326,12 @@ struct MainView: View {
             let credentials = try await serviceManager.completeAuthentication(service: .listenbrainz, token: token)
             await MainActor.run {
                 defaults.addOrUpdateCredentials(credentials)
+                
+                // Auto-set as main if no main service configured
+                if defaults.mainServicePreference == nil {
+                    defaults.mainServicePreference = .listenbrainz
+                }
+                
                 loginService = nil
                 tokenInput = ""
             }
@@ -333,12 +348,26 @@ struct MainView: View {
 struct ServiceRow: View {
     let service: ScrobbleService
     let credentials: ServiceCredentials?
+    let isMainService: Bool
     let onLogin: () -> Void
     let onLogout: () -> Void
     let onToggle: (Bool) -> Void
+    let onSetMain: () -> Void
     
     var body: some View {
         HStack {
+            Button(action: {
+                if credentials?.isEnabled == true {
+                    onSetMain()
+                }
+            }) {
+                Image(systemName: isMainService ? "circle.fill" : "circle")
+                    .foregroundColor(isMainService ? .accentColor : .secondary)
+            }
+            .buttonStyle(.plain)
+            .disabled(credentials?.isEnabled != true)
+            .help("Set as main client for profile view")
+            
             Toggle("", isOn: Binding(
                 get: { credentials?.isEnabled ?? false },
                 set: { onToggle($0) }

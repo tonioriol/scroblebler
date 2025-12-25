@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		CC6666666666666666666666 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD6666666666666666666666 /* ProfileView.swift */; };
+		CC7777777777777777777777 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD7777777777777777777777 /* ContentView.swift */; };
 		214BE49AEB926CFA16D44F62 /* LoveButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0F361811AED80EF7ACDCA43 /* LoveButton.swift */; };
 		AA1111111111111111111111 /* AlbumArtwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB1111111111111111111111 /* AlbumArtwork.swift */; };
 		AA2222222222222222222222 /* PlayCountBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB2222222222222222222222 /* PlayCountBadge.swift */; };
@@ -27,7 +28,6 @@
 		DA8F729929315119007920D3 /* Defaults.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA8F729829315119007920D3 /* Defaults.swift */; };
 		DAC4708529315B7200734C24 /* View+NSWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAC4708429315B7200734C24 /* View+NSWindow.swift */; };
 		DAC4708729315EA900734C24 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAC4708629315EA900734C24 /* AppDelegate.swift */; };
-		DAC4708929315F0500734C24 /* MainContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAC4708829315F0500734C24 /* MainContentView.swift */; };
 		DAC4708B2931606900734C24 /* ActivityIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAC4708A2931606900734C24 /* ActivityIndicator.swift */; };
 		DAC4708D2931633F00734C24 /* ProgressBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAC4708C2931633F00734C24 /* ProgressBar.swift */; };
 		DAC4708F293163C600734C24 /* Link.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAC4708E293163C600734C24 /* Link.swift */; };
@@ -45,6 +45,7 @@
 
 /* Begin PBXFileReference section */
 		DD6666666666666666666666 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
+		DD7777777777777777777777 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		A0F361811AED80EF7ACDCA43 /* LoveButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoveButton.swift; sourceTree = "<group>"; };
 		BB1111111111111111111111 /* AlbumArtwork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlbumArtwork.swift; sourceTree = "<group>"; };
 		BB2222222222222222222222 /* PlayCountBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayCountBadge.swift; sourceTree = "<group>"; };
@@ -65,7 +66,6 @@
 		DA8F729829315119007920D3 /* Defaults.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Defaults.swift; sourceTree = "<group>"; };
 		DAC4708429315B7200734C24 /* View+NSWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "View+NSWindow.swift"; sourceTree = "<group>"; };
 		DAC4708629315EA900734C24 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
-		DAC4708829315F0500734C24 /* MainContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainContentView.swift; sourceTree = "<group>"; };
 		DAC4708A2931606900734C24 /* ActivityIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityIndicator.swift; sourceTree = "<group>"; };
 		DAC4708C2931633F00734C24 /* ProgressBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressBar.swift; sourceTree = "<group>"; };
 		DAC4708E293163C600734C24 /* Link.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Link.swift; sourceTree = "<group>"; };
@@ -172,8 +172,8 @@
 		DA8F7295293126ED007920D3 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				DD7777777777777777777777 /* ContentView.swift */,
 				DA8DE138292FC575004DC22E /* MainView.swift */,
-				DAC4708829315F0500734C24 /* MainContentView.swift */,
 				DD6666666666666666666666 /* ProfileView.swift */,
 			);
 			path = Views;
@@ -292,7 +292,6 @@
 				DAEF0C3F2933A5010083F9AB /* LaunchAtStartup.swift in Sources */,
 				DA8DE146292FCBDC004DC22E /* Watcher.swift in Sources */,
 				DD000002000000000000001 /* Models.swift in Sources */,
-				DAC4708929315F0500734C24 /* MainContentView.swift in Sources */,
 				DADC426529318B6E00762255 /* View+OnLoad.swift in Sources */,
 				AA1111111111111111111111 /* AlbumArtwork.swift in Sources */,
 				AA2222222222222222222222 /* PlayCountBadge.swift in Sources */,
@@ -300,6 +299,7 @@
 				AA4444444444444444444444 /* TrackInfo.swift in Sources */,
 				AA5555555555555555555555 /* MarqueeText.swift in Sources */,
 				CC6666666666666666666666 /* ProfileView.swift in Sources */,
+				CC7777777777777777777777 /* ContentView.swift in Sources */,
 				FF1111111111111111111111 /* LastFmClient.swift in Sources */,
 				FF2222222222222222222222 /* LibreFmClient.swift in Sources */,
 				FF3333333333333333333333 /* ListenBrainzClient.swift in Sources */,
@@ -559,3 +559,4 @@
 	};
 	rootObject = DA8DE12B292FC575004DC22E /* Project object */;
 }
+

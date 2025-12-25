@@ -1,4 +1,4 @@
-import Foundation
+ import Foundation
 import AppKit
 
 class Defaults: ObservableObject {
@@ -31,10 +31,27 @@ class Defaults: ObservableObject {
         }
     }
     
+    @Published var mainServicePreference: ScrobbleService? {
+        didSet {
+            if let service = mainServicePreference {
+                defaults.set(service.rawValue, forKey: "mainServicePreference")
+            } else {
+                defaults.removeObject(forKey: "mainServicePreference")
+            }
+        }
+    }
+    
     init() {
         firstRun = defaults.string(forKey: "firstRun") == nil
         privateSession = defaults.bool(forKey: "privateSession")
         picture = defaults.data(forKey: "picture")
+        
+        if let serviceRaw = defaults.string(forKey: "mainServicePreference"),
+           let service = ScrobbleService(rawValue: serviceRaw) {
+            mainServicePreference = service
+        } else {
+            mainServicePreference = nil
+        }
         
         if let data = defaults.data(forKey: "serviceCredentials"),
            let decoded = try? JSONDecoder().decode([ServiceCredentials].self, from: data) {
@@ -108,6 +125,11 @@ class Defaults: ObservableObject {
     
     func removeCredentials(for service: ScrobbleService) {
         serviceCredentials.removeAll { $0.service == service }
+        
+        // Clear main preference if removing the main service
+        if mainServicePreference == service {
+            mainServicePreference = nil
+        }
     }
     
     func credentials(for service: ScrobbleService) -> ServiceCredentials? {
@@ -117,6 +139,11 @@ class Defaults: ObservableObject {
     func toggleService(_ service: ScrobbleService, enabled: Bool) {
         if let index = serviceCredentials.firstIndex(where: { $0.service == service }) {
             serviceCredentials[index].isEnabled = enabled
+            
+            // Clear main preference if disabling the main service
+            if !enabled && mainServicePreference == service {
+                mainServicePreference = nil
+            }
         }
     }
     
@@ -126,10 +153,10 @@ class Defaults: ObservableObject {
     
     var primaryService: ServiceCredentials? {
         let enabled = enabledServices
-        // Priority: Last.fm > Libre.fm > ListenBrainz
-        return enabled.first { $0.service == .lastfm }
-            ?? enabled.first { $0.service == .librefm }
-            ?? enabled.first { $0.service == .listenbrainz }
+        if let preference = mainServicePreference {
+            return enabled.first { $0.service == preference }
+        }
+        return enabled.first
     }
     
     // Legacy properties for backward compatibility with views
