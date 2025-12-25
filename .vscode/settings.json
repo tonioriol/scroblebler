@@ -1,5 +1,4 @@
 {
-  "swift.buildPath": "${workspaceFolder}/.build",
   "files.watcherExclude": {
     "**/.build/**": true,
     "**/DerivedData/**": true
