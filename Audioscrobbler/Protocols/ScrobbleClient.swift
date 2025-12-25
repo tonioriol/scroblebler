@@ -8,6 +8,7 @@ protocol ScrobbleClient {
     func completeAuthentication(token: String) async throws -> (username: String, sessionKey: String, profileUrl: String?, isSubscriber: Bool)
     func updateNowPlaying(sessionKey: String, track: Track) async throws
     func scrobble(sessionKey: String, track: Track) async throws
+    func updateLove(sessionKey: String, artist: String, track: String, loved: Bool) async throws
     
     // Profile methods
     func getRecentTracks(username: String, limit: Int, page: Int) async throws -> [RecentTrack]

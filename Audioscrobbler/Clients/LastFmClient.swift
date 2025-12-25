@@ -70,11 +70,19 @@ class LastFmClient: ObservableObject, ScrobbleClient {
     }
     
     func updateLove(sessionKey: String, artist: String, track: String, loved: Bool) async throws {
-        _ = try await executeRequest(method: "track.\(loved ? "" : "un")love", args: [
-            "artist": artist,
-            "track": track,
-            "sk": sessionKey
-        ])
+        let method = loved ? "track.love" : "track.unlove"
+        print("🎵 updateLove called - method: \(method), artist: \(artist), track: \(track), loved: \(loved)")
+        do {
+            _ = try await executeRequest(method: method, args: [
+                "artist": artist,
+                "track": track,
+                "sk": sessionKey
+            ])
+            print("✓ Love status updated successfully on Last.fm: \(method)")
+        } catch {
+            print("✗ Failed to update love status: \(error)")
+            throw error
+        }
     }
     
     // MARK: - Profile Data

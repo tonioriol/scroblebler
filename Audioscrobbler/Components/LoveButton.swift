@@ -24,17 +24,29 @@ struct LoveButton: View {
     }
     
     func toggleLove() {
-        guard let primary = defaults.primaryService,
-              primary.service == .lastfm else { return }
+        print("❤️ LoveButton clicked - artist: \(artist), track: \(trackName)")
+        
+        guard let primary = defaults.primaryService else {
+            print("✗ No primary service configured")
+            return
+        }
+        
+        print("✓ Primary service: \(primary.service)")
         
         withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
             loved.toggle()
             isAnimating = true
         }
         
+        print("UI updated - new loved state: \(loved)")
+        
         Task {
             do {
-                guard let client = serviceManager.client(for: .lastfm) else { return }
+                guard let client = serviceManager.client(for: primary.service) else {
+                    print("✗ No client available for \(primary.service)")
+                    return
+                }
+                print("✓ Client found for \(primary.service), calling updateLove...")
                 try await client.updateLove(sessionKey: primary.token, artist: artist, track: trackName, loved: loved)
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                     isAnimating = false
@@ -44,7 +56,7 @@ struct LoveButton: View {
                     loved.toggle()
                     isAnimating = false
                 }
-                print("Failed to toggle love: \(error)")
+                print("✗ Failed to toggle love: \(error)")
             }
         }
     }

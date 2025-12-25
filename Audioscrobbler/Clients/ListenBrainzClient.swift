@@ -76,6 +76,55 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         try await sendRequest(endpoint: "submit-listens", token: sessionKey, payload: payload)
     }
     
+    func updateLove(sessionKey: String, artist: String, track: String, loved: Bool) async throws {
+        print("🎵 ListenBrainz updateLove called - artist: \(artist), track: \(track), loved: \(loved)")
+        
+        // ListenBrainz requires recording_mbid or recording_msid to submit feedback
+        // We need to look up the recording first to get the MusicBrainz ID
+        guard let mbid = try await lookupRecordingMBID(artist: artist, track: track) else {
+            print("⚠️ Could not find MusicBrainz ID for track, skipping love update on ListenBrainz")
+            return
+        }
+        
+        // Score: 1 (love), 0 (remove feedback)
+        let score = loved ? 1 : 0
+        
+        let payload: [String: Any] = [
+            "recording_mbid": mbid,
+            "score": score
+        ]
+        
+        do {
+            try await sendRequest(endpoint: "feedback/recording-feedback", token: sessionKey, payload: payload)
+            print("✓ Love status updated successfully on ListenBrainz: \(loved ? "loved" : "unloved")")
+        } catch {
+            print("✗ Failed to update love status on ListenBrainz: \(error)")
+            throw error
+        }
+    }
+    
+    private func lookupRecordingMBID(artist: String, track: String) async throws -> String? {
+        // Query MusicBrainz API to find the recording MBID
+        let query = "artist:\(artist) AND recording:\(track)"
+        guard let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let url = URL(string: "https://musicbrainz.org/ws/2/recording/?query=\(encodedQuery)&limit=1&fmt=json") else {
+            return nil
+        }
+        
+        var request = URLRequest(url: url)
+        request.setValue("AudioscrobblerApp/1.0 (contact@example.com)", forHTTPHeaderField: "User-Agent")
+        
+        do {
+            let (data, _) = try await URLSession.shared.data(for: request)
+            let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+            let recordings = json?["recordings"] as? [[String: Any]]
+            return recordings?.first?["id"] as? String
+        } catch {
+            print("⚠️ Failed to lookup recording MBID: \(error)")
+            return nil
+        }
+    }
+    
     // MARK: - Profile Data
     
     func getRecentTracks(username: String, limit: Int, page: Int) async throws -> [RecentTrack] {
