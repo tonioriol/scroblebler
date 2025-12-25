@@ -8,12 +8,8 @@
 import Foundation
 
 class ListenBrainzClient: ObservableObject, ScrobbleClient {
-    let clientId = "EYfPVas-u4WosokX_ICJ-PNVL99tIELQ"
-    let clientSecret = "OgwOj3o4Fu21JSQakohBv8GedvY6ZeNz"
-    let redirectUri = "io.vito.audioscrobbler://listenbrainz/callback"
-    
     var baseURL: URL { URL(string: "https://api.listenbrainz.org/1/")! }
-    var authURL: String { "https://musicbrainz.org/oauth2/authorize" }
+    var authURL: String { "https://listenbrainz.org/settings/" }
     
     enum LBError: Error {
         case invalidToken
@@ -22,62 +18,40 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
     }
     
     func authenticate() async throws -> (token: String, authURL: URL) {
-        // Generate random state for CSRF protection
-        let state = UUID().uuidString
-        
-        var components = URLComponents(string: authURL)!
-        components.queryItems = [
-            URLQueryItem(name: "response_type", value: "code"),
-            URLQueryItem(name: "client_id", value: clientId),
-            URLQueryItem(name: "redirect_uri", value: redirectUri),
-            URLQueryItem(name: "scope", value: "profile email tag rating collection submit_isrc submit_barcode"),
-            URLQueryItem(name: "state", value: state)
-        ]
-        
-        return (state, components.url!)
+        // Return the settings page URL where users can copy their personal token
+        return ("", URL(string: authURL)!)
     }
     
     func completeAuthentication(token: String) async throws -> (username: String, sessionKey: String, profileUrl: String?, isSubscriber: Bool) {
-        // Token here is the authorization code from OAuth callback
-        // Exchange code for access token
-        var request = URLRequest(url: URL(string: "https://musicbrainz.org/oauth2/token")!)
-        request.httpMethod = "POST"
-        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        // Validate the personal token and get username
+        let trimmedToken = token.trimmingCharacters(in: .whitespacesAndNewlines)
         
-        let body = [
-            "grant_type=authorization_code",
-            "code=\(token)",
-            "client_id=\(clientId)",
-            "client_secret=\(clientSecret)",
-            "redirect_uri=\(redirectUri)"
-        ].joined(separator: "&")
-        request.httpBody = body.data(using: .utf8)
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            throw LBError.invalidCode
-        }
-        
-        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-        guard let accessToken = json?["access_token"] as? String else {
+        guard !trimmedToken.isEmpty else {
             throw LBError.invalidToken
         }
         
-        // Get user info
-        var userRequest = URLRequest(url: URL(string: "https://api.listenbrainz.org/1/user/\(accessToken)/info")!)
-        userRequest.httpMethod = "GET"
-        userRequest.setValue("Token \(accessToken)", forHTTPHeaderField: "Authorization")
+        var request = URLRequest(url: baseURL.appendingPathComponent("validate-token"))
+        request.httpMethod = "GET"
+        request.setValue("Token \(trimmedToken)", forHTTPHeaderField: "Authorization")
         
-        let (userData, userResponse) = try await URLSession.shared.data(for: userRequest)
-        guard let httpUserResponse = userResponse as? HTTPURLResponse, httpUserResponse.statusCode == 200 else {
-            throw LBError.serverError("Failed to get user info")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw LBError.serverError("Invalid response from validate-token endpoint")
         }
         
-        let userJson = try JSONSerialization.jsonObject(with: userData) as? [String: Any]
-        let username = (userJson?["name"] as? String) ?? "ListenBrainz User"
-        let profileUrl = "https://listenbrainz.org/user/\(username)/"
+        guard httpResponse.statusCode == 200 else {
+            let errorMsg = String(data: data, encoding: .utf8) ?? "Unknown error"
+            throw LBError.serverError("Token validation failed (HTTP \(httpResponse.statusCode)): \(errorMsg)")
+        }
         
-        return (username, accessToken, profileUrl, false)
+        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        guard let valid = json?["valid"] as? Bool, valid,
+              let username = json?["user_name"] as? String else {
+            throw LBError.invalidToken
+        }
+        
+        let profileUrl = "https://listenbrainz.org/user/\(username)/"
+        return (username, token, profileUrl, false)
     }
     
     func updateNowPlaying(sessionKey: String, track: Track) async throws {

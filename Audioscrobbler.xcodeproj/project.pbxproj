@@ -38,6 +38,7 @@
 		FF4444444444444444444444 /* ScrobbleClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE4444444444444444444444 /* ScrobbleClient.swift */; };
 		FF5555555555555555555555 /* ServiceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE5555555555555555555555 /* ServiceManager.swift */; };
 		FF6666666666666666666666 /* WaitingLoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE6666666666666666666666 /* WaitingLoginView.swift */; };
+		FF7777777777777777777777 /* TokenInputSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE7777777777777777777777 /* TokenInputSheet.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -75,6 +76,7 @@
 		EE4444444444444444444444 /* ScrobbleClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrobbleClient.swift; sourceTree = "<group>"; };
 		EE5555555555555555555555 /* ServiceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceManager.swift; sourceTree = "<group>"; };
 		EE6666666666666666666666 /* WaitingLoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaitingLoginView.swift; sourceTree = "<group>"; };
+		EE7777777777777777777777 /* TokenInputSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenInputSheet.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -104,6 +106,7 @@
 				BB4444444444444444444444 /* TrackInfoView.swift */,
 				BB5555555555555555555555 /* MarqueeText.swift */,
 				EE6666666666666666666666 /* WaitingLoginView.swift */,
+				EE7777777777777777777777 /* TokenInputSheet.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -299,6 +302,7 @@
 				FF4444444444444444444444 /* ScrobbleClient.swift in Sources */,
 				FF5555555555555555555555 /* ServiceManager.swift in Sources */,
 				FF6666666666666666666666 /* WaitingLoginView.swift in Sources */,
+				FF7777777777777777777777 /* TokenInputSheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -444,7 +448,7 @@
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"Audioscrobbler/Preview Content\"";
 				DEVELOPMENT_TEAM = "";
-				ENABLE_APP_SANDBOX = YES;
+				ENABLE_APP_SANDBOX = NO;
 				ENABLE_FILE_ACCESS_MUSIC_FOLDER = readonly;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
@@ -493,7 +497,7 @@
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"Audioscrobbler/Preview Content\"";
 				DEVELOPMENT_TEAM = "";
-				ENABLE_APP_SANDBOX = YES;
+				ENABLE_APP_SANDBOX = NO;
 				ENABLE_FILE_ACCESS_MUSIC_FOLDER = readonly;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;

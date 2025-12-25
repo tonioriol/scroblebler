@@ -10,5 +10,7 @@
         <string>com.apple.Music.library.read</string>
       </array>
     </dict>
+    <key>com.apple.security.temporary-exception.apple-events</key>
+    <string>com.apple.systemevents</string>
 </dict>
 </plist>

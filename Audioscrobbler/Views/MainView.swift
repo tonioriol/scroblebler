@@ -15,6 +15,7 @@ struct MainView: View {
     @State var showPrivateSessionPopover: Bool = false
     @State var showProfileView: Bool = false
     @State var loginService: ScrobbleService?
+    @State var tokenInput: String = ""
     @State var recentTracks: [RecentTrack] = []
     @State var trackPlayCounts: [String: Int] = [:]
     @State var currentPage = 1
@@ -24,7 +25,6 @@ struct MainView: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            // Main content with footer at bottom - slides up
             VStack(spacing: 0) {
                 mainContent
                     .frame(height: 600)
@@ -39,7 +39,6 @@ struct MainView: View {
             .frame(height: 655)
             .offset(y: showProfileView ? -655 : 0)
             
-            // Profile view slides up from bottom
             if showProfileView {
                 VStack(spacing: 0) {
                     AnimatedHeaderView(showProfileView: $showProfileView)
@@ -158,14 +157,29 @@ struct MainView: View {
             .padding(.horizontal)
             .padding(.bottom)
             .sheet(isPresented: Binding(
-                get: { loginService != nil },
+                get: { loginService != nil && loginService != .listenbrainz },
                 set: { if !$0 { loginService = nil } }
             )) {
-                if loginService != nil {
-                    WaitingLoginView(status: $loginState, onCancel: {
+                WaitingLoginView(status: $loginState, onCancel: {
+                    loginService = nil
+                })
+            }
+            .sheet(isPresented: Binding(
+                get: { loginService == .listenbrainz },
+                set: { if !$0 { loginService = nil; tokenInput = "" } }
+            )) {
+                TokenInputSheet(
+                    token: $tokenInput,
+                    onSubmit: {
+                        Task {
+                            await submitListenBrainzToken()
+                        }
+                    },
+                    onCancel: {
                         loginService = nil
-                    })
-                }
+                        tokenInput = ""
+                    }
+                )
             }
         }
         .onAppear {
@@ -260,6 +274,10 @@ struct MainView: View {
     }
     
     func doServiceLogin(service: ScrobbleService) async {
+        if service == .listenbrainz {
+            return
+        }
+        
         let token: String
         let targetURL: URL
         do {
@@ -311,6 +329,27 @@ struct MainView: View {
             loginState = .finishingUp
             defaults.addOrUpdateCredentials(credentials)
             loginService = nil
+        }
+    }
+    
+    func submitListenBrainzToken() async {
+        guard loginService == .listenbrainz else { return }
+        
+        let token = tokenInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        do {
+            let credentials = try await serviceManager.completeAuthentication(service: .listenbrainz, token: token)
+            await MainActor.run {
+                defaults.addOrUpdateCredentials(credentials)
+                loginService = nil
+                tokenInput = ""
+            }
+        } catch {
+            await MainActor.run {
+                loginService = nil
+                tokenInput = ""
+            }
+            print("Error during ListenBrainz token validation: \(error)")
         }
     }
 }

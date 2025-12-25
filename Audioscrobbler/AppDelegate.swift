@@ -17,13 +17,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     var eventMonitor: Any?
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
-        NSAppleEventManager.shared().setEventHandler(
-            self,
-            andSelector: #selector(handleURLEvent(_:withReplyEvent:)),
-            forEventClass: AEEventClass(kInternetEventClass),
-            andEventID: AEEventID(kAEGetURL)
-        )
-        
         contextMenu = NSMenu()
         launchAtLoginItem = NSMenuItem(title: "Launch at Login", action: #selector(self.toggleLaunchAtLogin), keyEquivalent: "")
         launchAtLoginItem.target = self
@@ -149,20 +142,4 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         updateLaunchAtLogin()
     }
     
-    @objc func handleURLEvent(_ event: NSAppleEventDescriptor, withReplyEvent replyEvent: NSAppleEventDescriptor) {
-        guard let urlString = event.paramDescriptor(forKeyword: keyDirectObject)?.stringValue,
-              let url = URL(string: urlString) else { return }
-        
-        // Handle OAuth callback
-        if url.scheme == "io.vito.audioscrobbler" && url.host == "listenbrainz" && url.path == "/callback" {
-            let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
-            if let code = components?.queryItems?.first(where: { $0.name == "code" })?.value {
-                NotificationCenter.default.post(
-                    name: NSNotification.Name("ListenBrainzOAuthCallback"),
-                    object: nil,
-                    userInfo: ["code": code]
-                )
-            }
-        }
-    }
 }
