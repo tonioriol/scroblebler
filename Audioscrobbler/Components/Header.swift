@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-struct HeaderView: View {
+struct Header: View {
     @EnvironmentObject var defaults: Defaults
     @Binding var showProfileView: Bool
     @State var showSignoutScreen = false
@@ -71,6 +71,6 @@ struct HeaderView: View {
 
 struct Header_Previews: PreviewProvider {
     static var previews: some View {
-        HeaderView(showProfileView: .constant(false))
+        Header(showProfileView: .constant(false))
     }
 }

@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct TrackInfoView: View {
+struct TrackInfo: View {
     @EnvironmentObject var serviceManager: ServiceManager
     @EnvironmentObject var defaults: Defaults
     

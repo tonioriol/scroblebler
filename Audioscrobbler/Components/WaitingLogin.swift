@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-struct WaitingLoginView: View {
+struct WaitingLogin: View {
     enum Status {
         case generatingToken
         case waitingForLogin
@@ -48,6 +48,6 @@ struct WaitingLoginView: View {
 
 struct WaitingLogin_Previews: PreviewProvider {
     static var previews: some View {
-        WaitingLoginView(status: .constant(.generatingToken), onCancel: {})
+        WaitingLogin(status: .constant(.generatingToken), onCancel: {})
     }
 }

@@ -1,13 +1,13 @@
 import SwiftUI
 
-struct PlayingItemView: View {
+struct NowPlaying: View {
     @EnvironmentObject var serviceManager: ServiceManager
     @EnvironmentObject var defaults: Defaults
     @Binding var track: Track?
     @Binding var currentPosition: Double?
 
     var body: some View {
-        TrackInfoView(
+        TrackInfo(
             trackName: track!.name,
             artist: track!.artist,
             album: track!.album,
@@ -29,8 +29,8 @@ struct PlayingItemView: View {
     }
 }
 
-struct PlayingItemView_Previews: PreviewProvider {
+struct NowPlaying_Previews: PreviewProvider {
     static var previews: some View {
-        PlayingItemView(track: .constant(.init(artist: "Alexisonfire", album: "Watch Out!", name: "It Was Fear Of Myself That Made Me Odd", length: 123.10293, artwork: nil, year: 2004, loved: true, startedAt: 0)), currentPosition: .constant(61.5))
+        NowPlaying(track: .constant(.init(artist: "Alexisonfire", album: "Watch Out!", name: "It Was Fear Of Myself That Made Me Odd", length: 123.10293, artwork: nil, year: 2004, loved: true, startedAt: 0)), currentPosition: .constant(61.5))
     }
 }

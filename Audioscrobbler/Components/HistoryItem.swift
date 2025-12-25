@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct HistoryItemView: View {
+struct HistoryItem: View {
     let track: RecentTrack
     let playCount: Int?
     @State private var loved: Bool
@@ -12,7 +12,7 @@ struct HistoryItemView: View {
     }
     
     var body: some View {
-        TrackInfoView(
+        TrackInfo(
             trackName: track.name,
             artist: track.artist,
             album: track.album,
