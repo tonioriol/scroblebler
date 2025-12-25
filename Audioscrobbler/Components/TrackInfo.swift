@@ -239,67 +239,6 @@ struct TrackInfo: View {
                 }
             }
         }
-        .onAppear {
-            if playCount == nil {
-                fetchPlayCount()
-            }
-        }
-        .onChange(of: trackName) { _ in
-            if playCount == nil {
-                fetchPlayCount()
-            }
-        }
-    }
-    
-    func fetchPlayCount() {
-        guard let primary = defaults.primaryService else {
-            print("🎵 [TrackInfo] No primary service found")
-            return
-        }
-        
-        print("🎵 [TrackInfo] fetchPlayCount for '\(trackName)' by '\(artist)' - service: \(primary.service)")
-        
-        // For Last.fm, fetch from API
-        if primary.service == .lastfm {
-            guard let client = serviceManager.client(for: .lastfm) else {
-                print("🎵 [TrackInfo] No Last.fm client found")
-                return
-            }
-            Task {
-                let count = try? await client.getTrackUserPlaycount(token: primary.token, artist: artist, track: trackName)
-                print("🎵 [TrackInfo] Last.fm playcount result: \(count?.description ?? "nil")")
-                await MainActor.run {
-                    playCount = count
-                }
-            }
-        }
-        // For ListenBrainz, fetch from cache
-        else if primary.service == .listenbrainz {
-            print("🎵 [TrackInfo] Using ListenBrainz, getting client...")
-            guard let lbClient = serviceManager.client(for: .listenbrainz) as? ListenBrainzClient else {
-                print("🎵 [TrackInfo] Failed to get ListenBrainzClient")
-                return
-            }
-            print("🎵 [TrackInfo] Got LB client, username: \(primary.username)")
-            Task {
-                do {
-                    // First try to populate cache if not already done
-                    print("🎵 [TrackInfo] Populating cache...")
-                    try await lbClient.populatePlayCountCache(username: primary.username)
-                    
-                    // Then get cached playcount
-                    print("🎵 [TrackInfo] Getting cached playcount...")
-                    let count = lbClient.getCachedPlayCount(username: primary.username, artist: artist, track: trackName)
-                    print("🎵 [TrackInfo] ListenBrainz playcount result: \(count?.description ?? "nil")")
-                    await MainActor.run {
-                        playCount = count
-                        print("🎵 [TrackInfo] Updated UI with playcount: \(count?.description ?? "nil")")
-                    }
-                } catch {
-                    print("🎵 [TrackInfo] Error fetching ListenBrainz playcount: \(error)")
-                }
-            }
-        }
     }
     
     // Fallback URL builders for NowPlaying (when URLs not pre-built)

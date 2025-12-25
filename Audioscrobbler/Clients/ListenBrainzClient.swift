@@ -8,9 +8,11 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
     }
     
     // Cache for recording playcounts
-    @MainActor private var playCountCache: [String: [String: Int]] = [:] // username -> [artist|track -> count]
-    @MainActor private var cacheExpiry: [String: Date] = [:]
-    private let cacheValidityDuration: TimeInterval = 300 // 5 minutes
+    private var playCountCache: [String: [String: Int]] = [:] // username -> [artist|track -> count]
+    private var cacheExpiry: [String: Date] = [:]
+    private let cacheValidityDuration: TimeInterval = 3600 // 1 hour (longer since we're caching more)
+    private let cacheLock = NSLock()
+    private var backgroundFetchTasks: [String: Task<Void, Never>] = [:]
     
     var baseURL: URL { URL(string: "https://api.listenbrainz.org/1/")! }
     var authURL: String { "https://listenbrainz.org/settings/" }
@@ -162,6 +164,15 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
     // MARK: - Profile Data
     
     func getRecentTracks(username: String, limit: Int, page: Int, token: String?) async throws -> [RecentTrack] {
+        // Populate cache first (only on first page)
+        if page == 1 {
+            do {
+                try await populatePlayCountCache(username: username)
+            } catch {
+                print("⚠️ [ListenBrainz] Failed to populate cache: \(error)")
+            }
+        }
+        
         let offset = (page - 1) * limit
         let encodedUsername = username.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? username
         var components = URLComponents(url: baseURL.appendingPathComponent("user/\(encodedUsername)/listens"), resolvingAgainstBaseURL: false)!
@@ -175,63 +186,34 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         let payload = json?["payload"] as? [String: Any]
         let listens = payload?["listens"] as? [[String: Any]] ?? []
         
-        // Fetch playcounts in parallel for all tracks with recording_mbid
-        return try await withThrowingTaskGroup(of: RecentTrack?.self) { group in
-            for listen in listens {
-                group.addTask {
-                    guard let metadata = listen["track_metadata"] as? [String: Any],
-                          let artist = metadata["artist_name"] as? String,
-                          let name = metadata["track_name"] as? String else { return nil }
-                    
-                    let album = metadata["release_name"] as? String ?? ""
-                    let imageUrl = self.extractCoverArtUrl(from: metadata)
-                    let (artistMbid, releaseMbid, recordingMbid) = self.extractMbids(from: metadata)
-                    
-                    // Fetch playcount if we have recording_mbid
-                    let playcount = try? await self.getPlaycountForRecording(username: username, recordingMbid: recordingMbid)
-                    
-                    return RecentTrack(
-                        name: name,
-                        artist: artist,
-                        album: album,
-                        date: listen["listened_at"] as? Int,
-                        isNowPlaying: false,
-                        loved: false,
-                        imageUrl: imageUrl,
-                        artistURL: self.artistURL(artist: artist, mbid: artistMbid),
-                        albumURL: self.albumURL(artist: artist, album: album, mbid: releaseMbid),
-                        trackURL: self.trackURL(artist: artist, track: name, mbid: recordingMbid),
-                        playcount: playcount
-                    )
-                }
-            }
+        return listens.compactMap { listen in
+            guard let metadata = listen["track_metadata"] as? [String: Any],
+                  let artist = metadata["artist_name"] as? String,
+                  let name = metadata["track_name"] as? String else { return nil }
             
-            var tracks: [RecentTrack] = []
-            for try await track in group {
-                if let track = track {
-                    tracks.append(track)
-                }
-            }
-            return tracks
+            let album = metadata["release_name"] as? String ?? ""
+            let imageUrl = extractCoverArtUrl(from: metadata)
+            let (artistMbid, releaseMbid, recordingMbid) = extractMbids(from: metadata)
+            
+            // Get playcount from cache (top 1000 all-time tracks only)
+            let playcount = getCachedPlayCount(username: username, artist: artist, track: name)
+            
+            return RecentTrack(
+                name: name,
+                artist: artist,
+                album: album,
+                date: listen["listened_at"] as? Int,
+                isNowPlaying: false,
+                loved: false,
+                imageUrl: imageUrl,
+                artistURL: artistURL(artist: artist, mbid: artistMbid),
+                albumURL: albumURL(artist: artist, album: album, mbid: releaseMbid),
+                trackURL: trackURL(artist: artist, track: name, mbid: recordingMbid),
+                playcount: playcount
+            )
         }
     }
     
-    private func getPlaycountForRecording(username: String, recordingMbid: String?) async throws -> Int? {
-        guard let mbid = recordingMbid else { return nil }
-        
-        let encodedUsername = username.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? username
-        var components = URLComponents(url: baseURL.appendingPathComponent("user/\(encodedUsername)/listens"), resolvingAgainstBaseURL: false)!
-        components.queryItems = [
-            URLQueryItem(name: "count", value: "1"),
-            URLQueryItem(name: "recording_mbid", value: mbid)
-        ]
-        
-        let (data, _) = try await URLSession.shared.data(from: components.url!)
-        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-        let payload = json?["payload"] as? [String: Any]
-        
-        return payload?["total_count"] as? Int
-    }
     
     func getUserStats(username: String) async throws -> UserStats? {
         let encodedUsername = username.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? username
@@ -424,30 +406,8 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
     // MARK: - Track Playcount
     
     func getTrackPlaycount(username: String, artist: String, track: String, recordingMbid: String?) async throws -> Int? {
-        // If we have a recording_mbid, query listens filtered by it
-        guard let mbid = recordingMbid else {
-            // No MBID available - fall back to cache
-            return await getCachedPlayCount(username: username, artist: artist, track: track)
-        }
-        
-        // Query listens filtered by recording_mbid
-        var components = URLComponents(url: baseURL.appendingPathComponent("user/\(username)/listens"), resolvingAgainstBaseURL: false)!
-        components.queryItems = [
-            URLQueryItem(name: "count", value: "1"),
-            URLQueryItem(name: "recording_mbid", value: mbid)
-        ]
-        
-        let (data, _) = try await URLSession.shared.data(from: components.url!)
-        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-        let payload = json?["payload"] as? [String: Any]
-        
-        // The total_count field tells us how many listens match
-        if let totalCount = payload?["total_count"] as? Int {
-            return totalCount
-        }
-        
-        // Fallback to cache if API doesn't return count
-        return await getCachedPlayCount(username: username, artist: artist, track: track)
+        // Use cache only - ListenBrainz doesn't provide per-track playcount API
+        return getCachedPlayCount(username: username, artist: artist, track: track)
     }
     
     func getTrackUserPlaycount(token: String, artist: String, track: String) async throws -> Int? {
@@ -472,43 +432,431 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
     }
     
     // Helper method to populate playcount cache - should be called when loading profile/history
-    @MainActor func populatePlayCountCache(username: String) async throws {
-        print("🎵 [ListenBrainz] populatePlayCountCache called for username: \(username)")
+    func populatePlayCountCache(username: String) async throws {
+        print("🎵 [ListenBrainz] ========== populatePlayCountCache TRIGGERED ==========")
+        print("🎵 [ListenBrainz] Username: \(username)")
+        print("🎵 [ListenBrainz] Called from: app visibility or profile load")
         
-        // Check if cache is still valid
-        if let expiry = cacheExpiry[username], Date() < expiry {
-            print("🎵 [ListenBrainz] Cache still valid, skipping fetch. Entries: \(playCountCache[username]?.count ?? 0)")
+        // Try to load from disk first
+        if let (cachedCounts, continueFromTs, completedAt) = loadCacheFromDisk(username: username) {
+            cacheLock.lock()
+            playCountCache[username] = cachedCounts
+            cacheExpiry[username] = Date().addingTimeInterval(cacheValidityDuration)
+            cacheLock.unlock()
+            print("🎵 [ListenBrainz] ✅ Loaded \(cachedCounts.count) tracks from disk")
+            
+            // Check if we need to continue fetching
+            if let continueFrom = continueFromTs {
+                print("🎵 [ListenBrainz] ⚠️ INCOMPLETE FETCH - will resume from timestamp \(continueFrom)")
+                print("🎵 [ListenBrainz] Starting background task to continue...")
+                startBackgroundCacheFetch(username: username, continueFrom: continueFrom)
+            } else if let completedAt = completedAt {
+                // Cache is complete, but check if we need to fetch NEW listens
+                let age = Date().timeIntervalSince1970 - completedAt
+                if age > 300 { // 5 minutes
+                    let minTs = Int(completedAt) + 1 // Start from 1 second after completion
+                    print("🎵 [ListenBrainz] 🔄 Cache is \(Int(age/60))min old (>5min threshold)")
+                    print("🎵 [ListenBrainz] 🚀 AUTO-TRIGGERING incremental update from timestamp \(minTs)")
+                    startIncrementalUpdate(username: username, since: minTs)
+                } else {
+                    print("🎵 [ListenBrainz] ✅ Cache is FRESH (\(Int(age))s old, <5min threshold)")
+                }
+            } else {
+                print("🎵 [ListenBrainz] ✅ Cache is COMPLETE (all history fetched)")
+            }
             return
         }
         
-        print("🎵 [ListenBrainz] Fetching top 1000 recordings...")
-        let topTracks = try await getTopTracks(username: username, period: "all_time", limit: 1000)
-        print("🎵 [ListenBrainz] Fetched \(topTracks.count) tracks")
+        print("🎵 [ListenBrainz] No cache on disk, will fetch from beginning")
+        
+        // Check if cache is still valid in memory
+        cacheLock.lock()
+        if let expiry = cacheExpiry[username], Date() < expiry {
+            let count = playCountCache[username]?.count ?? 0
+            cacheLock.unlock()
+            print("🎵 [ListenBrainz] Cache still valid, skipping fetch. Entries: \(count)")
+            return
+        }
+        cacheLock.unlock()
+        
+        // Fetch first page quickly for immediate use
+        print("🎵 [ListenBrainz] Fetching first page (1000 tracks) for immediate use...")
+        let firstPage = try await getTopTracksWithOffset(
+            username: username,
+            period: "all_time",
+            limit: 1000,
+            offset: 0
+        )
         
         var cache: [String: Int] = [:]
-        for track in topTracks {
+        for track in firstPage {
             let key = "\(normalizeForCache(track.artist))|\(normalizeForCache(track.name))"
             cache[key] = track.playcount
-            if cache.count <= 5 {
-                print("🎵 [ListenBrainz] Cache entry: \(key) -> \(track.playcount)")
+        }
+        
+        cacheLock.lock()
+        playCountCache[username] = cache
+        cacheExpiry[username] = Date().addingTimeInterval(cacheValidityDuration)
+        cacheLock.unlock()
+        print("🎵 [ListenBrainz] Initial cache populated with \(cache.count) entries")
+        
+        // Start background fetch from beginning
+        startBackgroundCacheFetch(username: username, continueFrom: nil)
+    }
+    
+    private func startBackgroundCacheFetch(username: String, continueFrom: Int?) {
+        // Check if task already running (DUPLICATE PREVENTION)
+        if let existingTask = backgroundFetchTasks[username], !existingTask.isCancelled {
+            print("⏸️ [ListenBrainz] ⚠️ DUPLICATE PREVENTED: Background task already running for \(username)")
+            return
+        }
+        
+        // Cancel any cancelled task
+        backgroundFetchTasks[username]?.cancel()
+        
+        // Start new background task
+        print("🎵 [ListenBrainz] 🚀 Starting background fetch task")
+        let task = Task {
+            await fetchAllPagesInBackground(username: username, continueFrom: continueFrom)
+        }
+        backgroundFetchTasks[username] = task
+    }
+    
+    private func startIncrementalUpdate(username: String, since: Int) {
+        // Check if task already running (DUPLICATE PREVENTION)
+        if let existingTask = backgroundFetchTasks[username], !existingTask.isCancelled {
+            print("⏸️ [ListenBrainz] ⚠️ DUPLICATE PREVENTED: Background task already running for \(username)")
+            return
+        }
+        
+        // Cancel any cancelled task
+        backgroundFetchTasks[username]?.cancel()
+        
+        // Start incremental update task
+        print("🎵 [ListenBrainz] 🚀 Starting incremental update task")
+        let task = Task {
+            await fetchNewListens(username: username, since: since)
+        }
+        backgroundFetchTasks[username] = task
+    }
+    
+    private func fetchNewListens(username: String, since: Int) async {
+        print("🎵 [ListenBrainz] ========== INCREMENTAL UPDATE STARTED ==========")
+        print("🎵 [ListenBrainz] Fetching NEW listens since timestamp: \(since)")
+        
+        // Load existing cache
+        cacheLock.lock()
+        var playcounts: [String: Int] = playCountCache[username] ?? [:]
+        cacheLock.unlock()
+        
+        let perPage = 1000
+        var totalNewListens = 0
+        
+        do {
+            let encodedUsername = username.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? username
+            var components = URLComponents(url: baseURL.appendingPathComponent("user/\(encodedUsername)/listens"), resolvingAgainstBaseURL: false)!
+            
+            components.queryItems = [
+                URLQueryItem(name: "count", value: "\(perPage)"),
+                URLQueryItem(name: "min_ts", value: "\(since)")
+            ]
+            
+            let (data, _) = try await URLSession.shared.data(from: components.url!)
+            let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+            let payload = json?["payload"] as? [String: Any]
+            let listens = payload?["listens"] as? [[String: Any]] ?? []
+            
+            print("🎵 [ListenBrainz] Found \(listens.count) new listens")
+            
+            // Count new listens
+            for listen in listens {
+                guard let metadata = listen["track_metadata"] as? [String: Any],
+                      let artist = metadata["artist_name"] as? String,
+                      let name = metadata["track_name"] as? String else { continue }
+                
+                let key = "\(normalizeForCache(artist))|\(normalizeForCache(name))"
+                playcounts[key, default: 0] += 1
+                totalNewListens += 1
+            }
+            
+            print("🎵 [ListenBrainz] Added \(totalNewListens) new listens, total unique tracks: \(playcounts.count)")
+            
+            // Update cache
+            cacheLock.lock()
+            playCountCache[username] = playcounts
+            cacheLock.unlock()
+            
+            // Save updated cache with new completion time
+            let newCompletionTimestamp = Date().timeIntervalSince1970
+            saveCacheToDisk(username: username, cache: playcounts, continueFromTs: nil, completedAt: newCompletionTimestamp)
+            
+            print("🎵 [ListenBrainz] ✅ Incremental update complete, cache updated")
+            print("🎵 [ListenBrainz] ========================================")
+        } catch {
+            print("⚠️ [ListenBrainz] Error during incremental update: \(error)")
+        }
+        
+        // Clean up task reference
+        backgroundFetchTasks.removeValue(forKey: username)
+    }
+    
+    private func fetchAllPagesInBackground(username: String, continueFrom: Int?) async {
+        print("🎵 [ListenBrainz] ========== BACKGROUND LISTENS FETCH STARTED ==========")
+        if let continueFrom = continueFrom {
+            print("🎵 [ListenBrainz] Resuming from timestamp: \(continueFrom)")
+        } else {
+            print("🎵 [ListenBrainz] Starting from beginning")
+        }
+        print("🎵 [ListenBrainz] Username: \(username)")
+        
+        // Load existing cache
+        cacheLock.lock()
+        var playcounts: [String: Int] = playCountCache[username] ?? [:]
+        cacheLock.unlock()
+        
+        let perPage = 1000
+        var maxTs: Int? = continueFrom // Start from where we left off
+        var totalListens = 0
+        var page = 0
+        
+        while true {
+            // Check if task was cancelled
+            if Task.isCancelled {
+                print("🎵 [ListenBrainz] Background fetch cancelled at page \(page + 1)")
+                return
+            }
+            
+            page += 1
+            print("🎵 [ListenBrainz] Fetching listens page \(page) (max_ts: \(maxTs?.description ?? "none"), count: \(perPage))")
+            
+            do {
+                let encodedUsername = username.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? username
+                var components = URLComponents(url: baseURL.appendingPathComponent("user/\(encodedUsername)/listens"), resolvingAgainstBaseURL: false)!
+                
+                var queryItems = [URLQueryItem(name: "count", value: "\(perPage)")]
+                if let maxTs = maxTs {
+                    queryItems.append(URLQueryItem(name: "max_ts", value: "\(maxTs)"))
+                }
+                components.queryItems = queryItems
+                
+                let (data, _) = try await URLSession.shared.data(from: components.url!)
+                let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+                let payload = json?["payload"] as? [String: Any]
+                let listens = payload?["listens"] as? [[String: Any]] ?? []
+                
+                print("🎵 [ListenBrainz] Page \(page): Received \(listens.count) listens")
+                
+                if listens.isEmpty {
+                    print("🎵 [ListenBrainz] No more listens, stopping")
+                    break
+                }
+                
+                // Count each track
+                for listen in listens {
+                    guard let metadata = listen["track_metadata"] as? [String: Any],
+                          let artist = metadata["artist_name"] as? String,
+                          let name = metadata["track_name"] as? String else { continue }
+                    
+                    let key = "\(normalizeForCache(artist))|\(normalizeForCache(name))"
+                    playcounts[key, default: 0] += 1
+                }
+                
+                totalListens += listens.count
+                
+                // Get the oldest timestamp for next page (go backwards through history)
+                if let lastListen = listens.last,
+                   let timestamp = lastListen["listened_at"] as? Int {
+                    maxTs = timestamp
+                }
+                
+                print("🎵 [ListenBrainz] Total listens processed: \(totalListens), unique tracks: \(playcounts.count)")
+                
+                // Update memory cache
+                cacheLock.lock()
+                playCountCache[username] = playcounts
+                cacheLock.unlock()
+                
+                // Save progress to disk every 5 pages (more frequent saves)
+                if page % 5 == 0 {
+                    saveCacheToDisk(username: username, cache: playcounts, continueFromTs: maxTs, completedAt: nil)
+                    print("🎵 [ListenBrainz] 💾 Progress saved to disk (page \(page), can resume from ts \(maxTs ?? 0))")
+                }
+                
+                // Safety limit: Stop after 100 pages (100,000 listens) to avoid excessive processing
+                if page >= 100 {
+                    print("🎵 [ListenBrainz] Reached page limit (100 pages), stopping")
+                    break
+                }
+                
+                // Small delay to avoid rate limiting
+                try? await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
+            } catch {
+                print("⚠️ [ListenBrainz] Error fetching page \(page): \(error.localizedDescription)")
+                print("⚠️ [ListenBrainz] Error details: \(error)")
+                break
             }
         }
         
-        playCountCache[username] = cache
+        print("🎵 [ListenBrainz] ========== BACKGROUND FETCH COMPLETE ==========")
+        print("🎵 [ListenBrainz] Total pages fetched: \(page)")
+        print("🎵 [ListenBrainz] Total listens processed: \(totalListens)")
+        print("🎵 [ListenBrainz] Unique tracks with playcounts: \(playcounts.count)")
+        
+        cacheLock.lock()
+        playCountCache[username] = playcounts
         cacheExpiry[username] = Date().addingTimeInterval(cacheValidityDuration)
-        print("🎵 [ListenBrainz] Cache populated with \(cache.count) entries")
+        cacheLock.unlock()
+        
+        // Save final complete cache to disk (no continueFromTs = complete)
+        let completionTimestamp = Date().timeIntervalSince1970
+        saveCacheToDisk(username: username, cache: playcounts, continueFromTs: nil, completedAt: completionTimestamp)
+        
+        print("🎵 [ListenBrainz] ✅ COMPLETE cache saved to disk (continue_from_ts: null, completed_at: \(Int(completionTimestamp)))")
+        print("🎵 [ListenBrainz] ========================================")
+        
+        // Clean up task reference
+        backgroundFetchTasks.removeValue(forKey: username)
+    }
+    
+    private func getCacheFilePath(username: String) -> URL? {
+        guard let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            return nil
+        }
+        
+        let audioscrobblerDir = appSupport.appendingPathComponent("Audioscrobbler", isDirectory: true)
+        
+        // Create directory if it doesn't exist
+        try? FileManager.default.createDirectory(at: audioscrobblerDir, withIntermediateDirectories: true)
+        
+        return audioscrobblerDir.appendingPathComponent("listenbrainz_cache_\(username).json")
+    }
+    
+    private func saveCacheToDisk(username: String, cache: [String: Int], continueFromTs: Int?, completedAt: TimeInterval?) {
+        guard let filePath = getCacheFilePath(username: username) else {
+            print("⚠️ [ListenBrainz] Could not get cache file path")
+            return
+        }
+        
+        var cacheData: [String: Any] = [
+            "username": username,
+            "save_timestamp": Date().timeIntervalSince1970,
+            "continue_from_ts": continueFromTs as Any, // nil = complete, Int = needs to continue
+            "data": cache
+        ]
+        
+        // Add completion timestamp if fetch is complete
+        if let completedAt = completedAt {
+            cacheData["completed_at"] = completedAt
+        }
+        
+        do {
+            let data = try JSONSerialization.data(withJSONObject: cacheData, options: [.prettyPrinted])
+            try data.write(to: filePath)
+            
+            // Get file size for logging
+            let attrs = try FileManager.default.attributesOfItem(atPath: filePath.path)
+            let fileSize = attrs[.size] as? Int ?? 0
+            let sizeMB = Double(fileSize) / 1_048_576.0
+            print("🎵 [ListenBrainz] Cache saved to file (\(String(format: "%.2f", sizeMB)) MB)")
+        } catch {
+            print("⚠️ [ListenBrainz] Failed to save cache: \(error)")
+        }
+    }
+    
+    private func loadCacheFromDisk(username: String) -> ([String: Int], Int?, TimeInterval?)? {
+        guard let filePath = getCacheFilePath(username: username) else {
+            return nil
+        }
+        
+        guard FileManager.default.fileExists(atPath: filePath.path) else {
+            return nil
+        }
+        
+        do {
+            let data = try Data(contentsOf: filePath)
+            guard let cacheData = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let saveTimestamp = cacheData["save_timestamp"] as? TimeInterval,
+                  let cache = cacheData["data"] as? [String: Int] else {
+                return nil
+            }
+            
+            // Check if cache is too old (more than 7 days)
+            let age = Date().timeIntervalSince1970 - saveTimestamp
+            if age > 604800 { // 7 days
+                print("🎵 [ListenBrainz] Cache file too old (\(Int(age/86400)) days), ignoring")
+                // Delete old file
+                try? FileManager.default.removeItem(at: filePath)
+                return nil
+            }
+            
+            // Get file size for logging
+            let attrs = try FileManager.default.attributesOfItem(atPath: filePath.path)
+            let fileSize = attrs[.size] as? Int ?? 0
+            let sizeMB = Double(fileSize) / 1_048_576.0
+            
+            let continueFromTs = cacheData["continue_from_ts"] as? Int
+            let completedAt = cacheData["completed_at"] as? TimeInterval
+            
+            // Enhanced logging
+            if let completedAt = completedAt {
+                let completedDate = Date(timeIntervalSince1970: completedAt)
+                let age = Date().timeIntervalSince1970 - completedAt
+                print("🎵 [ListenBrainz] Loaded cache from file (\(String(format: "%.2f", sizeMB)) MB, completed: \(completedDate), age: \(Int(age))s)")
+            } else if continueFromTs != nil {
+                print("🎵 [ListenBrainz] Loaded cache from file (\(String(format: "%.2f", sizeMB)) MB, IN PROGRESS)")
+            } else {
+                print("🎵 [ListenBrainz] Loaded cache from file (\(String(format: "%.2f", sizeMB)) MB, status unknown)")
+            }
+            
+            return (cache, continueFromTs, completedAt)
+        } catch {
+            print("⚠️ [ListenBrainz] Failed to load cache: \(error)")
+            return nil
+        }
+    }
+    
+    private func getTopTracksWithOffset(username: String, period: String, limit: Int, offset: Int) async throws -> [TopTrack] {
+        let range = convertPeriodToRange(period)
+        let encodedUsername = username.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? username
+        var components = URLComponents(url: baseURL.appendingPathComponent("stats/user/\(encodedUsername)/recordings"), resolvingAgainstBaseURL: false)!
+        components.queryItems = [
+            URLQueryItem(name: "range", value: range),
+            URLQueryItem(name: "count", value: "\(limit)"),
+            URLQueryItem(name: "offset", value: "\(offset)")
+        ]
+        
+        let (data, _) = try await URLSession.shared.data(from: components.url!)
+        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        let payload = json?["payload"] as? [String: Any]
+        let recordings = payload?["recordings"] as? [[String: Any]] ?? []
+        
+        return recordings.compactMap { recording in
+            guard let name = recording["track_name"] as? String,
+                  let artist = recording["artist_name"] as? String,
+                  let count = recording["listen_count"] as? Int else { return nil }
+            
+            let imageUrl = (recording["release_mbid"] as? String).flatMap { mbid in
+                "https://coverartarchive.org/release/\(mbid)/front-250"
+            }
+            
+            return TopTrack(artist: artist, name: name, playcount: count, imageUrl: imageUrl)
+        }
     }
     
     // Method to lookup playcount from cache
-    @MainActor func getCachedPlayCount(username: String, artist: String, track: String) -> Int? {
+    func getCachedPlayCount(username: String, artist: String, track: String) -> Int? {
         let normalizedArtist = normalizeForCache(artist)
         let normalizedTrack = normalizeForCache(track)
         let key = "\(normalizedArtist)|\(normalizedTrack)"
-        let count = playCountCache[username]?[key]
         
-        if count == nil && playCountCache[username] != nil {
+        cacheLock.lock()
+        let count = playCountCache[username]?[key]
+        let cache = playCountCache[username]
+        cacheLock.unlock()
+        
+        if count == nil && cache != nil {
             // Try to find similar keys for debugging
-            let similarKeys = playCountCache[username]?.keys.filter { cacheKey in
+            let similarKeys = cache?.keys.filter { cacheKey in
                 cacheKey.contains(normalizedArtist.prefix(10)) || cacheKey.contains(normalizedTrack.prefix(10))
             }.prefix(3)
             
@@ -517,7 +865,7 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
             } else {
                 print("🎵 [ListenBrainz] No match for '\(key)' and no similar keys found")
             }
-        } else {
+        } else if count != nil {
             print("🎵 [ListenBrainz] Found playcount for '\(key)': \(count ?? 0)")
         }
         
