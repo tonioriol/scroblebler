@@ -8,8 +8,6 @@
 import Foundation
 import CryptoKit
 
-typealias ProtocolRecentTrack = Audioscrobbler.RecentTrack
-
 class LastFmClient: ObservableObject, ScrobbleClient {
     public enum WSError: Error {
         case HTTPError(Data, HTTPURLResponse)
@@ -135,8 +133,8 @@ class LastFmClient: ObservableObject, ScrobbleClient {
             }
         }
         
-        func toProtocolType() -> ProtocolRecentTrack {
-            return ProtocolRecentTrack(
+        func toDomainType() -> Audioscrobbler.RecentTrack {
+            return Audioscrobbler.RecentTrack(
                 name: name,
                 artist: artist,
                 album: album,
@@ -608,7 +606,7 @@ class LastFmClient: ObservableObject, ScrobbleClient {
         ])
     }
     
-    func getRecentTracks(username: String, limit: Int, page: Int) async throws -> [ProtocolRecentTrack] {
+    func getRecentTracks(username: String, limit: Int, page: Int) async throws -> [Audioscrobbler.RecentTrack] {
         print("✅ LastFmClient.getRecentTracks called!")
         let data = try await executeRequestWithRetry(method: "user.getRecentTracks", args: [
             "user": username,
@@ -617,7 +615,7 @@ class LastFmClient: ObservableObject, ScrobbleClient {
         ])
         let response: RecentTracksResponse = try decodeJSON(data)
         print("API returned \(response.tracks.count) tracks total")
-        return response.tracks.filter { !$0.isNowPlaying }.map { $0.toProtocolType() }
+        return response.tracks.filter { !$0.isNowPlaying }.map { $0.toDomainType() }
     }
     
     func getTrackUserPlaycount(token: String, artist: String, track: String) async throws -> Int? {

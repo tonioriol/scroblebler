@@ -10,10 +10,10 @@ import SwiftUI
 struct ProfileView: View {
     @EnvironmentObject var defaults: Defaults
     @EnvironmentObject var serviceManager: ServiceManager
-    @State private var userStats: UserStats?
-    @State private var topArtists: [TopArtist] = []
-    @State private var topAlbums: [TopAlbum] = []
-    @State private var topTracks: [TopTrack] = []
+    @State private var userStats: Audioscrobbler.UserStats?
+    @State private var topArtists: [Audioscrobbler.TopArtist] = []
+    @State private var topAlbums: [Audioscrobbler.TopAlbum] = []
+    @State private var topTracks: [Audioscrobbler.TopTrack] = []
     @State private var isLoading = true
     @State private var selectedPeriod: String = "7day"
     @Binding var isPresented: Bool
@@ -317,7 +317,7 @@ struct RemoteImage: View {
 }
 
 struct TopArtistRow: View {
-    let artist: TopArtist
+    let artist: Audioscrobbler.TopArtist
     let rank: Int
     
     var body: some View {
@@ -362,7 +362,7 @@ struct TopArtistRow: View {
 }
 
 struct TopAlbumCard: View {
-    let album: TopAlbum
+    let album: Audioscrobbler.TopAlbum
     
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -404,7 +404,7 @@ struct TopAlbumCard: View {
 }
 
 struct TopTrackRow: View {
-    let track: TopTrack
+    let track: Audioscrobbler.TopTrack
     let rank: Int
     
     var body: some View {

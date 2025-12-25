@@ -16,7 +16,7 @@ struct MainView: View {
     @State var showProfileView: Bool = false
     @State var loginService: ScrobbleService?
     @State var tokenInput: String = ""
-    @State var recentTracks: [RecentTrack] = []
+    @State var recentTracks: [Audioscrobbler.RecentTrack] = []
     @State var trackPlayCounts: [String: Int] = [:]
     @State var currentPage = 1
     @State var isLoadingMore = false
@@ -252,7 +252,7 @@ struct MainView: View {
         }
     }
     
-    func fetchPlayCountsForTracks(_ tracks: [RecentTrack], token: String, service: ScrobbleService) async {
+    func fetchPlayCountsForTracks(_ tracks: [Audioscrobbler.RecentTrack], token: String, service: ScrobbleService) async {
         guard let client = serviceManager.client(for: service) else {
             print("❌ fetchPlayCounts: No client for \(service.displayName)")
             return

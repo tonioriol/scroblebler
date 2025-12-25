@@ -16,12 +16,12 @@ protocol ScrobbleClient {
     func updateNowPlaying(sessionKey: String, track: Track) async throws
     func scrobble(sessionKey: String, track: Track) async throws
     
-    // Profile methods implemented by each client
-    func getRecentTracks(username: String, limit: Int, page: Int) async throws -> [RecentTrack]
-    func getUserStats(username: String) async throws -> UserStats?
-    func getTopArtists(username: String, period: String, limit: Int) async throws -> [TopArtist]
-    func getTopAlbums(username: String, period: String, limit: Int) async throws -> [TopAlbum]
-    func getTopTracks(username: String, period: String, limit: Int) async throws -> [TopTrack]
+    // Profile methods - return types from Audioscrobbler namespace
+    func getRecentTracks(username: String, limit: Int, page: Int) async throws -> [Audioscrobbler.RecentTrack]
+    func getUserStats(username: String) async throws -> Audioscrobbler.UserStats?
+    func getTopArtists(username: String, period: String, limit: Int) async throws -> [Audioscrobbler.TopArtist]
+    func getTopAlbums(username: String, period: String, limit: Int) async throws -> [Audioscrobbler.TopAlbum]
+    func getTopTracks(username: String, period: String, limit: Int) async throws -> [Audioscrobbler.TopTrack]
     func getTrackUserPlaycount(token: String, artist: String, track: String) async throws -> Int?
 }
 
@@ -35,59 +35,4 @@ extension ScrobbleClient {
         // Optional - not all services support this
         return nil
     }
-}
-
-// Data types for profile features (mainly used by Last.fm)
-struct RecentTrack: Codable {
-    let name: String
-    let artist: String
-    let album: String
-    let date: Int?
-    let isNowPlaying: Bool
-    let loved: Bool
-    let imageUrl: String?
-    
-    init(name: String, artist: String, album: String, date: Int?, isNowPlaying: Bool, loved: Bool, imageUrl: String?) {
-        self.name = name
-        self.artist = artist
-        self.album = album
-        self.date = date
-        self.isNowPlaying = isNowPlaying
-        self.loved = loved
-        self.imageUrl = imageUrl
-    }
-}
-
-struct UserStats: Codable {
-    let playcount: Int
-    let artistCount: Int
-    let trackCount: Int
-    let albumCount: Int
-    let lovedCount: Int?
-    let registered: String?
-    let country: String?
-    let realname: String?
-    let gender: String?
-    let age: String?
-    let playlistCount: Int?
-}
-
-struct TopArtist: Codable {
-    let name: String
-    let playcount: Int
-    let imageUrl: String?
-}
-
-struct TopAlbum: Codable {
-    let artist: String
-    let name: String
-    let playcount: Int
-    let imageUrl: String?
-}
-
-struct TopTrack: Codable {
-    let artist: String
-    let name: String
-    let playcount: Int
-    let imageUrl: String?
 }

@@ -1,11 +1,11 @@
 import SwiftUI
 
 struct HistoryItemView: View {
-    let track: RecentTrack
+    let track: Audioscrobbler.RecentTrack
     let playCount: Int?
     @State private var loved: Bool
     
-    init(track: RecentTrack, playCount: Int? = nil) {
+    init(track: Audioscrobbler.RecentTrack, playCount: Int? = nil) {
         self.track = track
         self.playCount = playCount
         self._loved = State(initialValue: track.loved)

@@ -22,6 +22,8 @@
 		DA8DE13B292FC577004DC22E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = DA8DE13A292FC577004DC22E /* Assets.xcassets */; };
 		DA8DE13E292FC577004DC22E /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = DA8DE13D292FC577004DC22E /* Preview Assets.xcassets */; };
 		DA8DE146292FCBDC004DC22E /* Watcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA8DE145292FCBDC004DC22E /* Watcher.swift */; };
+		DD000001000000000000001 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		DD000002000000000000001 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000001000000000000001 /* Models.swift */; };
 		DA8F729929315119007920D3 /* Defaults.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA8F729829315119007920D3 /* Defaults.swift */; };
 		DAC4708529315B7200734C24 /* View+NSWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAC4708429315B7200734C24 /* View+NSWindow.swift */; };
 		DAC4708729315EA900734C24 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAC4708629315EA900734C24 /* AppDelegate.swift */; };
@@ -150,6 +152,7 @@
 				DA8DE13C292FC577004DC22E /* Preview Content */,
 				DAC4708629315EA900734C24 /* AppDelegate.swift */,
 				DA8DE145292FCBDC004DC22E /* Watcher.swift */,
+				DD000001000000000000001 /* Models.swift */,
 				DA8F729829315119007920D3 /* Defaults.swift */,
 				DAC47090293166B300734C24 /* main.swift */,
 				DAEF0C3E2933A5010083F9AB /* LaunchAtStartup.swift */,
@@ -288,6 +291,7 @@
 				DA8F729929315119007920D3 /* Defaults.swift in Sources */,
 				DAEF0C3F2933A5010083F9AB /* LaunchAtStartup.swift in Sources */,
 				DA8DE146292FCBDC004DC22E /* Watcher.swift in Sources */,
+				DD000002000000000000001 /* Models.swift in Sources */,
 				DAC4708929315F0500734C24 /* MainContentView.swift in Sources */,
 				DADC426529318B6E00762255 /* View+OnLoad.swift in Sources */,
 				AA1111111111111111111111 /* AlbumArtwork.swift in Sources */,
