@@ -1,5 +1,5 @@
 //
-//  MainContentView.swift
+//  ContentView.swift
 //  Audioscrobbler
 //
 //  Created by Victor Gama on 25/11/2022.
@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-struct MainContentView: View {
+struct ContentView: View {
     @StateObject var watcher = Watcher()
     @StateObject var serviceManager = ServiceManager.shared
     @StateObject var defaults = Defaults.shared
@@ -34,8 +34,8 @@ struct MainContentView: View {
     }
 }
 
-struct MainContentView_Previews: PreviewProvider {
+struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
-        MainContentView()
+        ContentView()
     }
 }

@@ -34,7 +34,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         quitItem.target = self
         contextMenu.addItem(quitItem)
 
-        let contentView = MainContentView()
+        let contentView = ContentView()
         let popover = NSPopover()
         popover.contentSize = NSSize(width: 400, height: 700)
         popover.behavior = .applicationDefined
