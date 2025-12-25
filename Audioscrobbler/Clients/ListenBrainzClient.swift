@@ -7,6 +7,11 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         case serverError(String)
     }
     
+    // Cache for recording playcounts
+    @MainActor private var playCountCache: [String: [String: Int]] = [:] // username -> [artist|track -> count]
+    @MainActor private var cacheExpiry: [String: Date] = [:]
+    private let cacheValidityDuration: TimeInterval = 300 // 5 minutes
+    
     var baseURL: URL { URL(string: "https://api.listenbrainz.org/1/")! }
     var authURL: String { "https://listenbrainz.org/settings/" }
     var linkColor: Color { Color(hue: 0.08, saturation: 0.80, brightness: 0.85) }
@@ -156,9 +161,10 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
     
     // MARK: - Profile Data
     
-    func getRecentTracks(username: String, limit: Int, page: Int) async throws -> [RecentTrack] {
+    func getRecentTracks(username: String, limit: Int, page: Int, token: String?) async throws -> [RecentTrack] {
         let offset = (page - 1) * limit
-        var components = URLComponents(url: baseURL.appendingPathComponent("user/\(username)/listens"), resolvingAgainstBaseURL: false)!
+        let encodedUsername = username.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? username
+        var components = URLComponents(url: baseURL.appendingPathComponent("user/\(encodedUsername)/listens"), resolvingAgainstBaseURL: false)!
         components.queryItems = [
             URLQueryItem(name: "count", value: "\(limit)"),
             URLQueryItem(name: "offset", value: "\(offset)")
@@ -169,32 +175,67 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         let payload = json?["payload"] as? [String: Any]
         let listens = payload?["listens"] as? [[String: Any]] ?? []
         
-        return listens.compactMap { listen in
-            guard let metadata = listen["track_metadata"] as? [String: Any],
-                  let artist = metadata["artist_name"] as? String,
-                  let name = metadata["track_name"] as? String else { return nil }
+        // Fetch playcounts in parallel for all tracks with recording_mbid
+        return try await withThrowingTaskGroup(of: RecentTrack?.self) { group in
+            for listen in listens {
+                group.addTask {
+                    guard let metadata = listen["track_metadata"] as? [String: Any],
+                          let artist = metadata["artist_name"] as? String,
+                          let name = metadata["track_name"] as? String else { return nil }
+                    
+                    let album = metadata["release_name"] as? String ?? ""
+                    let imageUrl = self.extractCoverArtUrl(from: metadata)
+                    let (artistMbid, releaseMbid, recordingMbid) = self.extractMbids(from: metadata)
+                    
+                    // Fetch playcount if we have recording_mbid
+                    let playcount = try? await self.getPlaycountForRecording(username: username, recordingMbid: recordingMbid)
+                    
+                    return RecentTrack(
+                        name: name,
+                        artist: artist,
+                        album: album,
+                        date: listen["listened_at"] as? Int,
+                        isNowPlaying: false,
+                        loved: false,
+                        imageUrl: imageUrl,
+                        artistURL: self.artistURL(artist: artist, mbid: artistMbid),
+                        albumURL: self.albumURL(artist: artist, album: album, mbid: releaseMbid),
+                        trackURL: self.trackURL(artist: artist, track: name, mbid: recordingMbid),
+                        playcount: playcount
+                    )
+                }
+            }
             
-            let album = metadata["release_name"] as? String ?? ""
-            let imageUrl = extractCoverArtUrl(from: metadata)
-            let (artistMbid, releaseMbid, recordingMbid) = extractMbids(from: metadata)
-            
-            return RecentTrack(
-                name: name,
-                artist: artist,
-                album: album,
-                date: listen["listened_at"] as? Int,
-                isNowPlaying: false,
-                loved: false,
-                imageUrl: imageUrl,
-                artistURL: self.artistURL(artist: artist, mbid: artistMbid),
-                albumURL: self.albumURL(artist: artist, album: album, mbid: releaseMbid),
-                trackURL: self.trackURL(artist: artist, track: name, mbid: recordingMbid)
-            )
+            var tracks: [RecentTrack] = []
+            for try await track in group {
+                if let track = track {
+                    tracks.append(track)
+                }
+            }
+            return tracks
         }
     }
     
+    private func getPlaycountForRecording(username: String, recordingMbid: String?) async throws -> Int? {
+        guard let mbid = recordingMbid else { return nil }
+        
+        let encodedUsername = username.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? username
+        var components = URLComponents(url: baseURL.appendingPathComponent("user/\(encodedUsername)/listens"), resolvingAgainstBaseURL: false)!
+        components.queryItems = [
+            URLQueryItem(name: "count", value: "1"),
+            URLQueryItem(name: "recording_mbid", value: mbid)
+        ]
+        
+        let (data, _) = try await URLSession.shared.data(from: components.url!)
+        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        let payload = json?["payload"] as? [String: Any]
+        
+        return payload?["total_count"] as? Int
+    }
+    
     func getUserStats(username: String) async throws -> UserStats? {
-        let url = baseURL.appendingPathComponent("user/\(username)/listen-count")
+        let encodedUsername = username.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? username
+        let url = baseURL.appendingPathComponent("user/\(encodedUsername)/listen-count")
         let (data, _) = try await URLSession.shared.data(from: url)
         let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         let payload = json?["payload"] as? [String: Any]
@@ -217,7 +258,8 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
     
     func getTopArtists(username: String, period: String, limit: Int) async throws -> [TopArtist] {
         let range = convertPeriodToRange(period)
-        var components = URLComponents(url: baseURL.appendingPathComponent("stats/user/\(username)/artists"), resolvingAgainstBaseURL: false)!
+        let encodedUsername = username.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? username
+        var components = URLComponents(url: baseURL.appendingPathComponent("stats/user/\(encodedUsername)/artists"), resolvingAgainstBaseURL: false)!
         components.queryItems = [
             URLQueryItem(name: "range", value: range),
             URLQueryItem(name: "count", value: "\(limit)")
@@ -242,7 +284,8 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
     
     func getTopAlbums(username: String, period: String, limit: Int) async throws -> [TopAlbum] {
         let range = convertPeriodToRange(period)
-        var components = URLComponents(url: baseURL.appendingPathComponent("stats/user/\(username)/releases"), resolvingAgainstBaseURL: false)!
+        let encodedUsername = username.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? username
+        var components = URLComponents(url: baseURL.appendingPathComponent("stats/user/\(encodedUsername)/releases"), resolvingAgainstBaseURL: false)!
         components.queryItems = [
             URLQueryItem(name: "range", value: range),
             URLQueryItem(name: "count", value: "\(limit)")
@@ -268,16 +311,28 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
     
     func getTopTracks(username: String, period: String, limit: Int) async throws -> [TopTrack] {
         let range = convertPeriodToRange(period)
-        var components = URLComponents(url: baseURL.appendingPathComponent("stats/user/\(username)/recordings"), resolvingAgainstBaseURL: false)!
+        let encodedUsername = username.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? username
+        var components = URLComponents(url: baseURL.appendingPathComponent("stats/user/\(encodedUsername)/recordings"), resolvingAgainstBaseURL: false)!
         components.queryItems = [
             URLQueryItem(name: "range", value: range),
             URLQueryItem(name: "count", value: "\(limit)")
         ]
         
+        print("🎵 [ListenBrainz] getTopTracks URL: \(components.url!.absoluteString)")
+        print("🎵 [ListenBrainz] Requesting \(limit) tracks for range: \(range)")
+        
         let (data, _) = try await URLSession.shared.data(from: components.url!)
+        
+        if let jsonString = String(data: data, encoding: .utf8) {
+            let preview = jsonString.prefix(500)
+            print("🎵 [ListenBrainz] Response preview: \(preview)")
+        }
+        
         let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         let payload = json?["payload"] as? [String: Any]
         let recordings = payload?["recordings"] as? [[String: Any]] ?? []
+        
+        print("🎵 [ListenBrainz] Parsed \(recordings.count) recordings from response")
         
         return recordings.compactMap { recording in
             guard let name = recording["track_name"] as? String,
@@ -318,7 +373,8 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         case "1month": return "month"
         case "3month": return "quarter"
         case "12month": return "year"
-        default: return "week"
+        case "all_time": return "all_time"
+        default: return "all_time"
         }
     }
     
@@ -363,5 +419,108 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         }
         
         return (artistMbid, releaseMbid, recordingMbid)
+    }
+    
+    // MARK: - Track Playcount
+    
+    func getTrackPlaycount(username: String, artist: String, track: String, recordingMbid: String?) async throws -> Int? {
+        // If we have a recording_mbid, query listens filtered by it
+        guard let mbid = recordingMbid else {
+            // No MBID available - fall back to cache
+            return await getCachedPlayCount(username: username, artist: artist, track: track)
+        }
+        
+        // Query listens filtered by recording_mbid
+        var components = URLComponents(url: baseURL.appendingPathComponent("user/\(username)/listens"), resolvingAgainstBaseURL: false)!
+        components.queryItems = [
+            URLQueryItem(name: "count", value: "1"),
+            URLQueryItem(name: "recording_mbid", value: mbid)
+        ]
+        
+        let (data, _) = try await URLSession.shared.data(from: components.url!)
+        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        let payload = json?["payload"] as? [String: Any]
+        
+        // The total_count field tells us how many listens match
+        if let totalCount = payload?["total_count"] as? Int {
+            return totalCount
+        }
+        
+        // Fallback to cache if API doesn't return count
+        return await getCachedPlayCount(username: username, artist: artist, track: track)
+    }
+    
+    func getTrackUserPlaycount(token: String, artist: String, track: String) async throws -> Int? {
+        // This method is called by Last.fm compatibility layer
+        // Not directly usable for ListenBrainz without username and mbid
+        return nil
+    }
+    
+    func getTrackLoved(token: String, artist: String, track: String) async throws -> Bool {
+        return false
+    }
+    
+    // Helper to normalize strings for cache keys
+    private func normalizeForCache(_ text: String) -> String {
+        return text
+            .lowercased()
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "\u{200E}", with: "") // Remove left-to-right mark
+            .replacingOccurrences(of: "\u{200F}", with: "") // Remove right-to-left mark
+            .replacingOccurrences(of: "\u{00A0}", with: " ") // Replace non-breaking space
+            .trimmingCharacters(in: .whitespaces)
+    }
+    
+    // Helper method to populate playcount cache - should be called when loading profile/history
+    @MainActor func populatePlayCountCache(username: String) async throws {
+        print("🎵 [ListenBrainz] populatePlayCountCache called for username: \(username)")
+        
+        // Check if cache is still valid
+        if let expiry = cacheExpiry[username], Date() < expiry {
+            print("🎵 [ListenBrainz] Cache still valid, skipping fetch. Entries: \(playCountCache[username]?.count ?? 0)")
+            return
+        }
+        
+        print("🎵 [ListenBrainz] Fetching top 1000 recordings...")
+        let topTracks = try await getTopTracks(username: username, period: "all_time", limit: 1000)
+        print("🎵 [ListenBrainz] Fetched \(topTracks.count) tracks")
+        
+        var cache: [String: Int] = [:]
+        for track in topTracks {
+            let key = "\(normalizeForCache(track.artist))|\(normalizeForCache(track.name))"
+            cache[key] = track.playcount
+            if cache.count <= 5 {
+                print("🎵 [ListenBrainz] Cache entry: \(key) -> \(track.playcount)")
+            }
+        }
+        
+        playCountCache[username] = cache
+        cacheExpiry[username] = Date().addingTimeInterval(cacheValidityDuration)
+        print("🎵 [ListenBrainz] Cache populated with \(cache.count) entries")
+    }
+    
+    // Method to lookup playcount from cache
+    @MainActor func getCachedPlayCount(username: String, artist: String, track: String) -> Int? {
+        let normalizedArtist = normalizeForCache(artist)
+        let normalizedTrack = normalizeForCache(track)
+        let key = "\(normalizedArtist)|\(normalizedTrack)"
+        let count = playCountCache[username]?[key]
+        
+        if count == nil && playCountCache[username] != nil {
+            // Try to find similar keys for debugging
+            let similarKeys = playCountCache[username]?.keys.filter { cacheKey in
+                cacheKey.contains(normalizedArtist.prefix(10)) || cacheKey.contains(normalizedTrack.prefix(10))
+            }.prefix(3)
+            
+            if let similar = similarKeys, !similar.isEmpty {
+                print("🎵 [ListenBrainz] No match for '\(key)', similar keys: \(similar.joined(separator: ", "))")
+            } else {
+                print("🎵 [ListenBrainz] No match for '\(key)' and no similar keys found")
+            }
+        } else {
+            print("🎵 [ListenBrainz] Found playcount for '\(key)': \(count ?? 0)")
+        }
+        
+        return count
     }
 }

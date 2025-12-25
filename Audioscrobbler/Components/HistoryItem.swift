@@ -5,12 +5,10 @@ struct HistoryItem: View {
     @EnvironmentObject var defaults: Defaults
     
     let track: RecentTrack
-    let playCount: Int?
     @State private var loved: Bool
     
-    init(track: RecentTrack, playCount: Int? = nil) {
+    init(track: RecentTrack) {
         self.track = track
-        self.playCount = playCount
         self._loved = State(initialValue: track.loved)
     }
     
@@ -22,7 +20,7 @@ struct HistoryItem: View {
             loved: $loved,
             artworkImageUrl: track.imageUrl,
             timestamp: track.date,
-            playCount: playCount,
+            playCount: track.playcount,
             artistURL: track.artistURL,
             albumURL: track.albumURL,
             trackURL: track.trackURL

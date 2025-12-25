@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import CryptoKit
 import SwiftUI
 
@@ -111,14 +112,46 @@ class LastFmClient: ObservableObject, ScrobbleClient {
     
     // MARK: - Profile Data
     
-    func getRecentTracks(username: String, limit: Int, page: Int) async throws -> [RecentTrack] {
+    func getRecentTracks(username: String, limit: Int, page: Int, token: String?) async throws -> [RecentTrack] {
         let data = try await executeRequestWithRetry(method: "user.getRecentTracks", args: [
             "user": username,
             "limit": String(limit),
             "page": String(page)
         ])
         let response = try JSONDecoder().decode(RecentTracksResponse.self, from: data)
-        return response.recenttracks.track.filter { $0.attr?.nowplaying != "true" }.map { $0.toDomain(client: self) }
+        let baseTracks = response.recenttracks.track.filter { $0.attr?.nowplaying != "true" }.map { $0.toDomain(client: self) }
+        
+        // If we have a token, fetch playcounts in parallel
+        guard let token = token else {
+            return baseTracks
+        }
+        
+        return try await withThrowingTaskGroup(of: (Int, Int?).self) { group in
+            for (index, track) in baseTracks.enumerated() {
+                group.addTask {
+                    let count = try? await self.getTrackUserPlaycount(token: token, artist: track.artist, track: track.name)
+                    return (index, count)
+                }
+            }
+            
+            var tracksCopy = baseTracks
+            for try await (index, count) in group {
+                tracksCopy[index] = RecentTrack(
+                    name: tracksCopy[index].name,
+                    artist: tracksCopy[index].artist,
+                    album: tracksCopy[index].album,
+                    date: tracksCopy[index].date,
+                    isNowPlaying: tracksCopy[index].isNowPlaying,
+                    loved: tracksCopy[index].loved,
+                    imageUrl: tracksCopy[index].imageUrl,
+                    artistURL: tracksCopy[index].artistURL,
+                    albumURL: tracksCopy[index].albumURL,
+                    trackURL: tracksCopy[index].trackURL,
+                    playcount: count
+                )
+            }
+            return tracksCopy
+        }
     }
     
     func getUserStats(username: String) async throws -> UserStats? {
@@ -395,7 +428,8 @@ private extension LastFmClient {
                     imageUrl: image?.last(where: { !$0.text.isEmpty })?.text,
                     artistURL: client.artistURL(artist: artistName, mbid: nil),
                     albumURL: client.albumURL(artist: artistName, album: albumName, mbid: nil),
-                    trackURL: client.trackURL(artist: artistName, track: trackName, mbid: nil)
+                    trackURL: client.trackURL(artist: artistName, track: trackName, mbid: nil),
+                    playcount: nil
                 )
             }
         }

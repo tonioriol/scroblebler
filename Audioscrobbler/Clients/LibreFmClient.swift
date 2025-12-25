@@ -21,8 +21,8 @@ class LibreFmClient: LastFmClient {
         Color(hue: 0.33, saturation: 0.70, brightness: 0.65)
     }
     
-    override func getRecentTracks(username: String, limit: Int, page: Int) async throws -> [RecentTrack] {
-        let tracks = try await super.getRecentTracks(username: username, limit: limit, page: page)
+    override func getRecentTracks(username: String, limit: Int, page: Int, token: String?) async throws -> [RecentTrack] {
+        let tracks = try await super.getRecentTracks(username: username, limit: limit, page: page, token: token)
         // Replace URLs with Libre.fm specific ones
         return tracks.map { track in
             let encodedArtist = track.artist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
@@ -39,7 +39,8 @@ class LibreFmClient: LastFmClient {
                 imageUrl: track.imageUrl,
                 artistURL: URL(string: "https://libre.fm/music/\(encodedArtist)")!,
                 albumURL: URL(string: "https://libre.fm/music/\(encodedArtist)/\(encodedAlbum)")!,
-                trackURL: URL(string: "https://libre.fm/music/\(encodedArtist)/_/\(encodedTrack)")!
+                trackURL: URL(string: "https://libre.fm/music/\(encodedArtist)/_/\(encodedTrack)")!,
+                playcount: track.playcount
             )
         }
     }

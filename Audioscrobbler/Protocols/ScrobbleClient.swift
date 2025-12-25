@@ -13,7 +13,7 @@ protocol ScrobbleClient {
     func updateLove(sessionKey: String, artist: String, track: String, loved: Bool) async throws
     
     // Profile methods
-    func getRecentTracks(username: String, limit: Int, page: Int) async throws -> [RecentTrack]
+    func getRecentTracks(username: String, limit: Int, page: Int, token: String?) async throws -> [RecentTrack]
     func getUserStats(username: String) async throws -> UserStats?
     func getTopArtists(username: String, period: String, limit: Int) async throws -> [TopArtist]
     func getTopAlbums(username: String, period: String, limit: Int) async throws -> [TopAlbum]

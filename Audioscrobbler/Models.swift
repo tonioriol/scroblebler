@@ -13,6 +13,7 @@ struct RecentTrack: Codable {
     let artistURL: URL
     let albumURL: URL
     let trackURL: URL
+    let playcount: Int?
 }
 
 struct UserStats: Codable {

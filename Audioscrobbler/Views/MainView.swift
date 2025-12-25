@@ -10,7 +10,6 @@ struct MainView: View {
     @State private var loginService: ScrobbleService?
     @State private var tokenInput = ""
     @State private var recentTracks: [RecentTrack] = []
-    @State private var trackPlayCounts: [String: Int] = [:]
     @State private var currentPage = 1
     @State private var isLoadingMore = false
     @State private var hasMoreTracks = true
@@ -84,7 +83,7 @@ struct MainView: View {
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 0) {
                             ForEach(Array(recentTracks.enumerated()), id: \.offset) { index, track in
-                                HistoryItem(track: track, playCount: trackPlayCounts["\(track.artist)|\(track.name)"])
+                                HistoryItem(track: track)
                                     .onAppear {
                                         if index == recentTracks.count - 1 && !isLoadingMore && hasMoreTracks {
                                             loadMoreTracks()
@@ -196,8 +195,7 @@ struct MainView: View {
         
         Task {
             do {
-                let tracks = try await client.getRecentTracks(username: primary.username, limit: 20, page: 1)
-                await fetchPlayCountsForTracks(tracks, token: primary.token, service: primary.service)
+                let tracks = try await client.getRecentTracks(username: primary.username, limit: 20, page: 1, token: primary.token)
                 await MainActor.run {
                     recentTracks = tracks
                     hasMoreTracks = tracks.count >= 20
@@ -220,8 +218,7 @@ struct MainView: View {
         
         Task {
             do {
-                let tracks = try await client.getRecentTracks(username: primary.username, limit: 20, page: nextPage)
-                await fetchPlayCountsForTracks(tracks, token: primary.token, service: primary.service)
+                let tracks = try await client.getRecentTracks(username: primary.username, limit: 20, page: nextPage, token: primary.token)
                 await MainActor.run {
                     if !tracks.isEmpty {
                         recentTracks.append(contentsOf: tracks)
@@ -237,28 +234,6 @@ struct MainView: View {
                     isLoadingMore = false
                 }
                 print("Failed to load more tracks: \(error)")
-            }
-        }
-    }
-    
-    private func fetchPlayCountsForTracks(_ tracks: [RecentTrack], token: String, service: ScrobbleService) async {
-        guard let client = serviceManager.client(for: service) else { return }
-        
-        await withTaskGroup(of: (String, Int?).self) { group in
-            for track in tracks {
-                group.addTask {
-                    let key = "\(track.artist)|\(track.name)"
-                    let count = try? await client.getTrackUserPlaycount(token: token, artist: track.artist, track: track.name)
-                    return (key, count)
-                }
-            }
-            
-            for await (key, count) in group {
-                await MainActor.run {
-                    if let count = count {
-                        trackPlayCounts[key] = count
-                    }
-                }
             }
         }
     }
