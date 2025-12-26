@@ -5,14 +5,12 @@ VERSION=$1
 
 echo "Building Scroblebler v$VERSION..."
 
-# Build
+# Build with ad-hoc signing
 xcodebuild -project Scroblebler.xcodeproj \
   -scheme Scroblebler \
   -configuration Release \
   -derivedDataPath build \
-  CODE_SIGN_IDENTITY="" \
-  CODE_SIGNING_REQUIRED=NO \
-  CODE_SIGNING_ALLOWED=NO
+  CODE_SIGN_IDENTITY="-"
 
 # Prepare
 mkdir -p dist
