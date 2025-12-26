@@ -1,0 +1,44 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:audioscrobbler}",
+            "name": "Debug Audioscrobbler",
+            "target": "Audioscrobbler",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug Audioscrobbler"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:audioscrobbler}",
+            "name": "Release Audioscrobbler",
+            "target": "Audioscrobbler",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release Audioscrobbler"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:scroblebler}",
+            "name": "Debug Scroblebler",
+            "target": "Scroblebler",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug Scroblebler"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:scroblebler}",
+            "name": "Release Scroblebler",
+            "target": "Scroblebler",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release Scroblebler"
+        }
+    ]
+}

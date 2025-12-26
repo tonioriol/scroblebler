@@ -1,9 +1,25 @@
-# Audioscrobbler for Apple Music
+# Scroblebler for Apple Music
 
 <img src="imgs/icon.png" height="64" align="right">
 
-Audioscrobbler is a native macOS application capable of scrobbling tracks from Apple Music (even when
+Scroblebler is a native macOS application capable of scrobbling tracks from Apple Music (even when
 they are not in your library).
+
+## Features
+
+- 🎵 **Multiple Scrobbling Services**: Support for Last.fm, ListenBrainz, and Libre.fm
+- ❤️ **Track Loving**: Love/unlove tracks directly from the app
+- 🚫 **Blacklist Management**: Blacklist tracks to prevent unwanted scrobbles
+- ↩️ **Undo Support**: Undo recent scrobbles
+- 📊 **Play Count Display**: View play counts for your tracks
+- 📜 **Listening History**: Browse your recent scrobbles
+- 👤 **Profile View**: View your scrobbling profile information
+- 🎨 **Album Artwork**: Display beautiful album artwork
+- 📱 **Now Playing**: Real-time now playing updates
+- 🔐 **Multiple Authentication Methods**: Token-based and password-based authentication
+- 🎯 **Smart Track Matching**: String similarity algorithms for accurate track matching
+- 🪵 **Comprehensive Logging**: Detailed logging for troubleshooting
+- 🚀 **Launch at Startup**: Automatically start scrobbling when you log in
 
 ## Screenshot
 
@@ -11,12 +27,20 @@ they are not in your library).
 
 ## Installing
 
-Signed and Notarized version is available on the [Releases](https://github.com/heyvito/audioscrobbler/releases) page.
+### Homebrew
+
+```bash
+brew install --cask https://raw.githubusercontent.com/tonioriol/scroblebler/main/scroblebler.rb
+```
+
+### Manual Installation
+
+Signed and Notarized version is available on the [Releases](https://github.com/tonioriol/scroblebler/releases) page.
 
 ## Building
 
 1. Clone this repository
-2. Open `Audioscrobbler.xcodeproj`, and build it.
+2. Open `Scroblebler.xcodeproj`, and build it.
 3. Profit. :)
 
 ## Oh no, you pushed your token and secret!
@@ -32,12 +56,15 @@ on their repository](https://github.com/lastfm/lastfm-desktop/blob/9ae84cf4ab204
 
 - [x] Sign, Notarize & Provide DMG installer
 - [x] Start at Login
+- [ ] Use proper logger
+- [ ] Update the date and the (c) of the new files.
+- [ ] Update the reverse domain.
 - [ ] Offline support
 - [ ] Auto-update
 
 ## License
 
-Last.fm, Audioscrobbler © 2022 Last.fm Ltd. All rights reserved
+Last.fm, Scroblebler © 2022 Last.fm Ltd. All rights reserved
 
 ```
 The MIT License (MIT)
