@@ -41,7 +41,10 @@ Signed and Notarized version is available on the [Releases](https://github.com/t
 
 1. Clone this repository
 2. Open `Scroblebler.xcodeproj`, and build it.
-3. Profit. :)
+
+## Credits
+
+This project is a fork and continuation of the original [Audioscrobbler](https://github.com/heyvito/audioscrobbler) by Victor Gama, with additional features.
 
 ## Oh no, you pushed your token and secret!
 
