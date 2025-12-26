@@ -35,6 +35,43 @@ class ServiceManager: ObservableObject {
         )
     }
     
+    // MARK: - Web Client Setup (for Last.fm deletion)
+    
+    /// Setup Last.fm web client to enable scrobble deletion
+    /// This requires the user's Last.fm password for web authentication
+    func setupLastFmWebClient(password: String) async throws {
+        // Get username from stored Last.fm credentials
+        guard let username = Defaults.shared.credentials(for: .lastfm)?.username else {
+            throw NSError(domain: "ServiceManager", code: 3, userInfo: [NSLocalizedDescriptionKey: "Last.fm not authenticated via API. Please authenticate first."])
+        }
+        
+        guard let lastFmClient = clients[.lastfm] as? LastFmClient else {
+            throw NSError(domain: "ServiceManager", code: 2, userInfo: [NSLocalizedDescriptionKey: "Last.fm client not found"])
+        }
+        
+        try await lastFmClient.authenticateWebClient(username: username, password: password)
+        print("✓ Last.fm web client authenticated for \(username)")
+    }
+    
+    /// Attempt to auto-authenticate web client using stored Keychain password
+    /// Call this on app startup to enable undo functionality automatically
+    func autoAuthenticateLastFmWebClient() async {
+        guard let username = Defaults.shared.credentials(for: .lastfm)?.username else {
+            return // Last.fm not authenticated
+        }
+        
+        do {
+            guard let password = try KeychainHelper.shared.getPassword(username: username) else {
+                return // No stored password
+            }
+            
+            try await setupLastFmWebClient(password: password)
+            print("✓ Auto-authenticated Last.fm web client for \(username)")
+        } catch {
+            print("⚠️ Failed to auto-authenticate Last.fm web client: \(error)")
+        }
+    }
+    
     func updateNowPlaying(credentials: ServiceCredentials, track: Track) async throws {
         guard let client = clients[credentials.service] else { return }
         try await client.updateNowPlaying(sessionKey: credentials.token, track: track)

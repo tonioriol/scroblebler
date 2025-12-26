@@ -42,7 +42,11 @@
 		FF5555555555555555555555 /* ServiceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE5555555555555555555555 /* ServiceManager.swift */; };
 		FF6666666666666666666666 /* WaitingLogin.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE6666666666666666666666 /* WaitingLogin.swift */; };
 		FF7777777777777777777777 /* TokenInputSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE7777777777777777777777 /* TokenInputSheet.swift */; };
+		FF8888888888888888888889 /* PasswordInputSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE8888888888888888888889 /* PasswordInputSheet.swift */; };
+		FF9999999999999999999999 /* PasteableTextFields.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE9999999999999999999999 /* PasteableTextFields.swift */; };
+		KEYC0000000000000000002 /* KeychainHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = KEYC0000000000000000001 /* KeychainHelper.swift */; };
 		SS8888888888888888888888 /* StringSimilarity.swift in Sources */ = {isa = PBXBuildFile; fileRef = SS7777777777777777777777 /* StringSimilarity.swift */; };
+		LFWC0000000000000000002 /* LastFmWebClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = LFWC0000000000000000001 /* LastFmWebClient.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -82,7 +86,11 @@
 		EE5555555555555555555555 /* ServiceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceManager.swift; sourceTree = "<group>"; };
 		EE6666666666666666666666 /* WaitingLogin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaitingLogin.swift; sourceTree = "<group>"; };
 		EE7777777777777777777777 /* TokenInputSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenInputSheet.swift; sourceTree = "<group>"; };
+		EE8888888888888888888889 /* PasswordInputSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasswordInputSheet.swift; sourceTree = "<group>"; };
+		EE9999999999999999999999 /* PasteableTextFields.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasteableTextFields.swift; sourceTree = "<group>"; };
+		KEYC0000000000000000001 /* KeychainHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelper.swift; sourceTree = "<group>"; };
 		SS7777777777777777777777 /* StringSimilarity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StringSimilarity.swift; sourceTree = "<group>"; };
+		LFWC0000000000000000001 /* LastFmWebClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LastFmWebClient.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -115,6 +123,8 @@
 				BB5555555555555555555555 /* MarqueeText.swift */,
 				EE6666666666666666666666 /* WaitingLogin.swift */,
 				EE7777777777777777777777 /* TokenInputSheet.swift */,
+				EE8888888888888888888889 /* PasswordInputSheet.swift */,
+				EE9999999999999999999999 /* PasteableTextFields.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -150,7 +160,7 @@
 				DAC4708329315B6500734C24 /* Extensions */,
 				DA8F7295293126ED007920D3 /* Views */,
 				DA6859CA292FDC9C009143B3 /* Components */,
-				EE9999999999999999999999 /* Clients */,
+				CL9999999999999999999999 /* Clients */,
 				EE8888888888888888888888 /* Protocols */,
 				DA6859CF2930242E009143B3 /* Info.plist */,
 				DA8DE13A292FC577004DC22E /* Assets.xcassets */,
@@ -164,6 +174,7 @@
 				DAEF0C3E2933A5010083F9AB /* LaunchAtStartup.swift */,
 				EE5555555555555555555555 /* ServiceManager.swift */,
 				SS7777777777777777777777 /* StringSimilarity.swift */,
+				KEYC0000000000000000001 /* KeychainHelper.swift */,
 			);
 			path = Audioscrobbler;
 			sourceTree = "<group>";
@@ -203,10 +214,11 @@
 			path = Protocols;
 			sourceTree = "<group>";
 		};
-		EE9999999999999999999999 /* Clients */ = {
+		CL9999999999999999999999 /* Clients */ = {
 			isa = PBXGroup;
 			children = (
 				EE1111111111111111111111 /* LastFmClient.swift */,
+				LFWC0000000000000000001 /* LastFmWebClient.swift */,
 				EE2222222222222222222222 /* LibreFmClient.swift */,
 				EE3333333333333333333333 /* ListenBrainzClient.swift */,
 			);
@@ -283,6 +295,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FF9999999999999999999999 /* PasteableTextFields.swift in Sources */,
 				DAC4708729315EA900734C24 /* AppDelegate.swift in Sources */,
 				DA6859CE29300A27009143B3 /* Header.swift in Sources */,
 				DAC4708529315B7200734C24 /* View+NSWindow.swift in Sources */,
@@ -314,7 +327,10 @@
 				FF5555555555555555555555 /* ServiceManager.swift in Sources */,
 				FF6666666666666666666666 /* WaitingLogin.swift in Sources */,
 				FF7777777777777777777777 /* TokenInputSheet.swift in Sources */,
+				FF8888888888888888888889 /* PasswordInputSheet.swift in Sources */,
+				KEYC0000000000000000002 /* KeychainHelper.swift in Sources */,
 				SS8888888888888888888888 /* StringSimilarity.swift in Sources */,
+				LFWC0000000000000000002 /* LastFmWebClient.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

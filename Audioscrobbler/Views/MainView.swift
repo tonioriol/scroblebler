@@ -7,6 +7,9 @@ struct MainView: View {
     @State private var showProfileView = false
     @State private var loginService: ScrobbleService?
     @State private var tokenInput = ""
+    @State private var passwordInput = ""
+    @State private var showPasswordSheet = false
+    @State private var pendingLastFmUsername: String?
     @State private var recentTracks: [RecentTrack] = []
     @State private var currentPage = 1
     @State private var isLoadingMore = false
@@ -157,6 +160,20 @@ struct MainView: View {
                     onCancel: { loginService = nil; tokenInput = "" }
                 )
             }
+            .sheet(isPresented: $showPasswordSheet) {
+                if let username = pendingLastFmUsername {
+                    PasswordInputSheet(
+                        password: $passwordInput,
+                        username: username,
+                        onSubmit: { Task { await submitPassword() } },
+                        onSkip: {
+                            showPasswordSheet = false
+                            pendingLastFmUsername = nil
+                            passwordInput = ""
+                        }
+                    )
+                }
+            }
         }
         .onAppear {
             loadRecentTracks()
@@ -272,10 +289,17 @@ struct MainView: View {
                     defaults.picture = imageData
                 }
             }
-        }
-        
-        await MainActor.run {
-            loginService = nil
+            
+            // Prompt for password to enable web deletion
+            await MainActor.run {
+                pendingLastFmUsername = credentials.username
+                loginService = nil
+                showPasswordSheet = true
+            }
+        } else {
+            await MainActor.run {
+                loginService = nil
+            }
         }
     }
     
@@ -303,6 +327,40 @@ struct MainView: View {
                 tokenInput = ""
             }
             print("Error during ListenBrainz token validation: \(error)")
+        }
+    }
+    
+    private func submitPassword() async {
+        let password = passwordInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !password.isEmpty, let username = pendingLastFmUsername else {
+            await MainActor.run {
+                showPasswordSheet = false
+                pendingLastFmUsername = nil
+                passwordInput = ""
+            }
+            return
+        }
+        
+        do {
+            try await serviceManager.setupLastFmWebClient(password: password)
+            
+            // Store password in Keychain for future use
+            try KeychainHelper.shared.savePassword(username: username, password: password)
+            print("✓ Last.fm web client setup successful - undo functionality enabled")
+            print("✓ Password securely saved to Keychain")
+            
+            await MainActor.run {
+                showPasswordSheet = false
+                pendingLastFmUsername = nil
+                passwordInput = ""
+            }
+        } catch {
+            print("✗ Failed to setup Last.fm web client: \(error)")
+            await MainActor.run {
+                showPasswordSheet = false
+                pendingLastFmUsername = nil
+                passwordInput = ""
+            }
         }
     }
 }

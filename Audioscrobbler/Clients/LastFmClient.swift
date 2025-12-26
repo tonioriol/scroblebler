@@ -18,6 +18,12 @@ class LastFmClient: ObservableObject, ScrobbleClient {
     var authURL: String { "https://www.last.fm/api/auth/" }
     var linkColor: Color { Color(hue: 0, saturation: 0.70, brightness: 0.75) }
     
+    // Store username for web operations
+    private var authenticatedUsername: String?
+    
+    // Web client for operations that require web session
+    private var webClient: LastFmWebClient?
+    
     // URL building helpers
     private func artistURL(artist: String, mbid: String?) -> URL {
         let encoded = artist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
@@ -59,6 +65,9 @@ class LastFmClient: ObservableObject, ScrobbleClient {
         
         let userInfoData = try await executeRequest(method: "user.getInfo", args: ["sk": result.session.key])
         let userInfo = try JSONDecoder().decode(UserInfoResponse.self, from: userInfoData)
+        
+        // Store username for web operations
+        self.authenticatedUsername = result.session.name
         
         return (result.session.name, result.session.key, userInfo.user.url, result.session.subscriber == 1)
     }
@@ -105,6 +114,63 @@ class LastFmClient: ObservableObject, ScrobbleClient {
             print("✗ Failed to update love status: \(error)")
             throw error
         }
+    }
+    
+    func deleteScrobble(sessionKey: String, identifier: ScrobbleIdentifier) async throws {
+        guard let timestamp = identifier.timestamp else {
+            throw Error.apiError(6, "Missing timestamp for scrobble deletion")
+        }
+        
+        // Try API method first
+        do {
+            _ = try await executeRequest(method: "library.removeScrobble", args: [
+                "artist": identifier.artist,
+                "track": identifier.track,
+                "timestamp": String(timestamp),
+                "sk": sessionKey
+            ])
+            print("✓ Deleted scrobble via API: \(identifier.artist) - \(identifier.track)")
+        } catch {
+            print("⚠️ API deletion failed: \(error)")
+            print("⚠️ Web client available: \(webClient != nil), authenticated: \(webClient?.isAuthenticated ?? false), username: \(authenticatedUsername ?? "nil")")
+            
+            // If API fails and web client is authenticated, try web deletion
+            if let webClient = webClient, webClient.isAuthenticated,
+               let username = authenticatedUsername {
+                print("🌐 Attempting web deletion for \(identifier.artist) - \(identifier.track)")
+                try await webClient.deleteScrobble(
+                    username: username,
+                    artist: identifier.artist,
+                    track: identifier.track,
+                    timestamp: timestamp
+                )
+                return // Successfully deleted via web
+            } else {
+                print("❌ Web client not available - ensure setupLastFmWebClientForTesting() was called with correct password")
+                // Re-throw the original error if web client is not available
+                throw error
+            }
+        }
+    }
+    
+    // MARK: - Web Client Management
+    
+    /// Initialize and authenticate web client for operations requiring web session
+    /// Note: This requires username and password which are not available from API session
+    func authenticateWebClient(username: String, password: String) async throws {
+        let client = LastFmWebClient(username: username)
+        try await client.authenticate(username: username, password: password)
+        self.webClient = client
+        self.authenticatedUsername = username
+        print("✓ Web client authenticated for user: \(username)")
+    }
+    
+    /// Set web client credentials manually (for testing or when obtained from browser)
+    func setWebClientCredentials(username: String, csrfToken: String, sessionId: String) {
+        let client = LastFmWebClient(username: username)
+        client.setCredentials(csrfToken: csrfToken, sessionId: sessionId)
+        self.webClient = client
+        print("✓ Web client credentials set for user: \(username)")
     }
     
     // MARK: - Profile Data

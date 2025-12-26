@@ -33,7 +33,8 @@ on their repository](https://github.com/lastfm/lastfm-desktop/blob/9ae84cf4ab204
 - [x] Sign, Notarize & Provide DMG installer
 - [x] Start at Login
 - [ ] Use proper logger
-
+- [ ] Update the date and the (c) of the new files.
+- [ ] Update the reverse domain.
 - [ ] Offline support
 - [ ] Auto-update
 

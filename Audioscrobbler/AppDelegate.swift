@@ -62,6 +62,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             button.image = NSImage(named: "as-logo-opaque")
         }
         
+        // Auto-authenticate Last.fm web client if password is stored in Keychain
+        Task {
+            await ServiceManager.shared.autoAuthenticateLastFmWebClient()
+        }
+        
         NSApp.activate(ignoringOtherApps: true)
     }
 

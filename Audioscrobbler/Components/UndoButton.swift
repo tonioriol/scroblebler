@@ -21,7 +21,7 @@ struct UndoButton: View {
             }
         } label: {
             Image(systemName: isUndone ? "plus.circle" : "minus.circle")
-                .foregroundColor(isUndone ? .green : .secondary)
+                .foregroundColor(isUndone ? .blue : .secondary)
                 .font(.system(size: 11))
                 .frame(width: 11, height: 11)
                 .scaleEffect(isAnimating ? 1.3 : 1.0)
