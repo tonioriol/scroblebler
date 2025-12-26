@@ -39,8 +39,14 @@ create-dmg \
 
 # Calculate SHA256 and update Homebrew
 SHA=$(shasum -a 256 "Scroblebler.$VERSION.dmg" | awk '{print $1}')
+
+# Update version
 sed -i '' "s/version \".*\"/version \"$VERSION\"/" scroblebler.rb
+# Update sha256
 sed -i '' "s/sha256 \".*\"/sha256 \"$SHA\"/" scroblebler.rb
+# Update URL to match actual DMG filename
+sed -i '' "s|Scroblebler\\.#{version}\\.dmg|Scroblebler.$VERSION.dmg|" scroblebler.rb
 
 echo "✓ Built Scroblebler.$VERSION.dmg"
 echo "✓ SHA256: $SHA"
+echo "✓ Updated scroblebler.rb"
