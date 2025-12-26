@@ -7,15 +7,14 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		CC6666666666666666666666 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD6666666666666666666666 /* ProfileView.swift */; };
-		CC7777777777777777777777 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD7777777777777777777777 /* ContentView.swift */; };
 		214BE49AEB926CFA16D44F62 /* LoveButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0F361811AED80EF7ACDCA43 /* LoveButton.swift */; };
 		AA1111111111111111111111 /* AlbumArtwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB1111111111111111111111 /* AlbumArtwork.swift */; };
 		AA2222222222222222222222 /* PlayCountBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB2222222222222222222222 /* PlayCountBadge.swift */; };
 		AA4444444444444444444444 /* TrackInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB4444444444444444444444 /* TrackInfo.swift */; };
 		AA5555555555555555555555 /* MarqueeText.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB5555555555555555555555 /* MarqueeText.swift */; };
-		UN0000000000000000000002 /* UndoButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = UN0000000000000000000001 /* UndoButton.swift */; };
 		BL0000000000000000000002 /* BlacklistButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = BL0000000000000000000001 /* BlacklistButton.swift */; };
+		CC6666666666666666666666 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD6666666666666666666666 /* ProfileView.swift */; };
+		CC7777777777777777777777 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD7777777777777777777777 /* ContentView.swift */; };
 		DA6859CC292FDE66009143B3 /* NowPlaying.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA6859CB292FDE66009143B3 /* NowPlaying.swift */; };
 		DA6859CD292FDE67009143B3 /* HistoryItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA6859CA292FDE67009143B3 /* HistoryItem.swift */; };
 		DA6859CE29300A27009143B3 /* Header.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA6859CD29300A27009143B3 /* Header.swift */; };
@@ -24,8 +23,6 @@
 		DA8DE13B292FC577004DC22E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = DA8DE13A292FC577004DC22E /* Assets.xcassets */; };
 		DA8DE13E292FC577004DC22E /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = DA8DE13D292FC577004DC22E /* Preview Assets.xcassets */; };
 		DA8DE146292FCBDC004DC22E /* Watcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA8DE145292FCBDC004DC22E /* Watcher.swift */; };
-		DD000001000000000000001 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
-		DD000002000000000000001 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000001000000000000001 /* Models.swift */; };
 		DA8F729929315119007920D3 /* Defaults.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA8F729829315119007920D3 /* Defaults.swift */; };
 		DAC4708529315B7200734C24 /* View+NSWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAC4708429315B7200734C24 /* View+NSWindow.swift */; };
 		DAC4708729315EA900734C24 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAC4708629315EA900734C24 /* AppDelegate.swift */; };
@@ -35,6 +32,7 @@
 		DAC47091293166B300734C24 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAC47090293166B300734C24 /* main.swift */; };
 		DADC426529318B6E00762255 /* View+OnLoad.swift in Sources */ = {isa = PBXBuildFile; fileRef = DADC426429318B6E00762255 /* View+OnLoad.swift */; };
 		DAEF0C3F2933A5010083F9AB /* LaunchAtStartup.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAEF0C3E2933A5010083F9AB /* LaunchAtStartup.swift */; };
+		DD000002000000000000001 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000001000000000000001 /* Models.swift */; };
 		FF1111111111111111111111 /* LastFmClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE1111111111111111111111 /* LastFmClient.swift */; };
 		FF2222222222222222222222 /* LibreFmClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE2222222222222222222222 /* LibreFmClient.swift */; };
 		FF3333333333333333333333 /* ListenBrainzClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE3333333333333333333333 /* ListenBrainzClient.swift */; };
@@ -45,19 +43,18 @@
 		FF8888888888888888888889 /* PasswordInputSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE8888888888888888888889 /* PasswordInputSheet.swift */; };
 		FF9999999999999999999999 /* PasteableTextFields.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE9999999999999999999999 /* PasteableTextFields.swift */; };
 		KEYC0000000000000000002 /* KeychainHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = KEYC0000000000000000001 /* KeychainHelper.swift */; };
-		SS8888888888888888888888 /* StringSimilarity.swift in Sources */ = {isa = PBXBuildFile; fileRef = SS7777777777777777777777 /* StringSimilarity.swift */; };
+		LBCACHE0000000000000002 /* ListenBrainzCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = LBCACHE0000000000000001 /* ListenBrainzCache.swift */; };
 		LFWC0000000000000000002 /* LastFmWebClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = LFWC0000000000000000001 /* LastFmWebClient.swift */; };
+		SS8888888888888888888888 /* StringSimilarity.swift in Sources */ = {isa = PBXBuildFile; fileRef = SS7777777777777777777777 /* StringSimilarity.swift */; };
+		UN0000000000000000000002 /* UndoButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = UN0000000000000000000001 /* UndoButton.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		DD6666666666666666666666 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
-		DD7777777777777777777777 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		A0F361811AED80EF7ACDCA43 /* LoveButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoveButton.swift; sourceTree = "<group>"; };
 		BB1111111111111111111111 /* AlbumArtwork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlbumArtwork.swift; sourceTree = "<group>"; };
 		BB2222222222222222222222 /* PlayCountBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayCountBadge.swift; sourceTree = "<group>"; };
 		BB4444444444444444444444 /* TrackInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackInfo.swift; sourceTree = "<group>"; };
 		BB5555555555555555555555 /* MarqueeText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarqueeText.swift; sourceTree = "<group>"; };
-		UN0000000000000000000001 /* UndoButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UndoButton.swift; sourceTree = "<group>"; };
 		BL0000000000000000000001 /* BlacklistButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlacklistButton.swift; sourceTree = "<group>"; };
 		DA6859CA292FDE67009143B3 /* HistoryItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryItem.swift; sourceTree = "<group>"; };
 		DA6859CB292FDE66009143B3 /* NowPlaying.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlaying.swift; sourceTree = "<group>"; };
@@ -79,6 +76,9 @@
 		DAC47090293166B300734C24 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		DADC426429318B6E00762255 /* View+OnLoad.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "View+OnLoad.swift"; sourceTree = "<group>"; };
 		DAEF0C3E2933A5010083F9AB /* LaunchAtStartup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtStartup.swift; sourceTree = "<group>"; };
+		DD000001000000000000001 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		DD6666666666666666666666 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
+		DD7777777777777777777777 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		EE1111111111111111111111 /* LastFmClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LastFmClient.swift; sourceTree = "<group>"; };
 		EE2222222222222222222222 /* LibreFmClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibreFmClient.swift; sourceTree = "<group>"; };
 		EE3333333333333333333333 /* ListenBrainzClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListenBrainzClient.swift; sourceTree = "<group>"; };
@@ -89,8 +89,10 @@
 		EE8888888888888888888889 /* PasswordInputSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasswordInputSheet.swift; sourceTree = "<group>"; };
 		EE9999999999999999999999 /* PasteableTextFields.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasteableTextFields.swift; sourceTree = "<group>"; };
 		KEYC0000000000000000001 /* KeychainHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelper.swift; sourceTree = "<group>"; };
-		SS7777777777777777777777 /* StringSimilarity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StringSimilarity.swift; sourceTree = "<group>"; };
+		LBCACHE0000000000000001 /* ListenBrainzCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListenBrainzCache.swift; sourceTree = "<group>"; };
 		LFWC0000000000000000001 /* LastFmWebClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LastFmWebClient.swift; sourceTree = "<group>"; };
+		SS7777777777777777777777 /* StringSimilarity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StringSimilarity.swift; sourceTree = "<group>"; };
+		UN0000000000000000000001 /* UndoButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UndoButton.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -105,6 +107,18 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		CL9999999999999999999999 /* Clients */ = {
+			isa = PBXGroup;
+			children = (
+				EE1111111111111111111111 /* LastFmClient.swift */,
+				LFWC0000000000000000001 /* LastFmWebClient.swift */,
+				EE2222222222222222222222 /* LibreFmClient.swift */,
+				EE3333333333333333333333 /* ListenBrainzClient.swift */,
+				LBCACHE0000000000000001 /* ListenBrainzCache.swift */,
+			);
+			path = Clients;
+			sourceTree = "<group>";
+		};
 		DA6859CA292FDC9C009143B3 /* Components */ = {
 			isa = PBXGroup;
 			children = (
@@ -214,17 +228,6 @@
 			path = Protocols;
 			sourceTree = "<group>";
 		};
-		CL9999999999999999999999 /* Clients */ = {
-			isa = PBXGroup;
-			children = (
-				EE1111111111111111111111 /* LastFmClient.swift */,
-				LFWC0000000000000000001 /* LastFmWebClient.swift */,
-				EE2222222222222222222222 /* LibreFmClient.swift */,
-				EE3333333333333333333333 /* ListenBrainzClient.swift */,
-			);
-			path = Clients;
-			sourceTree = "<group>";
-		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -331,6 +334,7 @@
 				KEYC0000000000000000002 /* KeychainHelper.swift in Sources */,
 				SS8888888888888888888888 /* StringSimilarity.swift in Sources */,
 				LFWC0000000000000000002 /* LastFmWebClient.swift in Sources */,
+				LBCACHE0000000000000002 /* ListenBrainzCache.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -468,14 +472,13 @@
 				AUTOMATION_APPLE_EVENTS = YES;
 				CODE_SIGN_ALLOW_ENTITLEMENTS_MODIFICATION = YES;
 				CODE_SIGN_ENTITLEMENTS = Audioscrobbler/Audioscrobbler.entitlements;
-				CODE_SIGN_IDENTITY = "-";
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
-				CODE_SIGN_STYLE = Manual;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 5;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"Audioscrobbler/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = B65K228Z97;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_FILE_ACCESS_MUSIC_FOLDER = readonly;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -494,7 +497,8 @@
 				INFOPLIST_FILE = Audioscrobbler/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.social-networking";
 				INFOPLIST_KEY_LSUIElement = YES;
-				INFOPLIST_KEY_NSAppleEventsUsageDescription = "$(PRODUCT_NAME) uses Apple Events to read information from Music";
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Scroblebler needs to access Apple Music to track and scrobble the songs you're listening to.";
+				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Audioscrobbler needs to access Apple Music to track and scrobble the songs you're listening to.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -502,8 +506,9 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 11.0;
 				MARKETING_VERSION = 1.3;
-				PRODUCT_BUNDLE_IDENTIFIER = io.vito.Audioscrobbler;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tonioriol.scroblebler;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 			};
@@ -517,14 +522,13 @@
 				AUTOMATION_APPLE_EVENTS = YES;
 				CODE_SIGN_ALLOW_ENTITLEMENTS_MODIFICATION = YES;
 				CODE_SIGN_ENTITLEMENTS = Audioscrobbler/Audioscrobbler.entitlements;
-				CODE_SIGN_IDENTITY = "-";
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
-				CODE_SIGN_STYLE = Manual;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 5;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"Audioscrobbler/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = B65K228Z97;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_FILE_ACCESS_MUSIC_FOLDER = readonly;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -543,7 +547,8 @@
 				INFOPLIST_FILE = Audioscrobbler/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.social-networking";
 				INFOPLIST_KEY_LSUIElement = YES;
-				INFOPLIST_KEY_NSAppleEventsUsageDescription = "$(PRODUCT_NAME) uses Apple Events to read information from Music";
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Scroblebler needs to access Apple Music to track and scrobble the songs you're listening to.";
+				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Audioscrobbler needs to access Apple Music to track and scrobble the songs you're listening to.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -551,8 +556,9 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 11.0;
 				MARKETING_VERSION = 1.3;
-				PRODUCT_BUNDLE_IDENTIFIER = io.vito.Audioscrobbler;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tonioriol.scroblebler;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 			};
@@ -583,4 +589,3 @@
 	};
 	rootObject = DA8DE12B292FC575004DC22E /* Project object */;
 }
-

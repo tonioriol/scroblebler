@@ -2,7 +2,7 @@ import Foundation
 import os.log
 
 enum Logger {
-    private static let subsystem = Bundle.main.bundleIdentifier ?? "io.vito.Audioscrobbler"
+    private static let subsystem = Bundle.main.bundleIdentifier ?? "com.tonioriol.scroblebler"
     
     // Category loggers
     static let scrobbling = OSLog(subsystem: subsystem, category: "Scrobbling")
