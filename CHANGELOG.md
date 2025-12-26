@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/tonioriol/scroblebler/compare/v1.0.0...v1.0.1) (2025-12-26)
+
+
+### Bug Fixes
+
+* use ad-hoc signing instead of no signing ([1d0b6d5](https://github.com/tonioriol/scroblebler/commit/1d0b6d5e679733eca2d5885aca808bd7acd0c9dc))
+
 # 1.0.0 (2025-12-26)
 
 
