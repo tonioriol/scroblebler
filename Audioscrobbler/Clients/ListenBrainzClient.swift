@@ -27,6 +27,7 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
     private struct CacheState {
         var playCountCache: [String: [String: Int]] = [:] // username -> [artist|track -> count]
         var cacheExpiry: [String: Date] = [:]
+        var paginationState: [String: Int] = [:] // username -> last timestamp for pagination
     }
     
     private let cacheState = Locked(CacheState())
@@ -205,8 +206,16 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
     // MARK: - Profile Data
     
     func getRecentTracks(username: String, limit: Int, page: Int, token: String?) async throws -> [RecentTrack] {
+        print("🎵 [ListenBrainz] getRecentTracks called - page: \(page), limit: \(limit), username: \(username)")
+        
         // Populate cache first (only on first page)
         if page == 1 {
+            // Reset pagination state for new fetch
+            cacheState.withLock { state in
+                state.paginationState.removeValue(forKey: username)
+            }
+            print("🎵 [ListenBrainz] Page 1 - reset pagination state")
+            
             do {
                 try await populatePlayCountCache(username: username)
             } catch {
@@ -214,18 +223,45 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
             }
         }
         
-        let offset = (page - 1) * limit
+        // ListenBrainz uses timestamp-based pagination, not offset
         let encodedUsername = username.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? username
         var components = URLComponents(url: baseURL.appendingPathComponent("user/\(encodedUsername)/listens"), resolvingAgainstBaseURL: false)!
-        components.queryItems = [
-            URLQueryItem(name: "count", value: "\(limit)"),
-            URLQueryItem(name: "offset", value: "\(offset)")
-        ]
+        
+        var queryItems = [URLQueryItem(name: "count", value: "\(limit)")]
+        
+        // For pages > 1, use the last timestamp from previous fetch
+        if page > 1 {
+            let maxTs = cacheState.withLock { state in
+                state.paginationState[username]
+            }
+            if let maxTs = maxTs {
+                print("🎵 [ListenBrainz] Page \(page) - using max_ts: \(maxTs)")
+                queryItems.append(URLQueryItem(name: "max_ts", value: "\(maxTs)"))
+            } else {
+                print("⚠️ [ListenBrainz] Page \(page) - NO max_ts found in pagination state!")
+            }
+        }
+        
+        components.queryItems = queryItems
+        print("🎵 [ListenBrainz] Request URL: \(components.url!.absoluteString)")
         
         let (data, _) = try await URLSession.shared.data(from: components.url!)
         let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         let payload = json?["payload"] as? [String: Any]
         let listens = payload?["listens"] as? [[String: Any]] ?? []
+        
+        print("🎵 [ListenBrainz] Received \(listens.count) listens for page \(page)")
+        
+        // Store the last timestamp for next page
+        if let lastListen = listens.last,
+           let lastTimestamp = lastListen["listened_at"] as? Int {
+            cacheState.withLock { state in
+                state.paginationState[username] = lastTimestamp
+            }
+            print("🎵 [ListenBrainz] Stored pagination timestamp: \(lastTimestamp)")
+        } else {
+            print("⚠️ [ListenBrainz] No timestamp found in last listen - pagination may fail!")
+        }
         
         return listens.compactMap { listen in
             guard let metadata = listen["track_metadata"] as? [String: Any],

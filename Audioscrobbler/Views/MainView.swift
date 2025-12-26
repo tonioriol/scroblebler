@@ -86,7 +86,10 @@ struct MainView: View {
                             ForEach(Array(recentTracks.enumerated()), id: \.offset) { index, track in
                                 HistoryItem(track: track)
                                     .onAppear {
-                                        if index == recentTracks.count - 1 && !isLoadingMore && hasMoreTracks {
+                                        let isLastItem = index == recentTracks.count - 1
+                                        print("📊 Track \(index + 1)/\(recentTracks.count) appeared. isLast: \(isLastItem), isLoadingMore: \(isLoadingMore), hasMore: \(hasMoreTracks)")
+                                        if isLastItem && !isLoadingMore && hasMoreTracks {
+                                            print("🔄 Triggering loadMoreTracks()")
                                             loadMoreTracks()
                                         }
                                     }
@@ -178,7 +181,10 @@ struct MainView: View {
                 let tracks = try await serviceManager.getAllRecentTracks(limit: 20, page: 1)
                 await MainActor.run {
                     recentTracks = tracks
-                    hasMoreTracks = tracks.count >= 20
+                    // Don't stop pagination based on count - merging can reduce it
+                    // Keep trying until we get an empty result
+                    hasMoreTracks = !tracks.isEmpty
+                    print("📊 Loaded \(tracks.count) tracks, hasMoreTracks: \(hasMoreTracks)")
                 }
             } catch {
                 print("Failed to load recent tracks: \(error)")
