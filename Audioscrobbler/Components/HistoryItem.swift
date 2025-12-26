@@ -6,10 +6,12 @@ struct HistoryItem: View {
     
     let track: RecentTrack
     @State private var loved: Bool
+    @State private var playcount: Int?
     
     init(track: RecentTrack) {
         self.track = track
         self._loved = State(initialValue: track.loved)
+        self._playcount = State(initialValue: track.playcount)
     }
     
     var body: some View {
@@ -20,7 +22,7 @@ struct HistoryItem: View {
             loved: $loved,
             artworkImageUrl: track.imageUrl,
             timestamp: track.date,
-            playCount: track.playcount,
+            playCount: $playcount,
             artistURL: track.artistURL,
             albumURL: track.albumURL,
             trackURL: track.trackURL,
@@ -30,8 +32,10 @@ struct HistoryItem: View {
                         artist: track.artist,
                         track: track.name,
                         album: track.album,
-                        serviceInfo: track.serviceInfo
+                        serviceInfo: track.serviceInfo,
+                        playcount: $playcount
                     )
+                    .id("\(track.artist)-\(track.name)-\(track.date ?? 0)")
                     
                     BlacklistButton(
                         artist: track.artist,

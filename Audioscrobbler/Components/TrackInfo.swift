@@ -31,7 +31,7 @@ struct TrackInfo<ActionButtons: View>: View {
     // Optional action buttons
     let actionButtons: ActionButtons?
     
-    @State private var playCount: Int? = nil
+    @Binding var playCount: Int?
     
     init(
         trackName: String,
@@ -48,7 +48,7 @@ struct TrackInfo<ActionButtons: View>: View {
         timestamp: Int? = nil,
         currentPosition: Double? = nil,
         trackLength: Double? = nil,
-        playCount: Int? = nil,
+        playCount: Binding<Int?>,
         artistURL: URL? = nil,
         albumURL: URL? = nil,
         trackURL: URL? = nil,
@@ -68,7 +68,7 @@ struct TrackInfo<ActionButtons: View>: View {
         self.timestamp = timestamp
         self.currentPosition = currentPosition
         self.trackLength = trackLength
-        self._playCount = State(initialValue: playCount)
+        self._playCount = playCount
         self.artistURL = artistURL
         self.albumURL = albumURL
         self.trackURL = trackURL

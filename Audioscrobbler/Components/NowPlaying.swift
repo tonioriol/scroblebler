@@ -7,6 +7,7 @@ struct NowPlaying: View {
     @Binding var currentPosition: Double?
     
     @State private var lovedState: Bool = false
+    @State private var playCount: Int? = nil
 
     var body: some View {
         TrackInfo(
@@ -22,6 +23,7 @@ struct NowPlaying: View {
             loveFontSize: 12,
             currentPosition: currentPosition,
             trackLength: track!.length,
+            playCount: $playCount,
             actionButtons: {
                 if let track = track {
                     BlacklistButton(

@@ -2,15 +2,19 @@ import SwiftUI
 
 struct UndoButton: View {
     @EnvironmentObject var serviceManager: ServiceManager
+    @EnvironmentObject var defaults: Defaults
     
     let artist: String
     let track: String
     let album: String
     let serviceInfo: [String: ServiceTrackData]
+    @Binding var playcount: Int?
     
     @State private var isProcessing = false
     @State private var isUndone = false
     @State private var isAnimating = false
+    @State private var showError = false
+    @State private var errorMessage = ""
     
     var body: some View {
         Button {
@@ -31,6 +35,13 @@ struct UndoButton: View {
         .help(isUndone ? "Redo Scrobble" : "Undo Scrobble")
         .disabled(isProcessing)
         .opacity(isProcessing ? 0.5 : 1.0)
+        .alert(isPresented: $showError) {
+            Alert(
+                title: Text("Redo Failed"),
+                message: Text(errorMessage),
+                dismissButton: .default(Text("OK"))
+            )
+        }
     }
     
     private func undoScrobble() {
@@ -41,6 +52,11 @@ struct UndoButton: View {
             await serviceManager.deleteScrobbleAll(artist: artist, track: track, serviceInfo: serviceInfo)
             
             await MainActor.run {
+                // Update playcount immediately in UI
+                if let currentCount = playcount, currentCount > 0 {
+                    playcount = currentCount - 1
+                }
+                
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
                     isUndone = true
                     isAnimating = true
@@ -60,11 +76,37 @@ struct UndoButton: View {
     
     private func redoScrobble() {
         guard !isProcessing else { return }
+        
+        // Check if track is blacklisted
+        if defaults.isBlacklisted(artist: artist, track: track) {
+            errorMessage = "Cannot redo: track is blacklisted"
+            showError = true
+            return
+        }
+        
+        // Check if there are enabled services
+        if defaults.enabledServices.isEmpty {
+            errorMessage = "Cannot redo: no services enabled"
+            showError = true
+            return
+        }
+        
         isProcessing = true
         
         Task {
-            // Get the timestamp from serviceInfo or use current time
-            let timestamp = Int32(serviceInfo.values.first?.timestamp ?? Int(Date().timeIntervalSince1970))
+            // Get the timestamp from serviceInfo, preferring Last.fm timestamp
+            // Use the original timestamp to maintain scrobble history order
+            let timestamp: Int32
+            if let lastfmData = serviceInfo[ScrobbleService.lastfm.id],
+               let lastfmTimestamp = lastfmData.timestamp {
+                timestamp = Int32(lastfmTimestamp)
+            } else if let firstTimestamp = serviceInfo.values.first?.timestamp {
+                timestamp = Int32(firstTimestamp)
+            } else {
+                timestamp = Int32(Date().timeIntervalSince1970)
+            }
+            
+            print("🔄 Redoing scrobble: \(artist) - \(track) with timestamp: \(timestamp)")
             
             // Create a Track for re-scrobbling with original metadata
             let trackToScrobble = Track(
@@ -79,9 +121,13 @@ struct UndoButton: View {
                 scrobbled: false
             )
             
+            // Scrobble to all enabled services
             await serviceManager.scrobbleAll(track: trackToScrobble)
             
             await MainActor.run {
+                // Update playcount immediately in UI
+                playcount = (playcount ?? 0) + 1
+                
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
                     isUndone = false
                     isAnimating = true
@@ -98,4 +144,16 @@ struct UndoButton: View {
             }
         }
     }
+}
+
+#Preview {
+    UndoButton(
+        artist: "Test Artist",
+        track: "Test Track",
+        album: "Test Album",
+        serviceInfo: [:],
+        playcount: .constant(5)
+    )
+    .environmentObject(ServiceManager.shared)
+    .environmentObject(Defaults.shared)
 }
