@@ -1,6 +1,22 @@
 import Foundation
 import SwiftUI
 
+// Helper for thread-safe state access (Backward compatible replacement for OSAllocatedUnfairLock)
+fileprivate final class Locked<State>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var state: State
+
+    init(_ state: State) {
+        self.state = state
+    }
+
+    func withLock<R>(_ body: (inout State) throws -> R) rethrows -> R {
+        lock.lock()
+        defer { lock.unlock() }
+        return try body(&state)
+    }
+}
+
 class ListenBrainzClient: ObservableObject, ScrobbleClient {
     enum Error: Swift.Error {
         case invalidToken
@@ -8,10 +24,13 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
     }
     
     // Cache for recording playcounts
-    private var playCountCache: [String: [String: Int]] = [:] // username -> [artist|track -> count]
-    private var cacheExpiry: [String: Date] = [:]
+    private struct CacheState {
+        var playCountCache: [String: [String: Int]] = [:] // username -> [artist|track -> count]
+        var cacheExpiry: [String: Date] = [:]
+    }
+    
+    private let cacheState = Locked(CacheState())
     private let cacheValidityDuration: TimeInterval = 3600 // 1 hour (longer since we're caching more)
-    private let cacheLock = NSLock()
     private var backgroundFetchTasks: [String: Task<Void, Never>] = [:]
     
     var baseURL: URL { URL(string: "https://api.listenbrainz.org/1/")! }
@@ -439,10 +458,10 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         
         // Try to load from disk first
         if let (cachedCounts, continueFromTs, completedAt) = loadCacheFromDisk(username: username) {
-            cacheLock.lock()
-            playCountCache[username] = cachedCounts
-            cacheExpiry[username] = Date().addingTimeInterval(cacheValidityDuration)
-            cacheLock.unlock()
+            cacheState.withLock { state in
+                state.playCountCache[username] = cachedCounts
+                state.cacheExpiry[username] = Date().addingTimeInterval(cacheValidityDuration)
+            }
             print("🎵 [ListenBrainz] ✅ Loaded \(cachedCounts.count) tracks from disk")
             
             // Check if we need to continue fetching
@@ -470,14 +489,18 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         print("🎵 [ListenBrainz] No cache on disk, will fetch from beginning")
         
         // Check if cache is still valid in memory
-        cacheLock.lock()
-        if let expiry = cacheExpiry[username], Date() < expiry {
-            let count = playCountCache[username]?.count ?? 0
-            cacheLock.unlock()
-            print("🎵 [ListenBrainz] Cache still valid, skipping fetch. Entries: \(count)")
+        let isCacheValid = cacheState.withLock { state in
+            if let expiry = state.cacheExpiry[username], Date() < expiry {
+                let count = state.playCountCache[username]?.count ?? 0
+                print("🎵 [ListenBrainz] Cache still valid, skipping fetch. Entries: \(count)")
+                return true
+            }
+            return false
+        }
+        
+        if isCacheValid {
             return
         }
-        cacheLock.unlock()
         
         // Fetch first page quickly for immediate use
         print("🎵 [ListenBrainz] Fetching first page (1000 tracks) for immediate use...")
@@ -494,10 +517,10 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
             cache[key] = track.playcount
         }
         
-        cacheLock.lock()
-        playCountCache[username] = cache
-        cacheExpiry[username] = Date().addingTimeInterval(cacheValidityDuration)
-        cacheLock.unlock()
+        cacheState.withLock { state in
+            state.playCountCache[username] = cache
+            state.cacheExpiry[username] = Date().addingTimeInterval(cacheValidityDuration)
+        }
         print("🎵 [ListenBrainz] Initial cache populated with \(cache.count) entries")
         
         // Start background fetch from beginning
@@ -545,9 +568,9 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         print("🎵 [ListenBrainz] Fetching NEW listens since timestamp: \(since)")
         
         // Load existing cache
-        cacheLock.lock()
-        var playcounts: [String: Int] = playCountCache[username] ?? [:]
-        cacheLock.unlock()
+        var playcounts: [String: Int] = cacheState.withLock { state in
+            state.playCountCache[username] ?? [:]
+        }
         
         let perPage = 1000
         var totalNewListens = 0
@@ -582,9 +605,9 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
             print("🎵 [ListenBrainz] Added \(totalNewListens) new listens, total unique tracks: \(playcounts.count)")
             
             // Update cache
-            cacheLock.lock()
-            playCountCache[username] = playcounts
-            cacheLock.unlock()
+            cacheState.withLock { state in
+                state.playCountCache[username] = playcounts
+            }
             
             // Save updated cache with new completion time
             let newCompletionTimestamp = Date().timeIntervalSince1970
@@ -610,9 +633,9 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         print("🎵 [ListenBrainz] Username: \(username)")
         
         // Load existing cache
-        cacheLock.lock()
-        var playcounts: [String: Int] = playCountCache[username] ?? [:]
-        cacheLock.unlock()
+        var playcounts: [String: Int] = cacheState.withLock { state in
+            state.playCountCache[username] ?? [:]
+        }
         
         let perPage = 1000
         var maxTs: Int? = continueFrom // Start from where we left off
@@ -672,9 +695,9 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
                 print("🎵 [ListenBrainz] Total listens processed: \(totalListens), unique tracks: \(playcounts.count)")
                 
                 // Update memory cache
-                cacheLock.lock()
-                playCountCache[username] = playcounts
-                cacheLock.unlock()
+                cacheState.withLock { state in
+                    state.playCountCache[username] = playcounts
+                }
                 
                 // Save progress to disk every 5 pages (more frequent saves)
                 if page % 5 == 0 {
@@ -702,10 +725,10 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         print("🎵 [ListenBrainz] Total listens processed: \(totalListens)")
         print("🎵 [ListenBrainz] Unique tracks with playcounts: \(playcounts.count)")
         
-        cacheLock.lock()
-        playCountCache[username] = playcounts
-        cacheExpiry[username] = Date().addingTimeInterval(cacheValidityDuration)
-        cacheLock.unlock()
+        cacheState.withLock { state in
+            state.playCountCache[username] = playcounts
+            state.cacheExpiry[username] = Date().addingTimeInterval(cacheValidityDuration)
+        }
         
         // Save final complete cache to disk (no continueFromTs = complete)
         let completionTimestamp = Date().timeIntervalSince1970
@@ -849,10 +872,9 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         let normalizedTrack = normalizeForCache(track)
         let key = "\(normalizedArtist)|\(normalizedTrack)"
         
-        cacheLock.lock()
-        let count = playCountCache[username]?[key]
-        let cache = playCountCache[username]
-        cacheLock.unlock()
+        let (count, cache) = cacheState.withLock { state in
+            (state.playCountCache[username]?[key], state.playCountCache[username])
+        }
         
         if count == nil && cache != nil {
             // Try to find similar keys for debugging
