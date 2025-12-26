@@ -42,6 +42,7 @@
 		FF5555555555555555555555 /* ServiceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE5555555555555555555555 /* ServiceManager.swift */; };
 		FF6666666666666666666666 /* WaitingLogin.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE6666666666666666666666 /* WaitingLogin.swift */; };
 		FF7777777777777777777777 /* TokenInputSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE7777777777777777777777 /* TokenInputSheet.swift */; };
+		SS8888888888888888888888 /* StringSimilarity.swift in Sources */ = {isa = PBXBuildFile; fileRef = SS7777777777777777777777 /* StringSimilarity.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -81,6 +82,7 @@
 		EE5555555555555555555555 /* ServiceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceManager.swift; sourceTree = "<group>"; };
 		EE6666666666666666666666 /* WaitingLogin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaitingLogin.swift; sourceTree = "<group>"; };
 		EE7777777777777777777777 /* TokenInputSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenInputSheet.swift; sourceTree = "<group>"; };
+		SS7777777777777777777777 /* StringSimilarity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StringSimilarity.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -161,6 +163,7 @@
 				DAC47090293166B300734C24 /* main.swift */,
 				DAEF0C3E2933A5010083F9AB /* LaunchAtStartup.swift */,
 				EE5555555555555555555555 /* ServiceManager.swift */,
+				SS7777777777777777777777 /* StringSimilarity.swift */,
 			);
 			path = Audioscrobbler;
 			sourceTree = "<group>";
@@ -311,6 +314,7 @@
 				FF5555555555555555555555 /* ServiceManager.swift in Sources */,
 				FF6666666666666666666666 /* WaitingLogin.swift in Sources */,
 				FF7777777777777777777777 /* TokenInputSheet.swift in Sources */,
+				SS8888888888888888888888 /* StringSimilarity.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

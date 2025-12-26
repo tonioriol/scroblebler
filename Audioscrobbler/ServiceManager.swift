@@ -120,98 +120,123 @@ class ServiceManager: ObservableObject {
     }
     
     func getAllRecentTracks(limit: Int = 20, page: Int = 1) async throws -> [RecentTrack] {
-        let enabledServices = Defaults.shared.enabledServices
-        var allTracks: [RecentTrack] = []
+        // New approach: render tracks from the main/primary service only
+        guard let primaryService = Defaults.shared.primaryService else {
+            print("No primary service configured")
+            return []
+        }
         
-        // Fetch in parallel
-        await withTaskGroup(of: [RecentTrack]?.self) { group in
-            for credentials in enabledServices {
+        guard let client = self.client(for: primaryService.service) else {
+            print("No client available for primary service")
+            return []
+        }
+        
+        // Fetch tracks from primary service
+        var primaryTracks: [RecentTrack]
+        do {
+            primaryTracks = try await client.getRecentTracks(
+                username: primaryService.username,
+                limit: limit,
+                page: page,
+                token: primaryService.token
+            )
+        } catch {
+            print("✗ Failed to fetch history from primary service \(primaryService.service.displayName): \(error)")
+            return []
+        }
+        
+        print("📊 Fetched \(primaryTracks.count) tracks from primary service \(primaryService.service.displayName)")
+        
+        // Enrich with data from other enabled services for undo/love actions
+        let otherServices = Defaults.shared.enabledServices.filter { $0.service != primaryService.service }
+        
+        if !otherServices.isEmpty {
+            await enrichTracksWithOtherServices(tracks: &primaryTracks, otherServices: otherServices, limit: limit, page: page)
+        }
+        
+        return primaryTracks
+    }
+    
+    private func enrichTracksWithOtherServices(tracks: inout [RecentTrack], otherServices: [ServiceCredentials], limit: Int, page: Int) async {
+        var otherServiceTracks: [[RecentTrack]] = []
+        
+        // Fetch from other services in parallel
+        await withTaskGroup(of: (Int, [RecentTrack]?).self) { group in
+            for (index, credentials) in otherServices.enumerated() {
                 guard let client = self.client(for: credentials.service) else { continue }
                 group.addTask {
                     do {
-                        return try await client.getRecentTracks(username: credentials.username, limit: limit, page: page, token: credentials.token)
+                        let tracks = try await client.getRecentTracks(
+                            username: credentials.username,
+                            limit: limit,
+                            page: page,
+                            token: credentials.token
+                        )
+                        return (index, tracks)
                     } catch {
                         print("✗ Failed to fetch history from \(credentials.service.displayName): \(error)")
-                        return nil
+                        return (index, nil)
                     }
                 }
             }
             
-            for await tracks in group {
-                if let tracks = tracks {
-                    allTracks.append(contentsOf: tracks)
+            for await (index, fetchedTracks) in group {
+                while otherServiceTracks.count <= index {
+                    otherServiceTracks.append([])
+                }
+                if let fetchedTracks = fetchedTracks {
+                    otherServiceTracks[index] = fetchedTracks
+                    print("📊 Fetched \(fetchedTracks.count) tracks from \(otherServices[index].service.displayName)")
                 }
             }
         }
         
-        // Merge Logic: Sort by date desc
-        let preferred = Defaults.shared.mainServicePreference
-        allTracks.sort { (t1, t2) in
-            let d1 = t1.date ?? Int.max
-            let d2 = t2.date ?? Int.max
+        // Match and enrich primary tracks with serviceInfo from other services
+        for serviceIndex in otherServiceTracks.indices {
+            let serviceTracks = otherServiceTracks[serviceIndex]
+            let service = otherServices[serviceIndex].service
             
-            // If timestamps are close (2 mins), prioritize preferred service
-            if abs(d1 - d2) < 120 {
-                if let p = preferred {
-                    if t1.sourceService == p && t2.sourceService != p { return true }
-                    if t1.sourceService != p && t2.sourceService == p { return false }
+            for primaryIndex in tracks.indices {
+                if let matchedTrack = findBestMatch(for: tracks[primaryIndex], in: serviceTracks) {
+                    print("🔗 Matched '\(tracks[primaryIndex].name)' from primary with \(service.displayName)")
+                    tracks[primaryIndex].serviceInfo.merge(matchedTrack.serviceInfo) { (_, new) in new }
                 }
             }
-            
-            return d1 > d2
         }
+    }
+    
+    private func findBestMatch(for track: RecentTrack, in candidates: [RecentTrack]) -> RecentTrack? {
+        var bestMatch: RecentTrack?
+        var bestScore: Double = 0
         
-        let lfmCount = allTracks.filter { $0.sourceService == .lastfm }.count
-        let lbCount = allTracks.filter { $0.sourceService == .listenbrainz }.count
-        let libreCount = allTracks.filter { $0.sourceService == .librefm }.count
-        let nilCount = allTracks.filter { $0.sourceService == nil }.count
-        
-        print("DEBUG: All tracks: \(allTracks.count). LFM: \(lfmCount), LB: \(lbCount), Libre: \(libreCount), Nil: \(nilCount). Preferred: \(preferred?.id ?? "None")")
-        
-        var mergedTracks: [RecentTrack] = []
-        
-        for track in allTracks {
-            if let index = mergedTracks.lastIndex(where: { tracksMatch(track, $0) }) {
-                mergedTracks[index] = mergeTrack(track, into: mergedTracks[index])
-            } else {
-                mergedTracks.append(track)
+        for candidate in candidates {
+            // First check timestamp proximity
+            guard timestampsMatch(track.date, candidate.date) else { continue }
+            
+            // Calculate similarity score using Levenshtein distance
+            let artistScore = StringSimilarity.similarity(normalize(track.artist), normalize(candidate.artist))
+            let trackScore = StringSimilarity.similarity(normalize(track.name), normalize(candidate.name))
+            
+            // Combined score (weighted average)
+            let score = (artistScore * 0.5 + trackScore * 0.5)
+            
+            // Require at least 80% similarity
+            if score >= 0.8 && score > bestScore {
+                bestScore = score
+                bestMatch = candidate
             }
         }
         
-        return mergedTracks
+        return bestMatch
     }
     
     private func normalize(_ string: String) -> String {
         string.trimmingCharacters(in: .whitespaces).lowercased()
     }
     
-    private func tracksMatch(_ t1: RecentTrack, _ t2: RecentTrack) -> Bool {
-        normalize(t1.artist) == normalize(t2.artist) &&
-        normalize(t1.name) == normalize(t2.name) &&
-        timestampsMatch(t1.date, t2.date)
-    }
-    
     private func timestampsMatch(_ d1: Int?, _ d2: Int?) -> Bool {
         if d1 == nil && d2 == nil { return true }
         guard let d1 = d1, let d2 = d2 else { return false }
-        return abs(d1 - d2) < 120
-    }
-    
-    private func mergeTrack(_ track: RecentTrack, into existing: RecentTrack) -> RecentTrack {
-        let preferred = Defaults.shared.mainServicePreference
-        
-        if let source = track.sourceService, source == preferred {
-            print("MERGE: Swapping \(existing.sourceService?.id ?? "nil") with preferred \(source.id) for \(track.name)")
-            var result = track
-            result.serviceInfo.merge(existing.serviceInfo) { (_, new) in new }
-            return result
-        } else {
-            if let source = track.sourceService, let preferred = preferred {
-                print("MERGE: Keeping \(existing.sourceService?.id ?? "nil") over \(source.id) (Preferred: \(preferred.id)) for \(track.name)")
-            }
-            var result = existing
-            result.serviceInfo.merge(track.serviceInfo) { (_, new) in new }
-            return result
-        }
+        return abs(d1 - d2) < 120  // Within 2 minutes
     }
 }
