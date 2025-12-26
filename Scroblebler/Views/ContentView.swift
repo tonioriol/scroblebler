@@ -1,6 +1,6 @@
 //
 //  ContentView.swift
-//  Audioscrobbler
+//  Scroblebler
 //
 //  Created by Victor Gama on 25/11/2022.
 //

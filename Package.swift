@@ -2,18 +2,18 @@
 import PackageDescription
 
 let package = Package(
-    name: "Audioscrobbler",
+    name: "Scroblebler",
     platforms: [.macOS(.v13)],
     products: [
-        .executable(name: "Audioscrobbler", targets: ["Audioscrobbler"])
+        .executable(name: "Scroblebler", targets: ["Scroblebler"])
     ],
     targets: [
         .executableTarget(
-            name: "Audioscrobbler",
-            path: "Audioscrobbler",
+            name: "Scroblebler",
+            path: "Scroblebler",
             exclude: [
                 "Info.plist",
-                "Audioscrobbler.entitlements",
+                "Scroblebler.entitlements",
                 "Assets.xcassets",
                 "Preview Content"
             ]

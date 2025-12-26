@@ -61,11 +61,11 @@
 		DA6859CD29300A27009143B3 /* Header.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Header.swift; sourceTree = "<group>"; };
 		DA6859CF2930242E009143B3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		DA7B0AA4297B392000B522D6 /* OSAKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OSAKit.framework; path = System/Library/Frameworks/OSAKit.framework; sourceTree = SDKROOT; };
-		DA8DE133292FC575004DC22E /* Audioscrobbler.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Audioscrobbler.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		DA8DE133292FC575004DC22E /* Scroblebler.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Scroblebler.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DA8DE138292FC575004DC22E /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
 		DA8DE13A292FC577004DC22E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		DA8DE13D292FC577004DC22E /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
-		DA8DE13F292FC577004DC22E /* Audioscrobbler.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Audioscrobbler.entitlements; sourceTree = "<group>"; };
+		DA8DE13F292FC577004DC22E /* Scroblebler.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Scroblebler.entitlements; sourceTree = "<group>"; };
 		DA8DE145292FCBDC004DC22E /* Watcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Watcher.swift; sourceTree = "<group>"; };
 		DA8F729829315119007920D3 /* Defaults.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Defaults.swift; sourceTree = "<group>"; };
 		DAC4708429315B7200734C24 /* View+NSWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "View+NSWindow.swift"; sourceTree = "<group>"; };
@@ -154,7 +154,7 @@
 		DA8DE12A292FC575004DC22E = {
 			isa = PBXGroup;
 			children = (
-				DA8DE135292FC575004DC22E /* Audioscrobbler */,
+				DA8DE135292FC575004DC22E /* Scroblebler */,
 				DA8DE134292FC575004DC22E /* Products */,
 				DA7B0AA3297B392000B522D6 /* Frameworks */,
 			);
@@ -163,12 +163,12 @@
 		DA8DE134292FC575004DC22E /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				DA8DE133292FC575004DC22E /* Audioscrobbler.app */,
+				DA8DE133292FC575004DC22E /* Scroblebler.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
-		DA8DE135292FC575004DC22E /* Audioscrobbler */ = {
+		DA8DE135292FC575004DC22E /* Scroblebler */ = {
 			isa = PBXGroup;
 			children = (
 				DAC4708329315B6500734C24 /* Extensions */,
@@ -178,7 +178,7 @@
 				EE8888888888888888888888 /* Protocols */,
 				DA6859CF2930242E009143B3 /* Info.plist */,
 				DA8DE13A292FC577004DC22E /* Assets.xcassets */,
-				DA8DE13F292FC577004DC22E /* Audioscrobbler.entitlements */,
+				DA8DE13F292FC577004DC22E /* Scroblebler.entitlements */,
 				DA8DE13C292FC577004DC22E /* Preview Content */,
 				DAC4708629315EA900734C24 /* AppDelegate.swift */,
 				DA8DE145292FCBDC004DC22E /* Watcher.swift */,
@@ -190,7 +190,7 @@
 				SS7777777777777777777777 /* StringSimilarity.swift */,
 				KEYC0000000000000000001 /* KeychainHelper.swift */,
 			);
-			path = Audioscrobbler;
+			path = Scroblebler;
 			sourceTree = "<group>";
 		};
 		DA8DE13C292FC577004DC22E /* Preview Content */ = {
@@ -231,9 +231,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		DA8DE132292FC575004DC22E /* Audioscrobbler */ = {
+		DA8DE132292FC575004DC22E /* Scroblebler */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = DA8DE142292FC577004DC22E /* Build configuration list for PBXNativeTarget "Audioscrobbler" */;
+			buildConfigurationList = DA8DE142292FC577004DC22E /* Build configuration list for PBXNativeTarget "Scroblebler" */;
 			buildPhases = (
 				DA8DE12F292FC575004DC22E /* Sources */,
 				DA8DE130292FC575004DC22E /* Frameworks */,
@@ -243,9 +243,9 @@
 			);
 			dependencies = (
 			);
-			name = Audioscrobbler;
-			productName = Audioscrobbler;
-			productReference = DA8DE133292FC575004DC22E /* Audioscrobbler.app */;
+			name = Scroblebler;
+			productName = Scroblebler;
+			productReference = DA8DE133292FC575004DC22E /* Scroblebler.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -263,7 +263,7 @@
 					};
 				};
 			};
-			buildConfigurationList = DA8DE12E292FC575004DC22E /* Build configuration list for PBXProject "Audioscrobbler" */;
+			buildConfigurationList = DA8DE12E292FC575004DC22E /* Build configuration list for PBXProject "Scroblebler" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -276,7 +276,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				DA8DE132292FC575004DC22E /* Audioscrobbler */,
+				DA8DE132292FC575004DC22E /* Scroblebler */,
 			);
 		};
 /* End PBXProject section */
@@ -471,13 +471,13 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				AUTOMATION_APPLE_EVENTS = YES;
 				CODE_SIGN_ALLOW_ENTITLEMENTS_MODIFICATION = YES;
-				CODE_SIGN_ENTITLEMENTS = Audioscrobbler/Audioscrobbler.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Scroblebler/Scroblebler.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 5;
 				DEAD_CODE_STRIPPING = YES;
-				DEVELOPMENT_ASSET_PATHS = "\"Audioscrobbler/Preview Content\"";
+				DEVELOPMENT_ASSET_PATHS = "\"Scroblebler/Preview Content\"";
 				DEVELOPMENT_TEAM = B65K228Z97;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_FILE_ACCESS_MUSIC_FOLDER = readonly;
@@ -494,11 +494,11 @@
 				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
 				ENABLE_RESOURCE_ACCESS_USB = NO;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = Audioscrobbler/Info.plist;
+				INFOPLIST_FILE = Scroblebler/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.social-networking";
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Scroblebler needs to access Apple Music to track and scrobble the songs you're listening to.";
-				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Audioscrobbler needs to access Apple Music to track and scrobble the songs you're listening to.";
+				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Scroblebler needs to access Apple Music to track and scrobble the songs you're listening to.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -521,13 +521,13 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				AUTOMATION_APPLE_EVENTS = YES;
 				CODE_SIGN_ALLOW_ENTITLEMENTS_MODIFICATION = YES;
-				CODE_SIGN_ENTITLEMENTS = Audioscrobbler/Audioscrobbler.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Scroblebler/Scroblebler.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 5;
 				DEAD_CODE_STRIPPING = YES;
-				DEVELOPMENT_ASSET_PATHS = "\"Audioscrobbler/Preview Content\"";
+				DEVELOPMENT_ASSET_PATHS = "\"Scroblebler/Preview Content\"";
 				DEVELOPMENT_TEAM = B65K228Z97;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_FILE_ACCESS_MUSIC_FOLDER = readonly;
@@ -544,11 +544,11 @@
 				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
 				ENABLE_RESOURCE_ACCESS_USB = NO;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = Audioscrobbler/Info.plist;
+				INFOPLIST_FILE = Scroblebler/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.social-networking";
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Scroblebler needs to access Apple Music to track and scrobble the songs you're listening to.";
-				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Audioscrobbler needs to access Apple Music to track and scrobble the songs you're listening to.";
+				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Scroblebler needs to access Apple Music to track and scrobble the songs you're listening to.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -567,7 +567,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		DA8DE12E292FC575004DC22E /* Build configuration list for PBXProject "Audioscrobbler" */ = {
+		DA8DE12E292FC575004DC22E /* Build configuration list for PBXProject "Scroblebler" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				DA8DE140292FC577004DC22E /* Debug */,
@@ -576,7 +576,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		DA8DE142292FC577004DC22E /* Build configuration list for PBXNativeTarget "Audioscrobbler" */ = {
+		DA8DE142292FC577004DC22E /* Build configuration list for PBXNativeTarget "Scroblebler" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				DA8DE143292FC577004DC22E /* Debug */,

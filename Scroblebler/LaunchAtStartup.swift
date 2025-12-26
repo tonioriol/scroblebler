@@ -1,6 +1,6 @@
 //
 //  LaunchAtStartup.swift
-//  Audioscrobbler
+//  Scroblebler
 //
 //  Created by Victor Gama on 27/11/2022.
 //

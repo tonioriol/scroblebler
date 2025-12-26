@@ -1,8 +1,8 @@
 //
 //  AuthenticationSheet.swift
-//  Audioscrobbler
+//  Scroblebler
 //
-//  Created by Audioscrobbler on 24/12/2024.
+//  Created by Scroblebler on 24/12/2024.
 //
 
 import SwiftUI

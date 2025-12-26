@@ -1,8 +1,8 @@
-# Audioscrobbler for Apple Music
+# Scroblebler for Apple Music
 
 <img src="imgs/icon.png" height="64" align="right">
 
-Audioscrobbler is a native macOS application capable of scrobbling tracks from Apple Music (even when
+Scroblebler is a native macOS application capable of scrobbling tracks from Apple Music (even when
 they are not in your library).
 
 ## Screenshot
@@ -11,12 +11,12 @@ they are not in your library).
 
 ## Installing
 
-Signed and Notarized version is available on the [Releases](https://github.com/heyvito/audioscrobbler/releases) page.
+Signed and Notarized version is available on the [Releases](https://github.com/tonioriol/scroblebler/releases) page.
 
 ## Building
 
 1. Clone this repository
-2. Open `Audioscrobbler.xcodeproj`, and build it.
+2. Open `Scroblebler.xcodeproj`, and build it.
 3. Profit. :)
 
 ## Oh no, you pushed your token and secret!
@@ -40,7 +40,7 @@ on their repository](https://github.com/lastfm/lastfm-desktop/blob/9ae84cf4ab204
 
 ## License
 
-Last.fm, Audioscrobbler © 2022 Last.fm Ltd. All rights reserved
+Last.fm, Scroblebler © 2022 Last.fm Ltd. All rights reserved
 
 ```
 The MIT License (MIT)

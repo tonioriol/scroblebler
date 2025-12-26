@@ -322,7 +322,7 @@ class LastFmClient: ObservableObject, ScrobbleClient {
     private func executeRequest(method: String, args: [String: String] = [:]) async throws -> Data {
         var request = URLRequest(url: baseURL)
         request.httpMethod = "POST"
-        request.setValue("appleMusicAudioscrobbler/1.0", forHTTPHeaderField: "User-Agent")
+        request.setValue("appleMusicScroblebler/1.0", forHTTPHeaderField: "User-Agent")
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         
         var formComponents = URLComponents()

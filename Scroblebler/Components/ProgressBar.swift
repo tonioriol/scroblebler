@@ -1,6 +1,6 @@
 //
 //  ProgressBar.swift
-//  Audioscrobbler
+//  Scroblebler
 //
 //  Created by Victor Gama on 25/11/2022.
 //
@@ -19,7 +19,7 @@ struct ProgressBar: View {
 
     private var popoverWillHidePublisher: AnyPublisher<Notification, Never> {
         NotificationCenter.default
-            .publisher(for: NSNotification.Name("AudioscrobblerWillHide"))
+            .publisher(for: NSNotification.Name("ScrobleblerWillHide"))
             .eraseToAnyPublisher()
     }
 

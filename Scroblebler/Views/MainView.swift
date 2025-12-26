@@ -184,7 +184,7 @@ struct MainView: View {
         .onChange(of: defaults.mainServicePreference) { _ in
             loadRecentTracks()
         }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("AudioscrobblerDidShow"))) { _ in
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ScrobleblerDidShow"))) { _ in
             loadRecentTracks()
         }
     }

@@ -1,6 +1,6 @@
 //
 //  AppDelegate.swift
-//  Audioscrobbler
+//  Scroblebler
 //
 //  Created by Victor Gama on 25/11/2022.
 //
@@ -30,7 +30,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
         contextMenu.addItem(.separator())
 
-        let quitItem = NSMenuItem(title: "Quit Audioscrobbler", action: #selector(self.applicationQuit), keyEquivalent: "")
+        let quitItem = NSMenuItem(title: "Quit Scroblebler", action: #selector(self.applicationQuit), keyEquivalent: "")
         quitItem.target = self
         contextMenu.addItem(quitItem)
 
@@ -97,7 +97,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
                         popoverWindow.collectionBehavior = .fullScreenAuxiliary
                         popoverWindow.makeKey()
                     }
-                    NotificationCenter.default.post(name: NSNotification.Name("AudioscrobblerDidShow"), object: nil)
+                    NotificationCenter.default.post(name: NSNotification.Name("ScrobleblerDidShow"), object: nil)
                     startMonitoring()
                 }
             }
@@ -126,7 +126,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
     func popoverWillClose(_ notification: Notification) {
         stopMonitoring()
-        NotificationCenter.default.post(name: NSNotification.Name("AudioscrobblerWillHide"), object: nil)
+        NotificationCenter.default.post(name: NSNotification.Name("ScrobleblerWillHide"), object: nil)
     }
 
     @objc func applicationQuit() {

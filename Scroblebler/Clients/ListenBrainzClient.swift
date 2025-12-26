@@ -181,7 +181,7 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         }
         
         var request = URLRequest(url: url)
-        request.setValue("AudioscrobblerApp/1.0 (contact@example.com)", forHTTPHeaderField: "User-Agent")
+        request.setValue("ScrobleblerApp/1.0 (contact@example.com)", forHTTPHeaderField: "User-Agent")
         
         do {
             let (data, _) = try await URLSession.shared.data(for: request)

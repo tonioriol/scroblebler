@@ -248,7 +248,7 @@ final class ListenBrainzCache {
     
     private func getCacheFilePath(username: String) -> URL? {
         guard let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else { return nil }
-        let dir = appSupport.appendingPathComponent("Audioscrobbler", isDirectory: true)
+        let dir = appSupport.appendingPathComponent("Scroblebler", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir.appendingPathComponent("listenbrainz_cache_\(username).json")
     }

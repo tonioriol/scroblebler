@@ -19,6 +19,26 @@
             "target": "Audioscrobbler",
             "configuration": "release",
             "preLaunchTask": "swift: Build Release Audioscrobbler"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:audioscrobbler}",
+            "name": "Debug Scroblebler",
+            "target": "Scroblebler",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug Scroblebler"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:audioscrobbler}",
+            "name": "Release Scroblebler",
+            "target": "Scroblebler",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release Scroblebler"
         }
     ]
 }
