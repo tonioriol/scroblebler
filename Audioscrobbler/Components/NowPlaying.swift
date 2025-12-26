@@ -36,9 +36,11 @@ struct NowPlaying: View {
         .padding()
         .onAppear {
             fetchLovedState()
+            fetchPlayCount()
         }
         .onChange(of: track?.name) { _ in
             fetchLovedState()
+            fetchPlayCount()
         }
     }
     
@@ -55,6 +57,23 @@ struct NowPlaying: View {
             let loved = try? await client.getTrackLoved(token: primary.token, artist: currentTrack.artist, track: currentTrack.name)
             await MainActor.run {
                 lovedState = loved ?? currentTrack.loved
+            }
+        }
+    }
+    
+    private func fetchPlayCount() {
+        guard let currentTrack = track,
+              let primary = defaults.primaryService,
+              primary.service == .lastfm,
+              let client = serviceManager.client(for: .lastfm) else {
+            playCount = nil
+            return
+        }
+        
+        Task {
+            let count = try? await client.getTrackUserPlaycount(token: primary.token, artist: currentTrack.artist, track: currentTrack.name)
+            await MainActor.run {
+                playCount = count
             }
         }
     }
