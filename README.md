@@ -5,11 +5,35 @@
 Scroblebler is a native macOS application capable of scrobbling tracks from Apple Music (even when
 they are not in your library).
 
+## Features
+
+- 🎵 **Multiple Scrobbling Services**: Support for Last.fm, ListenBrainz, and Libre.fm
+- ❤️ **Track Loving**: Love/unlove tracks directly from the app
+- 🚫 **Blacklist Management**: Blacklist tracks to prevent unwanted scrobbles
+- ↩️ **Undo Support**: Undo recent scrobbles
+- 📊 **Play Count Display**: View play counts for your tracks
+- 📜 **Listening History**: Browse your recent scrobbles
+- 👤 **Profile View**: View your scrobbling profile information
+- 🎨 **Album Artwork**: Display beautiful album artwork
+- 📱 **Now Playing**: Real-time now playing updates
+- 🔐 **Multiple Authentication Methods**: Token-based and password-based authentication
+- 🎯 **Smart Track Matching**: String similarity algorithms for accurate track matching
+- 🪵 **Comprehensive Logging**: Detailed logging for troubleshooting
+- 🚀 **Launch at Startup**: Automatically start scrobbling when you log in
+
 ## Screenshot
 
 <img src="imgs/as-screenshot.png" height="353" />
 
 ## Installing
+
+### Homebrew
+
+```bash
+brew install --cask https://raw.githubusercontent.com/tonioriol/scroblebler/main/scroblebler.rb
+```
+
+### Manual Installation
 
 Signed and Notarized version is available on the [Releases](https://github.com/tonioriol/scroblebler/releases) page.
 
