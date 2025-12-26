@@ -1,7 +1,6 @@
 import Foundation
 import SwiftUI
 import CryptoKit
-import SwiftUI
 
 class LastFmClient: ObservableObject, ScrobbleClient {
     enum Error: Swift.Error {
@@ -145,7 +144,9 @@ class LastFmClient: ObservableObject, ScrobbleClient {
                     artistURL: tracksCopy[index].artistURL,
                     albumURL: tracksCopy[index].albumURL,
                     trackURL: tracksCopy[index].trackURL,
-                    playcount: count
+                    playcount: count,
+                    serviceInfo: tracksCopy[index].serviceInfo,
+                    sourceService: tracksCopy[index].sourceService
                 )
             }
             return tracksCopy
@@ -416,18 +417,24 @@ private extension LastFmClient {
                 let albumName = album.text
                 let trackName = name
                 
+                let dateInt = date.flatMap { Int($0.uts) }
+                
                 return RecentTrack(
                     name: trackName,
                     artist: artistName,
                     album: albumName,
-                    date: date.flatMap { Int($0.uts) },
+                    date: dateInt,
                     isNowPlaying: false,
                     loved: loved == "1",
                     imageUrl: image?.last(where: { !$0.text.isEmpty })?.text,
                     artistURL: client.artistURL(artist: artistName, mbid: nil),
                     albumURL: client.albumURL(artist: artistName, album: albumName, mbid: nil),
                     trackURL: client.trackURL(artist: artistName, track: trackName, mbid: nil),
-                    playcount: nil
+                    playcount: nil,
+                    serviceInfo: [
+                        ScrobbleService.lastfm.id: ServiceTrackData(timestamp: dateInt, id: nil)
+                    ],
+                    sourceService: .lastfm
                 )
             }
         }

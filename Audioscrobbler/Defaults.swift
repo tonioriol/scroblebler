@@ -1,4 +1,4 @@
- import Foundation
+import Foundation
 import AppKit
 
 class Defaults: ObservableObject {
@@ -32,9 +32,16 @@ class Defaults: ObservableObject {
         }
     }
     
+    @Published var blacklistedTracks: [String] = [] {
+        didSet {
+            defaults.set(blacklistedTracks, forKey: "blacklistedTracks")
+        }
+    }
+    
     init() {
         firstRun = defaults.string(forKey: "firstRun") == nil
         picture = defaults.data(forKey: "picture")
+        blacklistedTracks = defaults.stringArray(forKey: "blacklistedTracks") ?? []
         
         if let serviceRaw = defaults.string(forKey: "mainServicePreference"),
            let service = ScrobbleService(rawValue: serviceRaw) {
@@ -162,5 +169,27 @@ class Defaults: ObservableObject {
     func reset() {
         serviceCredentials = []
         picture = nil
+    }
+    
+    // MARK: - Blacklist
+    
+    private let blacklistKeySeparator = "|||"
+    
+    private func blacklistKey(artist: String, track: String) -> String {
+        "\(artist)\(blacklistKeySeparator)\(track)"
+    }
+    
+    func toggleBlacklist(artist: String, track: String) {
+        let key = blacklistKey(artist: artist, track: track)
+        if blacklistedTracks.contains(key) {
+            blacklistedTracks.removeAll { $0 == key }
+        } else {
+            blacklistedTracks.append(key)
+        }
+    }
+    
+    func isBlacklisted(artist: String, track: String) -> Bool {
+        let key = blacklistKey(artist: artist, track: track)
+        return blacklistedTracks.contains(key)
     }
 }

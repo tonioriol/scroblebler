@@ -24,13 +24,27 @@ struct NowPlaying: View {
             trackLength: track!.length
         )
         .padding()
-        .animation(nil)
         .onAppear {
             fetchLovedState()
         }
         .onChange(of: track?.name) { _ in
             fetchLovedState()
         }
+        .overlay(
+            VStack {
+                HStack {
+                    Spacer()
+                    if let track = track {
+                        BlacklistButton(
+                            artist: track.artist,
+                            track: track.name
+                        )
+                        .padding([.top, .trailing], 4)
+                    }
+                }
+                Spacer()
+            }
+        )
     }
     
     private func fetchLovedState() {

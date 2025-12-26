@@ -40,7 +40,11 @@ class LibreFmClient: LastFmClient {
                 artistURL: URL(string: "https://libre.fm/music/\(encodedArtist)")!,
                 albumURL: URL(string: "https://libre.fm/music/\(encodedArtist)/\(encodedAlbum)")!,
                 trackURL: URL(string: "https://libre.fm/music/\(encodedArtist)/_/\(encodedTrack)")!,
-                playcount: track.playcount
+                playcount: track.playcount,
+                serviceInfo: [
+                    ScrobbleService.librefm.id: ServiceTrackData(timestamp: track.date, id: nil)
+                ],
+                sourceService: .librefm
             )
         }
     }

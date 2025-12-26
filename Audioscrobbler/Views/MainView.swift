@@ -170,17 +170,12 @@ struct MainView: View {
     }
     
     private func loadRecentTracks() {
-        guard let primary = defaults.primaryService,
-              let client = serviceManager.client(for: primary.service) else {
-            return
-        }
-        
         currentPage = 1
         hasMoreTracks = true
         
         Task {
             do {
-                let tracks = try await client.getRecentTracks(username: primary.username, limit: 20, page: 1, token: primary.token)
+                let tracks = try await serviceManager.getAllRecentTracks(limit: 20, page: 1)
                 await MainActor.run {
                     recentTracks = tracks
                     hasMoreTracks = tracks.count >= 20
@@ -192,9 +187,7 @@ struct MainView: View {
     }
     
     private func loadMoreTracks() {
-        guard let primary = defaults.primaryService,
-              let client = serviceManager.client(for: primary.service),
-              !isLoadingMore, hasMoreTracks else {
+        guard !isLoadingMore, hasMoreTracks else {
             return
         }
         
@@ -203,7 +196,7 @@ struct MainView: View {
         
         Task {
             do {
-                let tracks = try await client.getRecentTracks(username: primary.username, limit: 20, page: nextPage, token: primary.token)
+                let tracks = try await serviceManager.getAllRecentTracks(limit: 20, page: nextPage)
                 await MainActor.run {
                     if !tracks.isEmpty {
                         recentTracks.append(contentsOf: tracks)

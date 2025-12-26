@@ -158,6 +158,28 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         }
     }
     
+    func deleteScrobble(sessionKey: String, artist: String, track: String, timestamp: Int?, serviceId: String?) async throws {
+        print("🎵 ListenBrainz deleteScrobble called - artist: \(artist), track: \(track)")
+        
+        guard let timestamp = timestamp, let msid = serviceId else {
+            print("⚠️ ListenBrainz delete skipped - requires timestamp AND recording_msid")
+            return
+        }
+        
+        let payload: [String: Any] = [
+            "listened_at": timestamp,
+            "recording_msid": msid
+        ]
+        
+        do {
+            try await sendRequest(endpoint: "delete-listen", token: sessionKey, payload: payload)
+            print("✓ ListenBrainz delete request sent")
+        } catch {
+            print("✗ ListenBrainz delete failed: \(error)")
+            // Don't throw to avoid breaking other services in fan-out
+        }
+    }
+    
     private func lookupRecordingMBID(artist: String, track: String) async throws -> String? {
         // Query MusicBrainz API to find the recording MBID
         let query = "artist:\(artist) AND recording:\(track)"
@@ -217,18 +239,29 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
             // Get playcount from cache (top 1000 all-time tracks only)
             let playcount = getCachedPlayCount(username: username, artist: artist, track: name)
             
+            // Extract recording_msid
+            let msid = listen["recording_msid"] as? String
+            let timestamp = listen["listened_at"] as? Int
+            
             return RecentTrack(
                 name: name,
                 artist: artist,
                 album: album,
-                date: listen["listened_at"] as? Int,
+                date: timestamp,
                 isNowPlaying: false,
                 loved: false,
                 imageUrl: imageUrl,
                 artistURL: artistURL(artist: artist, mbid: artistMbid),
                 albumURL: albumURL(artist: artist, album: album, mbid: releaseMbid),
                 trackURL: trackURL(artist: artist, track: name, mbid: recordingMbid),
-                playcount: playcount
+                playcount: playcount,
+                serviceInfo: [
+                    ScrobbleService.listenbrainz.id: ServiceTrackData(
+                        timestamp: timestamp,
+                        id: msid
+                    )
+                ],
+                sourceService: .listenbrainz
             )
         }
     }

@@ -33,6 +33,25 @@ struct HistoryItem: View {
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TrackLoveStateChanged"))) { _ in
             fetchLovedState()
         }
+        .overlay(
+            VStack {
+                HStack(spacing: 8) {
+                    Spacer()
+                    UndoButton(
+                        artist: track.artist,
+                        track: track.name,
+                        serviceInfo: track.serviceInfo
+                    )
+                    
+                    BlacklistButton(
+                        artist: track.artist,
+                        track: track.name
+                    )
+                }
+                .padding([.top, .trailing], 4)
+                Spacer()
+            }
+        )
     }
     
     private func fetchLovedState() {

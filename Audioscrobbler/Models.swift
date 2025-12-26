@@ -14,6 +14,13 @@ struct RecentTrack: Codable {
     let albumURL: URL
     let trackURL: URL
     let playcount: Int?
+    var serviceInfo: [String: ServiceTrackData] = [:]
+    var sourceService: ScrobbleService? = nil
+}
+
+struct ServiceTrackData: Codable {
+    let timestamp: Int?
+    let id: String?
 }
 
 struct UserStats: Codable {

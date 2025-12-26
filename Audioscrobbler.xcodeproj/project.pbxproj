@@ -14,6 +14,8 @@
 		AA2222222222222222222222 /* PlayCountBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB2222222222222222222222 /* PlayCountBadge.swift */; };
 		AA4444444444444444444444 /* TrackInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB4444444444444444444444 /* TrackInfo.swift */; };
 		AA5555555555555555555555 /* MarqueeText.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB5555555555555555555555 /* MarqueeText.swift */; };
+		UN0000000000000000000002 /* UndoButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = UN0000000000000000000001 /* UndoButton.swift */; };
+		BL0000000000000000000002 /* BlacklistButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = BL0000000000000000000001 /* BlacklistButton.swift */; };
 		DA6859CC292FDE66009143B3 /* NowPlaying.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA6859CB292FDE66009143B3 /* NowPlaying.swift */; };
 		DA6859CD292FDE67009143B3 /* HistoryItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA6859CA292FDE67009143B3 /* HistoryItem.swift */; };
 		DA6859CE29300A27009143B3 /* Header.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA6859CD29300A27009143B3 /* Header.swift */; };
@@ -50,6 +52,8 @@
 		BB2222222222222222222222 /* PlayCountBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayCountBadge.swift; sourceTree = "<group>"; };
 		BB4444444444444444444444 /* TrackInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackInfo.swift; sourceTree = "<group>"; };
 		BB5555555555555555555555 /* MarqueeText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarqueeText.swift; sourceTree = "<group>"; };
+		UN0000000000000000000001 /* UndoButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UndoButton.swift; sourceTree = "<group>"; };
+		BL0000000000000000000001 /* BlacklistButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlacklistButton.swift; sourceTree = "<group>"; };
 		DA6859CA292FDE67009143B3 /* HistoryItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryItem.swift; sourceTree = "<group>"; };
 		DA6859CB292FDE66009143B3 /* NowPlaying.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlaying.swift; sourceTree = "<group>"; };
 		DA6859CD29300A27009143B3 /* Header.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Header.swift; sourceTree = "<group>"; };
@@ -97,6 +101,8 @@
 				DA6859CB292FDE66009143B3 /* NowPlaying.swift */,
 				DA6859CA292FDE67009143B3 /* HistoryItem.swift */,
 				DA6859CD29300A27009143B3 /* Header.swift */,
+				UN0000000000000000000001 /* UndoButton.swift */,
+				BL0000000000000000000001 /* BlacklistButton.swift */,
 				DAC4708A2931606900734C24 /* ActivityIndicator.swift */,
 				DAC4708C2931633F00734C24 /* ProgressBar.swift */,
 				DAC4708E293163C600734C24 /* Link.swift */,
@@ -283,6 +289,8 @@
 				DA6859CC292FDE66009143B3 /* NowPlaying.swift in Sources */,
 				DA6859CD292FDE67009143B3 /* HistoryItem.swift in Sources */,
 				214BE49AEB926CFA16D44F62 /* LoveButton.swift in Sources */,
+				UN0000000000000000000002 /* UndoButton.swift in Sources */,
+				BL0000000000000000000002 /* BlacklistButton.swift in Sources */,
 				DAC4708F293163C600734C24 /* Link.swift in Sources */,
 				DAC47091293166B300734C24 /* main.swift in Sources */,
 				DA8F729929315119007920D3 /* Defaults.swift in Sources */,
