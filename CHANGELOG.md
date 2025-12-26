@@ -1,3 +1,10 @@
+## [1.0.2](https://github.com/tonioriol/scroblebler/compare/v1.0.1...v1.0.2) (2025-12-26)
+
+
+### Bug Fixes
+
+* ensure scroblebler.rb is updated and committed during release ([342c93d](https://github.com/tonioriol/scroblebler/commit/342c93d02df3d47f538eed23edf27f50e6950429))
+
 ## [1.0.1](https://github.com/tonioriol/scroblebler/compare/v1.0.0...v1.0.1) (2025-12-26)
 
 

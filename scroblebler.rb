@@ -1,8 +1,8 @@
 cask "scroblebler" do
-  version "1.3"
-  sha256 "519ec5c9bc583516ed4d86d51cdd7f4eba6d206e93d49d9d028b7d081fca6626"
+  version "1.0.2"
+  sha256 "46d381441d5fe9f9bfd3e0fa088d7d32d23668461120951fd7bf8418dd9fe760"
 
-  url "https://github.com/tonioriol/scroblebler/releases/download/v#{version}/Scroblebler.#{version}.dmg"
+  url "https://github.com/tonioriol/scroblebler/releases/download/v#{version}/Scroblebler.1.0.2.dmg"
   name "Scroblebler"
   desc "Last.fm scrobbler for macOS Music app"
   homepage "https://github.com/tonioriol/scroblebler"
