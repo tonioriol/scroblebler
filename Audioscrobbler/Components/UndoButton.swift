@@ -15,13 +15,11 @@ struct UndoButton: View {
             undoScrobble()
         } label: {
             Image(systemName: isUndone ? "minus.circle.fill" : "minus.circle")
-                .resizable()
-                .scaledToFit()
                 .foregroundColor(isUndone ? .red : .secondary)
-                .frame(width: 14, height: 14)
-                .contentShape(Rectangle())
+                .font(.system(size: 11))
+                .frame(width: 11, height: 11)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.borderless)
         .help(isUndone ? "Scrobble Undone" : "Undo Scrobble")
         .disabled(isProcessing || isUndone)
         .opacity(isProcessing ? 0.5 : 1.0)

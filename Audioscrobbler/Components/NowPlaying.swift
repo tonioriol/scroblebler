@@ -21,7 +21,15 @@ struct NowPlaying: View {
             detailFontSize: 13,
             loveFontSize: 12,
             currentPosition: currentPosition,
-            trackLength: track!.length
+            trackLength: track!.length,
+            actionButtons: {
+                if let track = track {
+                    BlacklistButton(
+                        artist: track.artist,
+                        track: track.name
+                    )
+                }
+            }
         )
         .padding()
         .onAppear {
@@ -30,21 +38,6 @@ struct NowPlaying: View {
         .onChange(of: track?.name) { _ in
             fetchLovedState()
         }
-        .overlay(
-            VStack {
-                HStack {
-                    Spacer()
-                    if let track = track {
-                        BlacklistButton(
-                            artist: track.artist,
-                            track: track.name
-                        )
-                        .padding([.top, .trailing], 4)
-                    }
-                }
-                Spacer()
-            }
-        )
     }
     
     private func fetchLovedState() {

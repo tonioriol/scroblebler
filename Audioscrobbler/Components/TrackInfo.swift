@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct TrackInfo: View {
+struct TrackInfo<ActionButtons: View>: View {
     @EnvironmentObject var serviceManager: ServiceManager
     @EnvironmentObject var defaults: Defaults
     
@@ -28,6 +28,9 @@ struct TrackInfo: View {
     let albumURL: URL?
     let trackURL: URL?
     
+    // Optional action buttons
+    let actionButtons: ActionButtons?
+    
     @State private var playCount: Int? = nil
     
     init(
@@ -48,7 +51,8 @@ struct TrackInfo: View {
         playCount: Int? = nil,
         artistURL: URL? = nil,
         albumURL: URL? = nil,
-        trackURL: URL? = nil
+        trackURL: URL? = nil,
+        @ViewBuilder actionButtons: () -> ActionButtons = { EmptyView() as! ActionButtons }
     ) {
         self.trackName = trackName
         self.artist = artist
@@ -68,6 +72,7 @@ struct TrackInfo: View {
         self.artistURL = artistURL
         self.albumURL = albumURL
         self.trackURL = trackURL
+        self.actionButtons = actionButtons()
     }
     
     func formatDate(_ timestamp: Int?) -> String {
@@ -180,25 +185,7 @@ struct TrackInfo: View {
                     
                     Spacer()
                     
-                    if let timestamp = timestamp {
-                        VStack(alignment: .trailing, spacing: 4) {
-                            HStack(spacing: 4) {
-                                if let count = playCount {
-                                    Text("\(count) \(count == 1 ? "scrobble" : "scrobbles")")
-                                        .font(.system(size: loveFontSize - 1))
-                                        .foregroundColor(.secondary)
-                                    Text("·")
-                                        .font(.system(size: loveFontSize - 1))
-                                        .foregroundColor(.secondary)
-                                }
-                                LoveButton(loved: $loved, artist: artist, trackName: trackName, fontSize: loveFontSize)
-                            }
-                            Spacer()
-                            Text(formatDate(timestamp))
-                                .font(.system(size: 10))
-                                .foregroundColor(.secondary)
-                        }
-                    } else {
+                    VStack(alignment: .trailing, spacing: 4) {
                         HStack(spacing: 4) {
                             if let count = playCount {
                                 Text("\(count) \(count == 1 ? "scrobble" : "scrobbles")")
@@ -209,6 +196,15 @@ struct TrackInfo: View {
                                     .foregroundColor(.secondary)
                             }
                             LoveButton(loved: $loved, artist: artist, trackName: trackName, fontSize: loveFontSize)
+                        }
+                        if let actionButtons = actionButtons {
+                            actionButtons
+                        }
+                        if let timestamp = timestamp {
+                            Spacer(minLength: 0)
+                            Text(formatDate(timestamp))
+                                .font(.system(size: 10))
+                                .foregroundColor(.secondary)
                         }
                     }
                 }

@@ -23,20 +23,9 @@ struct HistoryItem: View {
             playCount: track.playcount,
             artistURL: track.artistURL,
             albumURL: track.albumURL,
-            trackURL: track.trackURL
-        )
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .onAppear {
-            fetchLovedState()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TrackLoveStateChanged"))) { _ in
-            fetchLovedState()
-        }
-        .overlay(
-            VStack {
-                HStack(spacing: 8) {
-                    Spacer()
+            trackURL: track.trackURL,
+            actionButtons: {
+                HStack(spacing: 4) {
                     UndoButton(
                         artist: track.artist,
                         track: track.name,
@@ -48,10 +37,16 @@ struct HistoryItem: View {
                         track: track.name
                     )
                 }
-                .padding([.top, .trailing], 4)
-                Spacer()
             }
         )
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .onAppear {
+            fetchLovedState()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TrackLoveStateChanged"))) { _ in
+            fetchLovedState()
+        }
     }
     
     private func fetchLovedState() {

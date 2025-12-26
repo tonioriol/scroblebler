@@ -11,13 +11,11 @@ struct BlacklistButton: View {
             defaults.toggleBlacklist(artist: artist, track: track)
         } label: {
             Image(systemName: "nosign")
-                .resizable()
-                .scaledToFit()
                 .foregroundColor(isBlacklisted ? .red : .secondary)
-                .frame(width: 14, height: 14)
-                .contentShape(Rectangle())
+                .font(.system(size: 11))
+                .frame(width: 11, height: 11)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.borderless)
         .help(isBlacklisted ? "Un-blacklist Track" : "Blacklist Track")
     }
     

@@ -15,7 +15,8 @@ struct LoveButton: View {
         Button(action: toggleLove) {
             Image(systemName: loved ? "heart.fill" : "heart")
                 .foregroundColor(loved ? .red : .secondary)
-                .font(.system(size: fontSize))
+                .font(.system(size: 11))
+                .frame(width: 11, height: 11)
                 .scaleEffect(isAnimating ? 1.3 : 1.0)
                 .animation(.spring(response: 0.3, dampingFraction: 0.5), value: isAnimating)
         }
