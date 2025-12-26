@@ -211,7 +211,7 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         // Populate cache first (only on first page)
         if page == 1 {
             // Reset pagination state for new fetch
-            cacheState.withLock { state in
+            _ = cacheState.withLock { state in
                 state.paginationState.removeValue(forKey: username)
             }
             print("🎵 [ListenBrainz] Page 1 - reset pagination state")

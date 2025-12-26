@@ -29,6 +29,7 @@ struct HistoryItem: View {
                     UndoButton(
                         artist: track.artist,
                         track: track.name,
+                        album: track.album,
                         serviceInfo: track.serviceInfo
                     )
                     
