@@ -89,9 +89,9 @@ class ServiceManager: ObservableObject {
         }
     }
     
-    func deleteScrobble(credentials: ServiceCredentials, artist: String, track: String, timestamp: Int?, serviceId: String?) async throws {
+    func deleteScrobble(credentials: ServiceCredentials, identifier: ScrobbleIdentifier) async throws {
         guard let client = clients[credentials.service] else { return }
-        try await client.deleteScrobble(sessionKey: credentials.token, artist: artist, track: track, timestamp: timestamp, serviceId: serviceId)
+        try await client.deleteScrobble(sessionKey: credentials.token, identifier: identifier)
     }
     
     func deleteScrobbleAll(artist: String, track: String, serviceInfo: [String: ServiceTrackData]) async {
@@ -100,10 +100,16 @@ class ServiceManager: ObservableObject {
         await withTaskGroup(of: Void.self) { group in
             for credentials in enabledServices {
                 let info = serviceInfo[credentials.service.id]
+                let identifier = ScrobbleIdentifier(
+                    artist: artist,
+                    track: track,
+                    timestamp: info?.timestamp,
+                    serviceId: info?.id
+                )
                 
                 group.addTask {
                     do {
-                        try await self.deleteScrobble(credentials: credentials, artist: artist, track: track, timestamp: info?.timestamp, serviceId: info?.id)
+                        try await self.deleteScrobble(credentials: credentials, identifier: identifier)
                         print("✓ Deleted scrobble from \(credentials.service.displayName): \(artist) - \(track)")
                     } catch {
                         print("✗ Failed to delete scrobble from \(credentials.service.displayName): \(error)")

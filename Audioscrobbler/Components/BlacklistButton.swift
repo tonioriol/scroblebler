@@ -6,9 +6,14 @@ struct BlacklistButton: View {
     let artist: String
     let track: String
     
+    @State private var isBlacklisted = false
+    
     var body: some View {
         Button {
-            defaults.toggleBlacklist(artist: artist, track: track)
+            withAnimation {
+                defaults.toggleBlacklist(artist: artist, track: track)
+                isBlacklisted = defaults.isBlacklisted(artist: artist, track: track)
+            }
         } label: {
             Image(systemName: "nosign")
                 .foregroundColor(isBlacklisted ? .red : .secondary)
@@ -17,9 +22,8 @@ struct BlacklistButton: View {
         }
         .buttonStyle(.borderless)
         .help(isBlacklisted ? "Un-blacklist Track" : "Blacklist Track")
-    }
-    
-    private var isBlacklisted: Bool {
-        defaults.isBlacklisted(artist: artist, track: track)
+        .onAppear {
+            isBlacklisted = defaults.isBlacklisted(artist: artist, track: track)
+        }
     }
 }

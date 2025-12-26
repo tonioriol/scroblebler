@@ -20,7 +20,7 @@ protocol ScrobbleClient {
     func getTopTracks(username: String, period: String, limit: Int) async throws -> [TopTrack]
     func getTrackUserPlaycount(token: String, artist: String, track: String) async throws -> Int?
     func getTrackLoved(token: String, artist: String, track: String) async throws -> Bool
-    func deleteScrobble(sessionKey: String, artist: String, track: String, timestamp: Int?, serviceId: String?) async throws
+    func deleteScrobble(sessionKey: String, identifier: ScrobbleIdentifier) async throws
 }
 
 // Optional features with default implementations
@@ -29,7 +29,7 @@ extension ScrobbleClient {
         // Optional - not all services support this
     }
     
-    func deleteScrobble(sessionKey: String, artist: String, track: String, timestamp: Int?, serviceId: String?) async throws {
+    func deleteScrobble(sessionKey: String, identifier: ScrobbleIdentifier) async throws {
         // Optional - not all services support this
     }
     

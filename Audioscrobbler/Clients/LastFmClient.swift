@@ -432,7 +432,7 @@ private extension LastFmClient {
                     trackURL: client.trackURL(artist: artistName, track: trackName, mbid: nil),
                     playcount: nil,
                     serviceInfo: [
-                        ScrobbleService.lastfm.id: ServiceTrackData(timestamp: dateInt, id: nil)
+                        ScrobbleService.lastfm.id: ServiceTrackData.lastfm(timestamp: dateInt ?? 0)
                     ],
                     sourceService: .lastfm
                 )

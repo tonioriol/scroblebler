@@ -158,10 +158,10 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         }
     }
     
-    func deleteScrobble(sessionKey: String, artist: String, track: String, timestamp: Int?, serviceId: String?) async throws {
-        print("🎵 ListenBrainz deleteScrobble called - artist: \(artist), track: \(track)")
+    func deleteScrobble(sessionKey: String, identifier: ScrobbleIdentifier) async throws {
+        print("🎵 ListenBrainz deleteScrobble called - artist: \(identifier.artist), track: \(identifier.track)")
         
-        guard let timestamp = timestamp, let msid = serviceId else {
+        guard let timestamp = identifier.timestamp, let msid = identifier.serviceId else {
             print("⚠️ ListenBrainz delete skipped - requires timestamp AND recording_msid")
             return
         }
@@ -256,9 +256,9 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
                 trackURL: trackURL(artist: artist, track: name, mbid: recordingMbid),
                 playcount: playcount,
                 serviceInfo: [
-                    ScrobbleService.listenbrainz.id: ServiceTrackData(
-                        timestamp: timestamp,
-                        id: msid
+                    ScrobbleService.listenbrainz.id: ServiceTrackData.listenbrainz(
+                        recordingMsid: msid ?? "",
+                        timestamp: timestamp ?? 0
                     )
                 ],
                 sourceService: .listenbrainz

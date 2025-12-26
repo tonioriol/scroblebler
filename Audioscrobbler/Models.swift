@@ -19,8 +19,24 @@ struct RecentTrack: Codable {
 }
 
 struct ServiceTrackData: Codable {
+    let timestamp: Int?  // Required for Last.fm/Libre.fm
+    let id: String?      // Required for ListenBrainz (recording_msid)
+    
+    // Factory methods make intent clear
+    static func lastfm(timestamp: Int) -> ServiceTrackData {
+        ServiceTrackData(timestamp: timestamp, id: nil)
+    }
+    
+    static func listenbrainz(recordingMsid: String, timestamp: Int) -> ServiceTrackData {
+        ServiceTrackData(timestamp: timestamp, id: recordingMsid)
+    }
+}
+
+struct ScrobbleIdentifier {
+    let artist: String
+    let track: String
     let timestamp: Int?
-    let id: String?
+    let serviceId: String?
 }
 
 struct UserStats: Codable {
