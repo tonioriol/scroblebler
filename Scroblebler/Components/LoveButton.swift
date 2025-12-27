@@ -11,17 +11,23 @@ struct LoveButton: View {
     
     @State private var isAnimating: Bool = false
     
+    private var hasEnabledServices: Bool {
+        !defaults.enabledServices.isEmpty
+    }
+    
     var body: some View {
         Button(action: toggleLove) {
             Image(systemName: loved ? "heart.fill" : "heart")
-                .foregroundColor(loved ? .red : .secondary)
+                .foregroundColor(hasEnabledServices ? (loved ? .red : .secondary) : .gray)
                 .font(.system(size: 11))
                 .frame(width: 11, height: 11)
                 .scaleEffect(isAnimating ? 1.3 : 1.0)
                 .animation(.spring(response: 0.3, dampingFraction: 0.5), value: isAnimating)
         }
         .buttonStyle(.borderless)
-        .help(loved ? "Unlove track" : "Love track")
+        .disabled(!hasEnabledServices)
+        .opacity(hasEnabledServices ? 1.0 : 0.4)
+        .help(hasEnabledServices ? (loved ? "Unlove track" : "Love track") : "No services logged in")
     }
     
     func toggleLove() {
