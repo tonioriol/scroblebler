@@ -174,6 +174,12 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
     }
     
     private func lookupRecordingMBID(artist: String, track: String) async throws -> String? {
+        // Try MBID Mapper 2.0 first (fast fuzzy matching)
+        if let mbid = try? await lookupMBIDFromMapper(artist: artist, track: track, album: nil) {
+            return mbid.recordingMbid
+        }
+        
+        // Fallback to direct MusicBrainz search
         let query = "artist:\(artist) AND recording:\(track)"
         guard let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
               let url = URL(string: "https://musicbrainz.org/ws/2/recording/?query=\(encodedQuery)&limit=1&fmt=json") else {
@@ -190,6 +196,66 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
             return recordings?.first?["id"] as? String
         } catch {
             print("⚠️ Failed to lookup recording MBID: \(error)")
+            return nil
+        }
+    }
+    
+    struct MapperResult {
+        let artistMbid: String?
+        let releaseMbid: String?
+        let recordingMbid: String?
+        let confidence: Double
+    }
+    
+    func lookupMBIDsForTrack(artist: String, track: String, album: String?) async throws -> MapperResult? {
+        return try await lookupMBIDFromMapper(artist: artist, track: track, album: album)
+    }
+    
+    private func lookupMBIDFromMapper(artist: String, track: String, album: String?) async throws -> MapperResult? {
+        var components = URLComponents(string: "https://mapper.listenbrainz.org/mapping/lookup")!
+        var queryItems = [
+            URLQueryItem(name: "artist_credit_name", value: artist),
+            URLQueryItem(name: "recording_name", value: track)
+        ]
+        if let album = album, !album.isEmpty {
+            queryItems.append(URLQueryItem(name: "release_name", value: album))
+        }
+        components.queryItems = queryItems
+        
+        guard let url = components.url else { return nil }
+        
+        do {
+            let (data, response) = try await URLSession.shared.data(from: url)
+            guard let httpResponse = response as? HTTPURLResponse,
+                  httpResponse.statusCode == 200 else {
+                print("⚠️ MBID Mapper: HTTP \((response as? HTTPURLResponse)?.statusCode ?? -1) for '\(artist) - \(track)'")
+                return nil
+            }
+            
+            let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+            let confidence = json?["confidence"] as? Double ?? 0.0
+            
+            // Only use results with reasonable confidence
+            guard confidence > 0.5 else {
+                print("⚠️ MBID Mapper: Low confidence (\(String(format: "%.2f", confidence))) for '\(artist) - \(track)'")
+                return nil
+            }
+            
+            let artistMbids = json?["artist_credit_mbids"] as? [String]
+            let releaseMbid = json?["release_mbid"] as? String
+            let recordingMbid = json?["recording_mbid"] as? String
+            
+            let matchedName = json?["recording_name"] as? String
+            print("✓ MBID Mapper: Matched '\(artist) - \(track)' → '\(matchedName ?? "")' (confidence: \(String(format: "%.2f", confidence)))")
+            
+            return MapperResult(
+                artistMbid: artistMbids?.first,
+                releaseMbid: releaseMbid,
+                recordingMbid: recordingMbid,
+                confidence: confidence
+            )
+        } catch {
+            print("⚠️ MBID Mapper lookup failed: \(error)")
             return nil
         }
     }
@@ -254,41 +320,106 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
             print("⚠️ [ListenBrainz] No timestamp found in last listen - pagination may fail!")
         }
         
-        return listens.compactMap { listen in
+        // First pass: extract data from ListenBrainz response
+        let tracks = listens.compactMap { listen -> (metadata: [String: Any], artist: String, name: String, album: String, msid: String?, timestamp: Int?, existingMbids: (String?, String?, String?))? in
             guard let metadata = listen["track_metadata"] as? [String: Any],
                   let artist = metadata["artist_name"] as? String,
                   let name = metadata["track_name"] as? String else { return nil }
             
             let album = metadata["release_name"] as? String ?? ""
-            let imageUrl = extractCoverArtUrl(from: metadata)
-            let (artistMbid, releaseMbid, recordingMbid) = extractMbids(from: metadata)
-            
-            let playcount = cache.getCachedPlayCount(username: username, artist: artist, track: name)
-            
+            let mbids = extractMbids(from: metadata)
             let msid = listen["recording_msid"] as? String
             let timestamp = listen["listened_at"] as? Int
             
-            return RecentTrack(
-                name: name,
-                artist: artist,
-                album: album,
-                date: timestamp,
-                isNowPlaying: false,
-                loved: false,
-                imageUrl: imageUrl,
-                artistURL: artistURL(artist: artist, mbid: artistMbid),
-                albumURL: albumURL(artist: artist, album: album, mbid: releaseMbid),
-                trackURL: trackURL(artist: artist, track: name, mbid: recordingMbid),
-                playcount: playcount,
-                serviceInfo: [
-                    ScrobbleService.listenbrainz.id: ServiceTrackData.listenbrainz(
-                        recordingMsid: msid ?? "",
-                        timestamp: timestamp ?? 0
-                    )
-                ],
-                sourceService: .listenbrainz
-            )
+            return (metadata, artist, name, album, msid, timestamp, mbids)
         }
+        
+        // Second pass: enrich missing MBIDs using MBID Mapper 2.0
+        var enrichedCount = 0
+        var tracksNeedingLookup = 0
+        let result = await withTaskGroup(of: (Int, RecentTrack?, Bool).self) { group in
+            for (index, track) in tracks.enumerated() {
+                group.addTask {
+                    var (artistMbid, releaseMbid, recordingMbid) = track.existingMbids
+                    var wasEnriched = false
+                    
+                    let missingMbids = [
+                        artistMbid == nil ? "artist" : nil,
+                        releaseMbid == nil ? "release" : nil,
+                        recordingMbid == nil ? "recording" : nil
+                    ].compactMap { $0 }
+                    
+                    // Only lookup if we're missing MBIDs from ListenBrainz
+                    if recordingMbid == nil || releaseMbid == nil || artistMbid == nil {
+                        print("🔍 [Mapper] '\(track.artist) - \(track.name)' missing: \(missingMbids.joined(separator: ", "))")
+                        if let mapperResult = try? await self.lookupMBIDFromMapper(
+                            artist: track.artist,
+                            track: track.name,
+                            album: track.album.isEmpty ? nil : track.album
+                        ) {
+                            let hadArtist = artistMbid != nil
+                            let hadRelease = releaseMbid != nil
+                            let hadRecording = recordingMbid != nil
+                            
+                            artistMbid = artistMbid ?? mapperResult.artistMbid
+                            releaseMbid = releaseMbid ?? mapperResult.releaseMbid
+                            recordingMbid = recordingMbid ?? mapperResult.recordingMbid
+                            
+                            wasEnriched = (!hadArtist && artistMbid != nil) ||
+                                        (!hadRelease && releaseMbid != nil) ||
+                                        (!hadRecording && recordingMbid != nil)
+                        }
+                    }
+                    
+                    let imageUrl = self.extractCoverArtUrl(from: track.metadata)
+                    let playcount = self.cache.getCachedPlayCount(username: username, artist: track.artist, track: track.name)
+                    
+                    let recentTrack = RecentTrack(
+                        name: track.name,
+                        artist: track.artist,
+                        album: track.album,
+                        date: track.timestamp,
+                        isNowPlaying: false,
+                        loved: false,
+                        imageUrl: imageUrl,
+                        artistURL: self.artistURL(artist: track.artist, mbid: artistMbid),
+                        albumURL: self.albumURL(artist: track.artist, album: track.album, mbid: releaseMbid),
+                        trackURL: self.trackURL(artist: track.artist, track: track.name, mbid: recordingMbid),
+                        playcount: playcount,
+                        serviceInfo: [
+                            ScrobbleService.listenbrainz.id: ServiceTrackData.listenbrainz(
+                                recordingMsid: track.msid ?? "",
+                                timestamp: track.timestamp ?? 0
+                            )
+                        ],
+                        sourceService: .listenbrainz
+                    )
+                    
+                    return (index, recentTrack, wasEnriched)
+                }
+            }
+            
+            // Collect results and maintain original order
+            var results: [(Int, RecentTrack?, Bool)] = []
+            for await result in group {
+                results.append(result)
+            }
+            return results.sorted { $0.0 < $1.0 }
+        }
+        
+        enrichedCount = result.filter { $0.2 }.count
+        tracksNeedingLookup = tracks.filter { track in
+            let (artistMbid, releaseMbid, recordingMbid) = track.existingMbids
+            return recordingMbid == nil || releaseMbid == nil || artistMbid == nil
+        }.count
+        
+        if tracksNeedingLookup > 0 {
+            print("🎵 [ListenBrainz] MBID Mapper: \(tracksNeedingLookup) tracks needed lookup, \(enrichedCount) successfully enriched")
+        } else {
+            print("🎵 [ListenBrainz] All \(tracks.count) tracks already have MBIDs from ListenBrainz")
+        }
+        
+        return result.compactMap { $0.1 }
     }
     
     func getUserStats(username: String) async throws -> UserStats? {
