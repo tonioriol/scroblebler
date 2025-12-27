@@ -501,7 +501,7 @@ struct AnimatedHeaderView: View {
                                 }
                                 
                                 if let url = defaults.url {
-                                    Link("View on Last.fm", destination: URL(string: url)!)
+                                    Link("View on \(defaults.mainServicePreference?.displayName ?? "service")", destination: URL(string: url)!)
                                         .font(.system(size: 11))
                                 }
                             }
