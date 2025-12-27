@@ -14,6 +14,12 @@ cask "scroblebler" do
 
   app "Scroblebler.app"
 
+  postflight do
+    system_command "/usr/bin/xattr",
+                   args: ["-cr", "#{appdir}/Scroblebler.app"],
+                   sudo: false
+  end
+
   zap trash: [
     "~/Library/Preferences/com.tonioriol.Scroblebler.plist",
     "~/Library/Application Support/Scroblebler",

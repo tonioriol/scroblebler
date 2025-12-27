@@ -34,7 +34,40 @@ jobs:
       - name: Install create-dmg
         run: brew install create-dmg
       
+      - name: Import signing certificate
+        env:
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          # Create keychain
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
+          
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          
+          # Import certificate
+          echo "$APPLE_CERTIFICATE_BASE64" | base64 --decode > certificate.p12
+          security import certificate.p12 -k "$KEYCHAIN_PATH" -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          
+          # Set as default keychain
+          security list-keychains -d user -s "$KEYCHAIN_PATH"
+          security default-keychain -s "$KEYCHAIN_PATH"
+          
+          rm certificate.p12
+      
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_DEVELOPER_ID: ${{ secrets.APPLE_DEVELOPER_ID }}
         run: npx semantic-release
+      
+      - name: Cleanup keychain
+        if: always()
+        run: |
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          if [ -f "$KEYCHAIN_PATH" ]; then
+            security delete-keychain "$KEYCHAIN_PATH"
+          fi

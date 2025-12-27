@@ -20,15 +20,17 @@ they are not in your library).
 
 ## Screenshot
 
-<img src="imgs/screenshot.png" />
+<img src="imgs/screenshot.png" width="600" />
 
 ## Installing
 
-### Homebrew
+### Homebrew (Recommended)
 
 ```bash
 brew install tonioriol/scroblebler/scroblebler
 ```
+
+Homebrew automatically handles code signature verification and removes quarantine attributes.
 
 ### Manual
 
