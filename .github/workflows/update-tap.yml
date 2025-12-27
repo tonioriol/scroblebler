@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'scroblebler.rb'
+  workflow_dispatch:
 
 jobs:
   update-tap:
