@@ -12,14 +12,15 @@
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": "./scripts/build-and-release.sh ${nextRelease.version}"
+        "prepareCmd": "./scripts/build.sh ${nextRelease.version}",
+        "publishCmd": "gh release upload v${nextRelease.version} Scroblebler.${nextRelease.version}.dmg"
       }
     ],
     [
       "@semantic-release/git",
       {
         "assets": ["CHANGELOG.md", "scroblebler.rb"],
-        "message": "chore(release): ${nextRelease.version}\n\n${nextRelease.notes}"
+        "message": "chore: release v${nextRelease.version}\n\n${nextRelease.notes}"
       }
     ],
     [
@@ -27,8 +28,7 @@
       {
         "assets": [
           {
-            "path": "Scroblebler.*.dmg",
-            "label": "Scroblebler DMG"
+            "path": "Scroblebler.*.dmg"
           }
         ]
       }
