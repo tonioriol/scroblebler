@@ -10,7 +10,8 @@ echo "Building with automatic code signing..."
 xcodebuild -project Scroblebler.xcodeproj \
   -scheme Scroblebler \
   -configuration Release \
-  -derivedDataPath build
+  -derivedDataPath build \
+  -allowProvisioningUpdates
 
 # Prepare
 mkdir -p dist
