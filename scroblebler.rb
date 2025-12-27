@@ -15,7 +15,7 @@ cask "scroblebler" do
   app "Scroblebler.app"
 
   zap trash: [
-    "~/Library/Preferences/dev.vito.Scroblebler.plist",
+    "~/Library/Preferences/com.tonioriol.Scroblebler.plist",
     "~/Library/Application Support/Scroblebler",
   ]
 end
