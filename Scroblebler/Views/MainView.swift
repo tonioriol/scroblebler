@@ -286,6 +286,21 @@ struct MainView: View {
             }
         }
         
+        // Show the popover when auth succeeds
+        if let appDelegate = NSApplication.shared.delegate as? AppDelegate,
+           let button = appDelegate.statusBarItem.button,
+           !appDelegate.popover.isShown {
+            await MainActor.run {
+                appDelegate.popover.show(relativeTo: button.bounds, of: button, preferredEdge: NSRectEdge.minY)
+                if let popoverWindow = appDelegate.popover.contentViewController?.view.window {
+                    popoverWindow.level = .floating
+                    popoverWindow.collectionBehavior = .fullScreenAuxiliary
+                    popoverWindow.makeKey()
+                }
+                NSApp.activate(ignoringOtherApps: true)
+            }
+        }
+        
         // Fetch profile picture for Last.fm
         if service == .lastfm, let client = serviceManager.client(for: .lastfm) as? LastFmClient {
             if let imageData = try? await client.getUserImage(username: credentials.username) {

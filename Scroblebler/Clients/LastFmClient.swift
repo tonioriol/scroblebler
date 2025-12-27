@@ -11,8 +11,8 @@ class LastFmClient: ObservableObject, ScrobbleClient {
         case apiError(Int, String)
     }
     
-    private let apiKey = "227d67ffb2b5f671bcaba9a1b465d8e1"
-    private let apiSecret = "b85d94beb2f214fba7ef7260bbe522a8"
+    private let apiKey = "22a3fbbb7d1a1d6a16998ae02556dad2"
+    private let sharedSecret = "d79bc2a00d765e408b3ee33fd713f528"
     
     var baseURL: URL { URL(string: "https://ws.audioscrobbler.com/2.0/")! }
     var authURL: String { "https://www.last.fm/api/auth/" }
@@ -310,7 +310,7 @@ class LastFmClient: ObservableObject, ScrobbleClient {
             .map { "\($0)\(args[$0]!)" }
             .joined()
         
-        let signatureString = "\(signatureBase)\(apiSecret)"
+        let signatureString = "\(signatureBase)\(sharedSecret)"
         let digest = Insecure.MD5.hash(data: signatureString.data(using: .utf8) ?? Data())
             .map { String(format: "%02hhx", $0) }
             .joined()
