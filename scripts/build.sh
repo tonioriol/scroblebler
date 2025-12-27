@@ -28,6 +28,9 @@ xcodebuild -project Scroblebler.xcodeproj \
 mkdir -p dist
 cp -r build/Build/Products/Release/Scroblebler.app dist/
 
+# Ad-hoc code signing (allows right-click open)
+codesign --force --deep --sign - dist/Scroblebler.app
+
 # Create DMG
 create-dmg \
   --volname "Scroblebler" \
