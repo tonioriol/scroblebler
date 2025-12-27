@@ -1,3 +1,15 @@
+# [1.1.0](https://github.com/tonioriol/scroblebler/compare/v1.0.2...v1.1.0) (2025-12-27)
+
+
+### Bug Fixes
+
+* update plist path in zap trash for Scroblebler ([8e611e0](https://github.com/tonioriol/scroblebler/commit/8e611e083751af25d76c6a05dbb406624a91e6bd))
+
+
+### Features
+
+* add homebrew tap with automated updates ([b7c9d91](https://github.com/tonioriol/scroblebler/commit/b7c9d91d89b35e937fdf2b5fef9784cc6735da8a))
+
 ## [1.0.2](https://github.com/tonioriol/scroblebler/compare/v1.0.1...v1.0.2) (2025-12-26)
 
 
