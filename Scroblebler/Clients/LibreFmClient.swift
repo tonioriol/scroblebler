@@ -18,7 +18,7 @@ class LibreFmClient: LastFmClient {
     }
     
     override var linkColor: Color {
-        Color(hue: 0.33, saturation: 0.70, brightness: 0.65)
+        Color(hue: 0.94, saturation: 0.60, brightness: 0.90)
     }
     
     override func getRecentTracks(username: String, limit: Int, page: Int, token: String?) async throws -> [RecentTrack] {

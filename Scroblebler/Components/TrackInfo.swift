@@ -98,8 +98,8 @@ struct TrackInfo<ActionButtons: View>: View {
     }
     
     var body: some View {
-        let primaryService = defaults.primaryService?.service ?? .lastfm
-        let client = serviceManager.client(for: primaryService)
+        let displayService = defaults.mainServicePreference ?? defaults.primaryService?.service ?? .lastfm
+        let client = serviceManager.client(for: displayService)
         let linkColor = client?.linkColor ?? Color.primary
         
         // Build URLs on the fly if not provided (for NowPlaying)
