@@ -18,6 +18,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git clone https://github.com/tonioriol/homebrew-scroblebler.git tap
+          mkdir -p tap/Casks
           cp scroblebler.rb tap/Casks/
           cd tap
           git config user.name "github-actions[bot]"
