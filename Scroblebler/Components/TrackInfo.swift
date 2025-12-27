@@ -23,7 +23,7 @@ struct TrackInfo<ActionButtons: View>: View {
     let currentPosition: Double?
     let trackLength: Double?
     
-    // Pre-built URLs (from RecentTrack)
+    // Pre-built URLs (from RecentTrack or Track)
     let artistURL: URL?
     let albumURL: URL?
     let trackURL: URL?
@@ -32,11 +32,6 @@ struct TrackInfo<ActionButtons: View>: View {
     let actionButtons: ActionButtons?
     
     @Binding var playCount: Int?
-    
-    // State for enriched URLs (for NowPlaying with ListenBrainz)
-    @State private var enrichedArtistURL: URL?
-    @State private var enrichedAlbumURL: URL?
-    @State private var enrichedTrackURL: URL?
     
     init(
         trackName: String,
@@ -107,11 +102,10 @@ struct TrackInfo<ActionButtons: View>: View {
         let client = serviceManager.client(for: displayService)
         let linkColor = client?.linkColor ?? Color.primary
         
-        // Build URLs on the fly if not provided (for NowPlaying)
-        // Use enriched URLs if available, otherwise use fallback
-        let finalTrackURL = trackURL ?? enrichedTrackURL ?? buildTrackURL(client: client)
-        let finalArtistURL = artistURL ?? enrichedArtistURL ?? buildArtistURL(client: client)
-        let finalAlbumURL = albumURL ?? enrichedAlbumURL ?? buildAlbumURL(client: client)
+        // Use provided URLs or build fallback URLs
+        let finalTrackURL = trackURL ?? buildTrackURL(service: displayService)
+        let finalArtistURL = artistURL ?? buildArtistURL(service: displayService)
+        let finalAlbumURL = albumURL ?? buildAlbumURL(service: displayService)
         
         HStack(alignment: .top, spacing: 12) {
             if let imageData = artworkImageData {
@@ -241,44 +235,10 @@ struct TrackInfo<ActionButtons: View>: View {
                 }
             }
         }
-        .onAppear {
-            enrichURLsIfNeeded()
-        }
-        .onChange(of: trackName) { _ in
-            enrichURLsIfNeeded()
-        }
     }
     
-    private func enrichURLsIfNeeded() {
-        // Only enrich if we're using ListenBrainz and don't have pre-built URLs
-        guard artistURL == nil && albumURL == nil && trackURL == nil,
-              defaults.primaryService?.service == .listenbrainz,
-              let client = serviceManager.client(for: .listenbrainz) as? ListenBrainzClient else {
-            return
-        }
-        
-        Task {
-            if let result = try? await client.lookupMBIDsForTrack(artist: artist, track: trackName, album: album.isEmpty ? nil : album) {
-                await MainActor.run {
-                    if let artistMbid = result.artistMbid {
-                        enrichedArtistURL = URL(string: "https://listenbrainz.org/artist/\(artistMbid)/")
-                    }
-                    if let releaseMbid = result.releaseMbid {
-                        enrichedAlbumURL = URL(string: "https://listenbrainz.org/album/\(releaseMbid)/")
-                    }
-                    if let recordingMbid = result.recordingMbid {
-                        enrichedTrackURL = URL(string: "https://listenbrainz.org/track/\(recordingMbid)/")
-                    }
-                }
-            }
-        }
-    }
-    
-    // Fallback URL builders for NowPlaying (when URLs not pre-built)
-    private func buildArtistURL(client: ScrobbleClient?) -> URL {
-        guard let service = defaults.primaryService?.service else {
-            return URL(string: "https://www.last.fm")!
-        }
+    // Fallback URL builders (simple service-specific URLs without MBID enrichment)
+    private func buildArtistURL(service: ScrobbleService) -> URL {
         let encoded = artist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
         switch service {
         case .lastfm:
@@ -290,10 +250,7 @@ struct TrackInfo<ActionButtons: View>: View {
         }
     }
     
-    private func buildAlbumURL(client: ScrobbleClient?) -> URL {
-        guard let service = defaults.primaryService?.service else {
-            return URL(string: "https://www.last.fm")!
-        }
+    private func buildAlbumURL(service: ScrobbleService) -> URL {
         let encodedArtist = artist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
         let encodedAlbum = album.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
         switch service {
@@ -306,10 +263,7 @@ struct TrackInfo<ActionButtons: View>: View {
         }
     }
     
-    private func buildTrackURL(client: ScrobbleClient?) -> URL {
-        guard let service = defaults.primaryService?.service else {
-            return URL(string: "https://www.last.fm")!
-        }
+    private func buildTrackURL(service: ScrobbleService) -> URL {
         let encodedArtist = artist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
         let encodedTrack = trackName.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
         switch service {

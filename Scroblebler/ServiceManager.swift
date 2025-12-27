@@ -104,10 +104,18 @@ class ServiceManager: ObservableObject {
         }
     }
     
-    func updateNowPlayingAll(track: Track) async {
+    func updateNowPlayingAll(track: Track) async -> Track {
         if Defaults.shared.isBlacklisted(artist: track.artist, track: track.name) {
             print("🚫 Update now playing skipped (blacklisted): \(track.description)")
-            return
+            return track
+        }
+        
+        // Enrich track with URLs if ListenBrainz is the primary service
+        var enrichedTrack = track
+        if let primary = Defaults.shared.primaryService,
+           primary.service == .listenbrainz,
+           let lbClient = clients[.listenbrainz] as? ListenBrainzClient {
+            enrichedTrack = await lbClient.enrichTrackWithURLs(track)
         }
         
         let enabledServices = Defaults.shared.enabledServices
@@ -116,14 +124,16 @@ class ServiceManager: ObservableObject {
             for credentials in enabledServices {
                 group.addTask {
                     do {
-                        try await self.updateNowPlaying(credentials: credentials, track: track)
-                        print("✓ Updated now playing on \(credentials.service.displayName): \(track.description)")
+                        try await self.updateNowPlaying(credentials: credentials, track: enrichedTrack)
+                        print("✓ Updated now playing on \(credentials.service.displayName): \(enrichedTrack.description)")
                     } catch {
                         print("✗ Failed to update now playing on \(credentials.service.displayName): \(error)")
                     }
                 }
             }
         }
+        
+        return enrichedTrack
     }
     
     func deleteScrobble(credentials: ServiceCredentials, identifier: ScrobbleIdentifier) async throws {

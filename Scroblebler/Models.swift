@@ -86,6 +86,11 @@ struct Track {
     let startedAt: Int32
     var scrobbled: Bool = false
     
+    // URLs for linking (enriched by services)
+    var artistURL: URL?
+    var albumURL: URL?
+    var trackURL: URL?
+    
     var description: String {
         "\(name) - \(artist) on \(album) (\(year))"
     }

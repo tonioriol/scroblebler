@@ -24,6 +24,9 @@ struct NowPlaying: View {
             currentPosition: currentPosition,
             trackLength: track!.length,
             playCount: $playCount,
+            artistURL: track?.artistURL,
+            albumURL: track?.albumURL,
+            trackURL: track?.trackURL,
             actionButtons: {
                 if let track = track {
                     BlacklistButton(

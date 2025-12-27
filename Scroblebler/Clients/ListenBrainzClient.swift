@@ -542,6 +542,36 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         return false
     }
     
+    // MARK: - Track Enrichment
+    
+    func enrichTrackWithURLs(_ track: Track) async -> Track {
+        var enrichedTrack = track
+        
+        // Try MBID Mapper for better matching
+        if let result = try? await lookupMBIDFromMapper(
+            artist: track.artist,
+            track: track.name,
+            album: track.album.isEmpty ? nil : track.album
+        ) {
+            enrichedTrack.artistURL = result.artistMbid.map { URL(string: "https://listenbrainz.org/artist/\($0)/")! }
+            enrichedTrack.albumURL = result.releaseMbid.map { URL(string: "https://listenbrainz.org/album/\($0)/")! }
+            enrichedTrack.trackURL = result.recordingMbid.map { URL(string: "https://listenbrainz.org/track/\($0)/")! }
+        }
+        
+        // Fallback to search URLs if mapper didn't find MBIDs
+        if enrichedTrack.artistURL == nil {
+            enrichedTrack.artistURL = artistURL(artist: track.artist, mbid: nil)
+        }
+        if enrichedTrack.albumURL == nil {
+            enrichedTrack.albumURL = albumURL(artist: track.artist, album: track.album, mbid: nil)
+        }
+        if enrichedTrack.trackURL == nil {
+            enrichedTrack.trackURL = trackURL(artist: track.artist, track: track.name, mbid: nil)
+        }
+        
+        return enrichedTrack
+    }
+    
     // MARK: - Helpers
     
     private func sendRequest(endpoint: String, token: String, payload: [String: Any]) async throws {

@@ -21,7 +21,10 @@ struct ContentView: View {
         }.onLoad {
             watcher.onTrackChanged = { track in
                 Task {
-                    await serviceManager.updateNowPlayingAll(track: track)
+                    let enrichedTrack = await serviceManager.updateNowPlayingAll(track: track)
+                    await MainActor.run {
+                        watcher.currentTrack = enrichedTrack
+                    }
                 }
             }
             watcher.onScrobbleWanted = { track in
