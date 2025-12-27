@@ -27,12 +27,14 @@ they are not in your library).
 ### Homebrew
 
 ```bash
-brew install --cask https://raw.githubusercontent.com/tonioriol/scroblebler/main/scroblebler.rb
+brew install tonioriol/scroblebler/scroblebler
 ```
 
-### Manual Installation
+### Manual
 
-Signed and Notarized version is available on the [Releases](https://github.com/tonioriol/scroblebler/releases) page.
+Download the latest DMG from [Releases](https://github.com/tonioriol/scroblebler/releases/latest) and drag Scroblebler to Applications.
+
+**First launch:** Right-click the app and select "Open" to bypass Gatekeeper.
 
 ## Building
 
