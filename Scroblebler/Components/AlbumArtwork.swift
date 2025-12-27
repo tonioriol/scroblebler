@@ -27,14 +27,26 @@ struct AlbumArtwork: View {
     }
     
     func loadArtwork() async {
-        guard let imageUrl = imageUrl, let url = URL(string: imageUrl) else { return }
+        guard let imageUrl = imageUrl else { return }
+        
+        // Check cache first
+        if let cachedData = await MainActor.run(body: { ImageCache.shared.get(imageUrl) }) {
+            await MainActor.run {
+                artwork = cachedData
+            }
+            return
+        }
+        
+        // Not in cache - load from network
+        guard let url = URL(string: imageUrl) else { return }
         do {
             let (data, _) = try await URLSession.shared.data(from: url)
             await MainActor.run {
                 artwork = data
+                ImageCache.shared.set(imageUrl, data: data)
             }
         } catch {
-            // Silently fail - will show nocover image
+            // Failed to load - don't cache failures, just show nocover
         }
     }
     
@@ -44,10 +56,13 @@ struct AlbumArtwork: View {
             .cornerRadius(3)
             .frame(width: size, height: size)
             .onAppear {
-                if imageUrl != nil {
-                    Task {
-                        await loadArtwork()
-                    }
+                Task {
+                    await loadArtwork()
+                }
+            }
+            .onChange(of: imageUrl) { _ in
+                Task {
+                    await loadArtwork()
                 }
             }
     }

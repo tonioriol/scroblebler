@@ -47,6 +47,7 @@
 		LFWC0000000000000000002 /* LastFmWebClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = LFWC0000000000000000001 /* LastFmWebClient.swift */; };
 		SS8888888888888888888888 /* StringSimilarity.swift in Sources */ = {isa = PBXBuildFile; fileRef = SS7777777777777777777777 /* StringSimilarity.swift */; };
 		UN0000000000000000000002 /* UndoButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = UN0000000000000000000001 /* UndoButton.swift */; };
+		IMGCACHE000000000000002 /* ImageCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = IMGCACHE000000000000001 /* ImageCache.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -93,6 +94,7 @@
 		LFWC0000000000000000001 /* LastFmWebClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LastFmWebClient.swift; sourceTree = "<group>"; };
 		SS7777777777777777777777 /* StringSimilarity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StringSimilarity.swift; sourceTree = "<group>"; };
 		UN0000000000000000000001 /* UndoButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UndoButton.swift; sourceTree = "<group>"; };
+		IMGCACHE000000000000001 /* ImageCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageCache.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -189,6 +191,7 @@
 				EE5555555555555555555555 /* ServiceManager.swift */,
 				SS7777777777777777777777 /* StringSimilarity.swift */,
 				KEYC0000000000000000001 /* KeychainHelper.swift */,
+				IMGCACHE000000000000001 /* ImageCache.swift */,
 			);
 			path = Scroblebler;
 			sourceTree = "<group>";
@@ -335,6 +338,7 @@
 				SS8888888888888888888888 /* StringSimilarity.swift in Sources */,
 				LFWC0000000000000000002 /* LastFmWebClient.swift in Sources */,
 				LBCACHE0000000000000002 /* ListenBrainzCache.swift in Sources */,
+				IMGCACHE000000000000002 /* ImageCache.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

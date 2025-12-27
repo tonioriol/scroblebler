@@ -209,6 +209,10 @@ struct MainView: View {
                     hasMoreTracks = !tracks.isEmpty
                     print("📊 Loaded \(tracks.count) tracks, hasMoreTracks: \(hasMoreTracks)")
                 }
+                // Preload in background without blocking
+                Task.detached {
+                    await self.preloadImages(for: tracks)
+                }
             } catch {
                 print("Failed to load recent tracks: \(error)")
             }
@@ -236,6 +240,10 @@ struct MainView: View {
                     }
                     isLoadingMore = false
                 }
+                // Preload in background without blocking
+                Task.detached {
+                    await self.preloadImages(for: tracks)
+                }
             } catch {
                 await MainActor.run {
                     isLoadingMore = false
@@ -243,6 +251,40 @@ struct MainView: View {
                 print("Failed to load more tracks: \(error)")
             }
         }
+    }
+    
+    private func preloadImages(for tracks: [RecentTrack]) async {
+        print("🖼️ Starting preload for \(tracks.count) images")
+        
+        await withTaskGroup(of: Void.self) { group in
+            for track in tracks {
+                guard let imageUrl = track.imageUrl else { continue }
+                
+                group.addTask {
+                    // Check if already cached
+                    let cached = await MainActor.run { ImageCache.shared.get(imageUrl) }
+                    if cached != nil {
+                        print("🖼️ Already cached: \(imageUrl)")
+                        return
+                    }
+                    
+                    // Load from network
+                    guard let url = URL(string: imageUrl) else { return }
+                    do {
+                        print("🖼️ Loading: \(imageUrl)")
+                        let (data, _) = try await URLSession.shared.data(from: url)
+                        await MainActor.run {
+                            ImageCache.shared.set(imageUrl, data: data)
+                            print("🖼️ Cached: \(imageUrl)")
+                        }
+                    } catch {
+                        print("🖼️ Failed to load: \(imageUrl)")
+                    }
+                }
+            }
+        }
+        
+        print("🖼️ Preload complete")
     }
     
     private func doServiceLogin(service: ScrobbleService) async {
