@@ -438,12 +438,47 @@ struct AnimatedHeaderView: View {
     @Binding var showProfileView: Bool
     @State private var showSignoutScreen = false
     
+    private var isListenBrainz: Bool {
+        defaults.mainServicePreference == .listenbrainz
+    }
+    
+    private var logoName: String {
+        isListenBrainz ? "lb-logo" : "as-logo"
+    }
+    
+    private var logoHeight: CGFloat {
+        isListenBrainz ? 30 : 25
+    }
+    
+    private var headerGradient: LinearGradient {
+        if isListenBrainz {
+            return LinearGradient(
+                colors: [
+                    Color(red: 235/255, green: 116/255, blue: 59/255),
+                    Color(red: 245/255, green: 141/255, blue: 84/255),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        } else {
+            return LinearGradient(
+                colors: [
+                    Color(hue: 1.0/100.0, saturation: 87.0/100.0, brightness: 61.0/100.0),
+                    Color(hue: 1.0/100.0, saturation: 87.0/100.0, brightness: 89.0/100.0),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        }
+    }
+    
     var body: some View {
         VStack(alignment: .center) {
             HStack {
-                Image("as-logo")
+                Image(logoName)
                     .resizable()
-                    .frame(width: 46.25, height: 25)
+                    .scaledToFit()
+                    .frame(height: logoHeight)
                 
                 Spacer()
                 
@@ -523,13 +558,6 @@ struct AnimatedHeaderView: View {
             .padding()
         }
         .frame(width: 400, height: 55)
-        .background(LinearGradient(
-            colors: [
-                Color(hue: 1.0/100.0, saturation: 87.0/100.0, brightness: 61.0/100.0),
-                Color(hue: 1.0/100.0, saturation: 87.0/100.0, brightness: 89.0/100.0),
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        ))
+        .background(headerGradient)
     }
 }
