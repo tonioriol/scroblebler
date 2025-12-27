@@ -10,7 +10,6 @@ import SwiftUI
 struct Header: View {
     @EnvironmentObject var defaults: Defaults
     @Binding var showProfileView: Bool
-    @State private var showSignoutScreen = false
     
     private var headerGradient: LinearGradient {
         switch defaults.mainServicePreference {
@@ -111,28 +110,14 @@ struct Header: View {
                             }
                             .transition(.opacity)
                         } else {
-                            VStack(spacing: 2) {
-                                HStack(spacing: 0) {
-                                    Text(defaults.name ?? "")
-                                    if defaults.pro ?? false {
-                                        Text("PRO")
-                                            .fontWeight(.light)
-                                            .font(.system(size: 9))
-                                            .offset(y: -5)
-                                    }
+                            HStack(spacing: 0) {
+                                Text(defaults.name ?? "")
+                                if defaults.pro ?? false {
+                                    Text("PRO")
+                                        .fontWeight(.light)
+                                        .font(.system(size: 9))
+                                        .offset(y: -5)
                                 }
-                                Button("Sign Out") { showSignoutScreen = true }
-                                    .buttonStyle(.link)
-                                    .foregroundColor(.white.opacity(0.7))
-                                    .alert(isPresented: $showSignoutScreen) {
-                                        Alert(
-                                            title: Text("Signing out will stop scrobbling on this account and remove all local data. Do you wish to continue?"),
-                                            primaryButton: .cancel(),
-                                            secondaryButton: .default(Text("Continue")) {
-                                                defaults.reset()
-                                            }
-                                        )
-                                    }
                             }
                             .transition(.opacity)
                         }
