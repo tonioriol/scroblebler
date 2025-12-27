@@ -20,7 +20,8 @@ struct MainView: View {
         ZStack(alignment: .bottom) {
             VStack(spacing: 0) {
                 mainContent
-                    .frame(height: 600)
+                    .frame(height: recentTracks.isEmpty ? nil : 600, alignment: .top)
+                    .frame(maxHeight: recentTracks.isEmpty ? .infinity : 600)
                 
                 Divider()
                 
@@ -29,8 +30,9 @@ struct MainView: View {
                         .zIndex(10)
                 }
             }
-            .frame(height: 655)
-            .offset(y: showProfileView ? -655 : 0)
+            .frame(height: recentTracks.isEmpty ? nil : 655)
+            .fixedSize(horizontal: false, vertical: recentTracks.isEmpty)
+            .offset(y: showProfileView ? (recentTracks.isEmpty ? -655 : -655) : 0)
             
             if showProfileView {
                 VStack(spacing: 0) {
@@ -44,7 +46,9 @@ struct MainView: View {
                 .transition(.move(edge: .bottom))
             }
         }
-        .frame(width: 400, height: 655)
+        .frame(width: 400)
+        .frame(height: recentTracks.isEmpty ? nil : 655)
+        .fixedSize(horizontal: false, vertical: recentTracks.isEmpty)
         .clipped()
         .animation(.spring(response: 0.5, dampingFraction: 0.75), value: showProfileView)
     }

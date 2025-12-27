@@ -1,5 +1,11 @@
-Audioscrobbler.xcodeproj/xcuserdata/*
-Audioscrobbler.xcodeproj/project.xcworkspace/xcuserdata/*
+# Xcode user-specific files
+xcuserdata/
+*.xcuserstate
+
+# Build directories
 .build/
 build/
+DerivedData/
+
+# Distribution
 *.dmg
