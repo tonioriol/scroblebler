@@ -243,36 +243,65 @@ class ServiceManager: ObservableObject {
             let serviceTracks = otherServiceTracks[serviceIndex]
             let service = otherServices[serviceIndex].service
             
+            print("[MATCH] 🔍 Starting matching for \(service.displayName) with \(serviceTracks.count) candidates")
+            
             for primaryIndex in tracks.indices {
-                if let matchedTrack = findBestMatch(for: tracks[primaryIndex], in: serviceTracks) {
-                    print("🔗 Matched '\(tracks[primaryIndex].name)' from primary with \(service.displayName)")
+                if let matchedTrack = findBestMatch(for: tracks[primaryIndex], in: serviceTracks, serviceName: service.displayName) {
+                    print("[MATCH] ✓ Matched '\(tracks[primaryIndex].name)' from primary with \(service.displayName)")
                     tracks[primaryIndex].serviceInfo.merge(matchedTrack.serviceInfo) { (_, new) in new }
+                } else {
+                    print("[MATCH] ✗ No match found for '\(tracks[primaryIndex].artist) - \(tracks[primaryIndex].name)' in \(service.displayName)")
                 }
             }
         }
     }
     
-    private func findBestMatch(for track: RecentTrack, in candidates: [RecentTrack]) -> RecentTrack? {
+    private func findBestMatch(for track: RecentTrack, in candidates: [RecentTrack], serviceName: String) -> RecentTrack? {
         var bestMatch: RecentTrack?
         var bestScore: Double = 0
+        var candidatesChecked = 0
+        var candidatesSkippedTimestamp = 0
+        var candidatesSkippedSimilarity = 0
+        
+        print("[MATCH] 🔎 Trying to match: '\(track.artist) - \(track.name)' (timestamp: \(track.date ?? 0))")
         
         for candidate in candidates {
+            candidatesChecked += 1
+            
             // First check timestamp proximity
-            guard timestampsMatch(track.date, candidate.date) else { continue }
+            guard timestampsMatch(track.date, candidate.date) else {
+                candidatesSkippedTimestamp += 1
+                continue
+            }
+            
+            // Normalize strings
+            let normalizedTrackArtist = normalize(track.artist)
+            let normalizedTrackName = normalize(track.name)
+            let normalizedCandidateArtist = normalize(candidate.artist)
+            let normalizedCandidateName = normalize(candidate.name)
             
             // Calculate similarity score using Levenshtein distance
-            let artistScore = StringSimilarity.similarity(normalize(track.artist), normalize(candidate.artist))
-            let trackScore = StringSimilarity.similarity(normalize(track.name), normalize(candidate.name))
+            let artistScore = StringSimilarity.similarity(normalizedTrackArtist, normalizedCandidateArtist)
+            let trackScore = StringSimilarity.similarity(normalizedTrackName, normalizedCandidateName)
             
             // Combined score (weighted average)
             let score = (artistScore * 0.5 + trackScore * 0.5)
             
+            print("[MATCH]   • Candidate: '\(candidate.artist) - \(candidate.name)' | Artist: \(String(format: "%.2f", artistScore)) | Track: \(String(format: "%.2f", trackScore)) | Total: \(String(format: "%.2f", score)) | TS Δ: \(abs((track.date ?? 0) - (candidate.date ?? 0)))s")
+            
             // Require at least 80% similarity
-            if score >= 0.8 && score > bestScore {
-                bestScore = score
-                bestMatch = candidate
+            if score >= 0.8 {
+                if score > bestScore {
+                    bestScore = score
+                    bestMatch = candidate
+                    print("[MATCH]     ✓ New best match (score: \(String(format: "%.2f", score)))")
+                }
+            } else {
+                candidatesSkippedSimilarity += 1
             }
         }
+        
+        print("[MATCH] 📊 Summary: Checked \(candidatesChecked), Skipped (timestamp: \(candidatesSkippedTimestamp), similarity: \(candidatesSkippedSimilarity)), Best score: \(String(format: "%.2f", bestScore))")
         
         return bestMatch
     }
