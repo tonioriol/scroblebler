@@ -51,8 +51,8 @@ create-dmg \
 
 # Calculate SHA256 and update Homebrew cask
 SHA=$(shasum -a 256 "Scroblebler.$VERSION.dmg" | awk '{print $1}')
-sed -i '' "s/version \".*\"/version \"$VERSION\"/" scroblebler.rb
-sed -i '' "s/sha256 \".*\"/sha256 \"$SHA\"/" scroblebler.rb
+sed -i "s/version \".*\"/version \"$VERSION\"/" scroblebler.rb
+sed -i "s/sha256 \".*\"/sha256 \"$SHA\"/" scroblebler.rb
 
 # Cleanup build artifacts
 rm -rf build dist
