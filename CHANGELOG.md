@@ -1,3 +1,10 @@
+## [1.2.1](https://github.com/tonioriol/scroblebler/compare/v1.2.0...v1.2.1) (2025-12-27)
+
+
+### Bug Fixes
+
+* remove duplicate publish command ([ecbcf7d](https://github.com/tonioriol/scroblebler/commit/ecbcf7da7a02e49a9d8207c7198e12e22b6cf692))
+
 # [1.2.0](https://github.com/tonioriol/scroblebler/compare/v1.1.1...v1.2.0) (2025-12-27)
 
 
