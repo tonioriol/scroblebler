@@ -2,3 +2,4 @@ Audioscrobbler.xcodeproj/xcuserdata/*
 Audioscrobbler.xcodeproj/project.xcworkspace/xcuserdata/*
 .build/
 build/
+*.dmg

@@ -27,16 +27,17 @@ they are not in your library).
 ### Homebrew (Recommended)
 
 ```bash
-brew install tonioriol/scroblebler/scroblebler
+brew install --cask tonioriol/scroblebler/scroblebler
 ```
-
-Homebrew automatically handles code signature verification and removes quarantine attributes.
 
 ### Manual
 
 Download the latest DMG from [Releases](https://github.com/tonioriol/scroblebler/releases/latest) and drag Scroblebler to Applications.
 
-**First launch:** Right-click the app and select "Open" to bypass Gatekeeper.
+After installation, remove quarantine attributes:
+```bash
+xattr -cr /Applications/Scroblebler.app
+```
 
 ## Building
 
