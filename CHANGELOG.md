@@ -1,3 +1,32 @@
+# [1.2.0](https://github.com/tonioriol/scroblebler/compare/v1.1.1...v1.2.0) (2025-12-27)
+
+
+### Bug Fixes
+
+* enable provisioning updates for CI builds ([a6954ae](https://github.com/tonioriol/scroblebler/commit/a6954aee8699c889433994b28c395f6083065efc))
+* import provisioning profile for CI builds ([8b5fa69](https://github.com/tonioriol/scroblebler/commit/8b5fa69c7a5dffd825c240a2a5571663fb5b16a2))
+* sed syntax for GNU sed ([6d82631](https://github.com/tonioriol/scroblebler/commit/6d82631d4b6f783504c0237e37d1e25cffa123fc))
+
+
+### Features
+
+* add code signing with Apple Development certificate ([abcdf99](https://github.com/tonioriol/scroblebler/commit/abcdf9908461788d91bd3ee8f1eb9befa7bdff42))
+* automated local releases with semantic-release ([6830866](https://github.com/tonioriol/scroblebler/commit/683086683bee8e78ffae1c56668634c3b931dbda))
+
+# [1.2.0](https://github.com/tonioriol/scroblebler/compare/v1.1.1...v1.2.0) (2025-12-27)
+
+
+### Bug Fixes
+
+* enable provisioning updates for CI builds ([a6954ae](https://github.com/tonioriol/scroblebler/commit/a6954aee8699c889433994b28c395f6083065efc))
+* import provisioning profile for CI builds ([8b5fa69](https://github.com/tonioriol/scroblebler/commit/8b5fa69c7a5dffd825c240a2a5571663fb5b16a2))
+
+
+### Features
+
+* add code signing with Apple Development certificate ([abcdf99](https://github.com/tonioriol/scroblebler/commit/abcdf9908461788d91bd3ee8f1eb9befa7bdff42))
+* automated local releases with semantic-release ([6830866](https://github.com/tonioriol/scroblebler/commit/683086683bee8e78ffae1c56668634c3b931dbda))
+
 ## [1.1.1](https://github.com/tonioriol/scroblebler/compare/v1.1.0...v1.1.1) (2025-12-27)
 
 
