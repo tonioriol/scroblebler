@@ -1,3 +1,15 @@
+# [1.3.0](https://github.com/tonioriol/scroblebler/compare/v1.2.1...v1.3.0) (2025-12-27)
+
+
+### Bug Fixes
+
+* use PAT for homebrew tap push ([a4787ad](https://github.com/tonioriol/scroblebler/commit/a4787ad2595f402dc8fc2fecddce580500de1b5b))
+
+
+### Features
+
+* add manual trigger to homebrew tap workflow ([1b5e2fe](https://github.com/tonioriol/scroblebler/commit/1b5e2fe7c1f5a96ebe7496ed115c3034ea15703f))
+
 ## [1.2.1](https://github.com/tonioriol/scroblebler/compare/v1.2.0...v1.2.1) (2025-12-27)
 
 
