@@ -127,6 +127,11 @@ class Defaults: ObservableObject {
         if mainServicePreference == service {
             mainServicePreference = nil
         }
+        
+        // Clear profile picture when logging out of Last.fm
+        if service == .lastfm {
+            picture = nil
+        }
     }
     
     func credentials(for service: ScrobbleService) -> ServiceCredentials? {
