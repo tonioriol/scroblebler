@@ -6,7 +6,9 @@ VERSION=$1
 echo "Building Scroblebler v$VERSION..."
 
 # Build with automatic code signing
-echo "Building with automatic code signing..."
+# In CI, the provisioning profile is imported and Xcode will use it
+# Locally, Xcode uses automatic signing with the logged-in Apple ID
+echo "Building Scroblebler..."
 xcodebuild -project Scroblebler.xcodeproj \
   -scheme Scroblebler \
   -configuration Release \

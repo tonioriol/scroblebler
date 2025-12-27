@@ -34,10 +34,11 @@ jobs:
       - name: Install create-dmg
         run: brew install create-dmg
       
-      - name: Import signing certificate
+      - name: Import signing certificate and provisioning profile
         env:
           APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_PROVISIONING_PROFILE_BASE64 }}
         run: |
           # Create keychain
           KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
@@ -55,6 +56,11 @@ jobs:
           # Set as default keychain
           security list-keychains -d user -s "$KEYCHAIN_PATH"
           security default-keychain -s "$KEYCHAIN_PATH"
+          
+          # Import provisioning profile
+          PP_PATH="$HOME/Library/MobileDevice/Provisioning Profiles"
+          mkdir -p "$PP_PATH"
+          echo "$APPLE_PROVISIONING_PROFILE_BASE64" | base64 --decode > "$PP_PATH/build.provisionprofile"
           
           rm certificate.p12
       
