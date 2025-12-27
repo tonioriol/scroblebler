@@ -28,6 +28,13 @@ struct HistoryItem: View {
             trackURL: track.trackURL,
             actionButtons: {
                 HStack(spacing: 4) {
+                    // Sync status indicator
+                    SyncStatusBadge(
+                        syncStatus: track.syncStatus,
+                        serviceInfo: track.serviceInfo,
+                        sourceService: track.sourceService
+                    )
+                    
                     UndoButton(
                         artist: track.artist,
                         track: track.name,

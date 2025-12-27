@@ -1,5 +1,75 @@
 import Foundation
 
+// MARK: - BackfillQueue Actor
+
+actor BackfillQueue {
+    private var queue: [BackfillTask] = []
+    private var isProcessing = false
+    
+    func enqueue(_ task: BackfillTask) {
+        queue.append(task)
+        print("[SYNC] 📥 Queued backfill: '\(task.track.artist) - \(task.track.name)' → \(task.targetService.displayName)")
+    }
+    
+    func processQueue(using serviceManager: ServiceManager) async {
+        guard !isProcessing else {
+            print("[SYNC] ⚠️ Queue already processing")
+            return
+        }
+        
+        isProcessing = true
+        defer { isProcessing = false }
+        
+        guard !queue.isEmpty else { return }
+        
+        print("[SYNC] 🔄 Processing \(queue.count) backfill tasks...")
+        
+        var succeeded = 0
+        var skipped = 0
+        var failed = 0
+        
+        for task in queue {
+            // Check if can backfill
+            guard task.canBackfill else {
+                let age = (task.track.date.map { Date().timeIntervalSince1970 - TimeInterval($0) } ?? 0) / 86400
+                print("[SYNC]   ⏭️ Skipped \(task.targetService.displayName): '\(task.track.name)' (too old: \(Int(age))d)")
+                skipped += 1
+                continue
+            }
+            
+            // Create Track from RecentTrack
+            let track = Track(
+                artist: task.track.artist,
+                album: task.track.album,
+                name: task.track.name,
+                length: 0, // Not needed for backfill
+                artwork: nil,
+                year: 0,
+                loved: task.track.loved,
+                startedAt: Int32(task.track.date ?? 0)
+            )
+            
+            do {
+                try await serviceManager.scrobble(credentials: task.targetCredentials, track: track)
+                let age = (task.track.date.map { Date().timeIntervalSince1970 - TimeInterval($0) } ?? 0) / 86400
+                print("[SYNC]   ✓ Synced to \(task.targetService.displayName): '\(task.track.name)' (\(Int(age))d old)")
+                succeeded += 1
+                
+                // Rate limiting: wait between requests
+                try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+            } catch {
+                print("[SYNC]   ✗ Failed \(task.targetService.displayName): '\(task.track.name)' - \(error)")
+                failed += 1
+            }
+        }
+        
+        print("[SYNC] 📊 Complete: \(succeeded) succeeded, \(skipped) skipped, \(failed) failed")
+        
+        // Clear queue
+        queue.removeAll()
+    }
+}
+
 class ServiceManager: ObservableObject {
     static let shared = ServiceManager()
     
@@ -8,6 +78,8 @@ class ServiceManager: ObservableObject {
         .librefm: LibreFmClient(),
         .listenbrainz: ListenBrainzClient()
     ]
+    
+    private let backfillQueue = BackfillQueue()
     
     func client(for service: ScrobbleService) -> ScrobbleClient? {
         clients[service]
@@ -242,6 +314,7 @@ class ServiceManager: ObservableObject {
         for serviceIndex in otherServiceTracks.indices {
             let serviceTracks = otherServiceTracks[serviceIndex]
             let service = otherServices[serviceIndex].service
+            let credentials = otherServices[serviceIndex]
             
             print("[MATCH] 🔍 Starting matching for \(service.displayName) with \(serviceTracks.count) candidates")
             
@@ -251,8 +324,72 @@ class ServiceManager: ObservableObject {
                     tracks[primaryIndex].serviceInfo.merge(matchedTrack.serviceInfo) { (_, new) in new }
                 } else {
                     print("[MATCH] ✗ No match found for '\(tracks[primaryIndex].artist) - \(tracks[primaryIndex].name)' in \(service.displayName)")
+                    
+                    // PHASE 1: Backfill Detection (primary → secondary)
+                    let task = BackfillTask(
+                        track: tracks[primaryIndex],
+                        targetService: service,
+                        targetCredentials: credentials,
+                        sourceServices: [tracks[primaryIndex].sourceService].compactMap { $0 }
+                    )
+                    
+                    if task.canBackfill {
+                        await backfillQueue.enqueue(task)
+                    }
                 }
             }
+        }
+        
+        // PHASE 2: Reverse Gap Detection (secondary → primary)
+        guard let primaryService = Defaults.shared.primaryService else { return }
+        
+        for serviceIndex in otherServiceTracks.indices {
+            let serviceTracks = otherServiceTracks[serviceIndex]
+            let service = otherServices[serviceIndex].service
+            
+            print("[SYNC] 🔍 Checking for tracks in \(service.displayName) not in primary")
+            
+            for serviceTrack in serviceTracks {
+                // Check if this service track was matched to any primary track
+                let isMatchedToPrimary = tracks.contains { primaryTrack in
+                    timestampsMatch(primaryTrack.date, serviceTrack.date) &&
+                    StringSimilarity.similarity(normalize(primaryTrack.name), normalize(serviceTrack.name)) > 0.8
+                }
+                
+                if !isMatchedToPrimary {
+                    print("[SYNC] 📥 Track in \(service.displayName) not in primary: '\(serviceTrack.artist) - \(serviceTrack.name)'")
+                    
+                    let task = BackfillTask(
+                        track: serviceTrack,
+                        targetService: primaryService.service,
+                        targetCredentials: primaryService,
+                        sourceServices: [service]
+                    )
+                    
+                    if task.canBackfill {
+                        await backfillQueue.enqueue(task)
+                    }
+                }
+            }
+        }
+        
+        // Calculate sync status for each track
+        let allEnabledServices = Set([primaryService.service] + otherServices.map { $0.service })
+        for index in tracks.indices {
+            let presentIn = Set([primaryService.service] + tracks[index].serviceInfo.keys.compactMap { ScrobbleService(rawValue: $0) })
+            
+            if presentIn == allEnabledServices {
+                tracks[index].syncStatus = .synced
+            } else if presentIn.count == 1 {
+                tracks[index].syncStatus = .primaryOnly
+            } else {
+                tracks[index].syncStatus = .partial
+            }
+        }
+        
+        // PHASE 3: Process backfill queue asynchronously
+        Task {
+            await backfillQueue.processQueue(using: self)
         }
     }
     

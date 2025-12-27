@@ -16,6 +16,57 @@ struct RecentTrack: Codable {
     let playcount: Int?
     var serviceInfo: [String: ServiceTrackData] = [:]
     var sourceService: ScrobbleService? = nil
+    var syncStatus: SyncStatus = .unknown
+}
+
+// MARK: - Sync Models
+
+enum SyncStatus: Codable {
+    case unknown
+    case synced           // Present in all enabled services
+    case partial          // Present in some services
+    case primaryOnly      // Only in primary service
+    
+    var icon: String {
+        switch self {
+        case .unknown: return "questionmark.circle"
+        case .synced: return "checkmark.circle.fill"
+        case .partial: return "exclamationmark.circle.fill"
+        case .primaryOnly: return "xmark.circle.fill"
+        }
+    }
+    
+    var color: String {
+        switch self {
+        case .unknown: return "gray"
+        case .synced: return "green"
+        case .partial: return "orange"
+        case .primaryOnly: return "red"
+        }
+    }
+}
+
+struct BackfillTask {
+    let track: RecentTrack
+    let targetService: ScrobbleService
+    let targetCredentials: ServiceCredentials
+    let sourceServices: [ScrobbleService]
+    
+    var canBackfill: Bool {
+        // Check age constraints based on service
+        guard let timestamp = track.date else { return false }
+        let age = Date().timeIntervalSince1970 - TimeInterval(timestamp)
+        let daysOld = age / 86400
+        
+        switch targetService {
+        case .lastfm, .librefm:
+            // Last.fm/Libre.fm: only allow backfill if <14 days old
+            return daysOld < 14
+        case .listenbrainz:
+            // ListenBrainz: no time restriction
+            return true
+        }
+    }
 }
 
 struct ServiceTrackData: Codable {
