@@ -12,8 +12,7 @@
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": "./scripts/build.sh ${nextRelease.version}",
-        "publishCmd": "gh release upload v${nextRelease.version} Scroblebler.${nextRelease.version}.dmg"
+        "prepareCmd": "./scripts/build.sh ${nextRelease.version}"
       }
     ],
     [
