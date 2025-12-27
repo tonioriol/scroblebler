@@ -1,6 +1,6 @@
 cask "scroblebler" do
-  version "1.1.0"
-  sha256 "e4757e96932066decadc0dec3fedf315e003f7f8648318f5e451b5d50872d5e8"
+  version "1.1.1"
+  sha256 "39ec5288a5229ee65cc8f775fa20362a8f7980c9d7c664f5fd8b77a9c87fd63d"
 
   url "https://github.com/tonioriol/scroblebler/releases/download/v#{version}/Scroblebler.1.0.2.dmg"
   name "Scroblebler"

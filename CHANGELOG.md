@@ -1,3 +1,10 @@
+## [1.1.1](https://github.com/tonioriol/scroblebler/compare/v1.1.0...v1.1.1) (2025-12-27)
+
+
+### Bug Fixes
+
+* create Casks directory in homebrew tap workflow ([76a6ede](https://github.com/tonioriol/scroblebler/commit/76a6edec57c2aafa4e14148a3d2aa2df6008df9d))
+
 # [1.1.0](https://github.com/tonioriol/scroblebler/compare/v1.0.2...v1.1.0) (2025-12-27)
 
 
