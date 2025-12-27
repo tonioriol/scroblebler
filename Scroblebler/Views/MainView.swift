@@ -443,11 +443,7 @@ struct AnimatedHeaderView: View {
     }
     
     private var logoName: String {
-        isListenBrainz ? "lb-logo" : "as-logo"
-    }
-    
-    private var logoHeight: CGFloat {
-        isListenBrainz ? 30 : 25
+        "app-logo"
     }
     
     private var headerGradient: LinearGradient {
@@ -478,7 +474,7 @@ struct AnimatedHeaderView: View {
                 Image(logoName)
                     .resizable()
                     .scaledToFit()
-                    .frame(height: logoHeight)
+                    .frame(height: 55)
                 
                 Spacer()
                 

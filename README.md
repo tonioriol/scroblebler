@@ -1,6 +1,6 @@
 # Scroblebler for Apple Music
 
-<img src="imgs/icon.png" height="64" align="right">
+<img src="imgs/logo.svg" height="64" align="right">
 
 Scroblebler is a native macOS application capable of scrobbling tracks from Apple Music (even when
 they are not in your library).

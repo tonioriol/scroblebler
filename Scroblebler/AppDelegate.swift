@@ -59,7 +59,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         }
 
         if let button = self.statusBarItem.button {
-            button.image = NSImage(named: "as-logo-opaque")
+            if let image = NSImage(named: "app-logo-opaque") {
+                image.size = NSSize(width: 18, height: 18)
+                image.isTemplate = true
+                button.image = image
+                button.imagePosition = .imageOnly
+            }
         }
         
         // Auto-authenticate Last.fm web client if password is stored in Keychain

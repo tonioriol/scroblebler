@@ -14,10 +14,12 @@ struct Header: View {
     
     var body: some View {
         VStack(alignment: .center) {
-            HStack {
-                Image("as-logo")
+            HStack(alignment: .center) {
+                Image("app-logo")
                     .resizable()
-                    .frame(width: 46.25, height: 25)
+                    .interpolation(.high)
+                    .scaledToFit()
+                    .frame(height: 55)
                 Spacer()
                 if defaults.name != nil {
                     HStack {
