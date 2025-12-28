@@ -209,19 +209,25 @@ class ServiceManager: ObservableObject {
         
         var otherServiceTracks: [[RecentTrack]] = []
         
-        // Fetch from other services in parallel
+        // Fetch wider range from secondary services since they may have different items/offsets
+        // We need to fetch enough to cover the timestamp range of the current page
+        // Fetch 3x the accumulated tracks (page * limit * 3) to ensure coverage
+        let fetchLimit = limit * 3 * page
+        
         await withTaskGroup(of: (Int, [RecentTrack]?).self) { group in
             for (index, credentials) in otherServices.enumerated() {
                 guard let client = self.client(for: credentials.service) else { continue }
                 group.addTask {
                     do {
-                        let tracks = try await client.getRecentTracks(
+                        // Fetch enough tracks from page 1 to cover the timestamp range
+                        let allTracks = try await client.getRecentTracks(
                             username: credentials.username,
-                            limit: limit,
-                            page: page,
+                            limit: fetchLimit,
+                            page: 1,
                             token: credentials.token
                         )
-                        return (index, tracks)
+                        
+                        return (index, allTracks)
                     } catch {
                         print("✗ Failed to fetch history from \(credentials.service.displayName): \(error)")
                         return (index, nil)
@@ -235,7 +241,7 @@ class ServiceManager: ObservableObject {
                 }
                 if let fetchedTracks = fetchedTracks {
                     otherServiceTracks[index] = fetchedTracks
-                    print("📊 Fetched \(fetchedTracks.count) tracks from \(otherServices[index].service.displayName)")
+                    print("📊 Fetched \(fetchedTracks.count) tracks from \(otherServices[index].service.displayName) (covering up to page \(page))")
                 }
             }
         }
