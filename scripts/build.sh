@@ -15,7 +15,8 @@ fi
 echo "📦 Building Scroblebler v$VERSION..."
 
 # Update version in Xcode project
-sed -i '' "s/MARKETING_VERSION = [^;]*/MARKETING_VERSION = $VERSION/" Scroblebler.xcodeproj/project.pbxproj
+sed -i.bak "s/MARKETING_VERSION = [^;]*/MARKETING_VERSION = $VERSION/" Scroblebler.xcodeproj/project.pbxproj
+rm -f Scroblebler.xcodeproj/project.pbxproj.bak
 
 # Update Info.plist with version
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" Scroblebler/Info.plist
@@ -61,8 +62,9 @@ create-dmg \
 
 # Calculate SHA256 and update Homebrew cask
 SHA=$(shasum -a 256 "Scroblebler.$VERSION.dmg" | awk '{print $1}')
-sed -i "s/version \".*\"/version \"$VERSION\"/" scroblebler.rb
-sed -i "s/sha256 \".*\"/sha256 \"$SHA\"/" scroblebler.rb
+sed -i.bak "s/version \".*\"/version \"$VERSION\"/" scroblebler.rb
+sed -i.bak "s/sha256 \".*\"/sha256 \"$SHA\"/" scroblebler.rb
+rm -f scroblebler.rb.bak
 
 # Cleanup build artifacts
 rm -rf build dist
