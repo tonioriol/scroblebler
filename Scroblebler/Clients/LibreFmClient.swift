@@ -50,7 +50,7 @@ class LibreFmClient: LastFmClient {
     }
     
     override func getRecentTracksByTimeRange(username: String, minTs: Int?, maxTs: Int?, limit: Int, token: String?) async throws -> [RecentTrack]? {
-        print("🎵 [Libre.fm] getRecentTracksByTimeRange - minTs: \(minTs ?? 0), maxTs: \(maxTs ?? 0), limit: \(limit)")
+        Logger.debug("Libre.fm getRecentTracksByTimeRange - minTs: \(minTs ?? 0), maxTs: \(maxTs ?? 0), limit: \(limit)", log: Logger.api)
         
         // Call parent implementation and update URLs for Libre.fm
         guard let tracks = try await super.getRecentTracksByTimeRange(username: username, minTs: minTs, maxTs: maxTs, limit: limit, token: token) else {

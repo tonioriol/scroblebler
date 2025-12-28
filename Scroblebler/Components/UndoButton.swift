@@ -106,7 +106,7 @@ struct UndoButton: View {
                 timestamp = Int32(Date().timeIntervalSince1970)
             }
             
-            print("🔄 Redoing scrobble: \(artist) - \(track) with timestamp: \(timestamp)")
+            Logger.debug("Redoing scrobble: \(artist) - \(track) with timestamp: \(timestamp)", log: Logger.scrobbling)
             
             // Create a Track for re-scrobbling with original metadata
             let trackToScrobble = Track(

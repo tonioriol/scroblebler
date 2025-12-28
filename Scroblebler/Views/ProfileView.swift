@@ -161,7 +161,7 @@ struct ProfileView: View {
                     isLoading = false
                 }
             } catch {
-                print("Failed to load user data: \(error)")
+                Logger.error("Failed to load user data: \(error)", log: Logger.ui)
                 await MainActor.run {
                     isLoading = false
                 }
@@ -189,7 +189,7 @@ struct ProfileView: View {
                     topTracks = fetchedTracks
                 }
             } catch {
-                print("Failed to load top content: \(error)")
+                Logger.error("Failed to load top content: \(error)", log: Logger.ui)
             }
         }
     }

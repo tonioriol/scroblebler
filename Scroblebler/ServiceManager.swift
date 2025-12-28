@@ -59,7 +59,7 @@ class ServiceManager: ObservableObject {
         }
         
         try await lastFmClient.authenticateWebClient(username: username, password: password)
-        print("✓ Last.fm web client authenticated for \(username)")
+        Logger.info("Last.fm web client authenticated for \(username)", log: Logger.authentication)
     }
     
     /// Attempt to auto-authenticate web client using stored Keychain password
@@ -75,9 +75,9 @@ class ServiceManager: ObservableObject {
             }
             
             try await setupLastFmWebClient(password: password)
-            print("✓ Auto-authenticated Last.fm web client for \(username)")
+            Logger.info("Auto-authenticated Last.fm web client for \(username)", log: Logger.authentication)
         } catch {
-            print("⚠️ Failed to auto-authenticate Last.fm web client: \(error)")
+            Logger.error("Failed to auto-authenticate Last.fm web client: \(error)", log: Logger.authentication)
         }
     }
     
@@ -88,17 +88,17 @@ class ServiceManager: ObservableObject {
     
     func scrobble(credentials: ServiceCredentials, track: Track) async throws {
         guard let client = clients[credentials.service] else {
-            print("[BACKFILL] ❌ [ServiceManager] No client found for \(credentials.service.displayName)")
+            Logger.error("No client found for \(credentials.service.displayName)", log: Logger.scrobbling)
             return
         }
-        print("[BACKFILL] 📤 [ServiceManager] Scrobbling to \(credentials.service.displayName): '\(track.artist) - \(track.name)' (timestamp: \(track.startedAt))")
+        Logger.debug("Scrobbling to \(credentials.service.displayName): '\(track.artist) - \(track.name)' (timestamp: \(track.startedAt))", log: Logger.scrobbling)
         try await client.scrobble(sessionKey: credentials.token, track: track)
-        print("[BACKFILL] ✅ [ServiceManager] Successfully scrobbled to \(credentials.service.displayName)")
+        Logger.info("Successfully scrobbled to \(credentials.service.displayName)", log: Logger.scrobbling)
     }
     
     func scrobbleAll(track: Track) async {
         if Defaults.shared.isBlacklisted(artist: track.artist, track: track.name) {
-            print("🚫 Scrobble skipped (blacklisted): \(track.description)")
+            Logger.info("Scrobble skipped (blacklisted): \(track.description)", log: Logger.scrobbling)
             return
         }
         
@@ -109,9 +109,9 @@ class ServiceManager: ObservableObject {
                 group.addTask {
                     do {
                         try await self.scrobble(credentials: credentials, track: track)
-                        print("✓ Scrobbled to \(credentials.service.displayName): \(track.description)")
+                        Logger.info("Scrobbled to \(credentials.service.displayName): \(track.description)", log: Logger.scrobbling)
                     } catch {
-                        print("✗ Failed to scrobble to \(credentials.service.displayName): \(error)")
+                        Logger.error("Failed to scrobble to \(credentials.service.displayName): \(error)", log: Logger.scrobbling)
                     }
                 }
             }
@@ -120,7 +120,7 @@ class ServiceManager: ObservableObject {
     
     func updateNowPlayingAll(track: Track) async -> Track {
         if Defaults.shared.isBlacklisted(artist: track.artist, track: track.name) {
-            print("🚫 Update now playing skipped (blacklisted): \(track.description)")
+            Logger.info("Update now playing skipped (blacklisted): \(track.description)", log: Logger.playback)
             return track
         }
         
@@ -139,9 +139,9 @@ class ServiceManager: ObservableObject {
                 group.addTask {
                     do {
                         try await self.updateNowPlaying(credentials: credentials, track: enrichedTrack)
-                        print("✓ Updated now playing on \(credentials.service.displayName): \(enrichedTrack.description)")
+                        Logger.info("Updated now playing on \(credentials.service.displayName): \(enrichedTrack.description)", log: Logger.playback)
                     } catch {
-                        print("✗ Failed to update now playing on \(credentials.service.displayName): \(error)")
+                        Logger.error("Failed to update now playing on \(credentials.service.displayName): \(error)", log: Logger.playback)
                     }
                 }
             }
@@ -171,9 +171,9 @@ class ServiceManager: ObservableObject {
                 group.addTask {
                     do {
                         try await self.deleteScrobble(credentials: credentials, identifier: identifier)
-                        print("✓ Deleted scrobble from \(credentials.service.displayName): \(artist) - \(track)")
+                        Logger.info("Deleted scrobble from \(credentials.service.displayName): \(artist) - \(track)", log: Logger.scrobbling)
                     } catch {
-                        print("✗ Failed to delete scrobble from \(credentials.service.displayName): \(error)")
+                        Logger.error("Failed to delete scrobble from \(credentials.service.displayName): \(error)", log: Logger.scrobbling)
                     }
                 }
             }
@@ -183,12 +183,12 @@ class ServiceManager: ObservableObject {
     func getAllRecentTracks(limit: Int = 20, page: Int = 1) async throws -> [RecentTrack] {
         // New approach: render tracks from the main/primary service only
         guard let primaryService = Defaults.shared.primaryService else {
-            print("No primary service configured")
+            Logger.error("No primary service configured", log: Logger.sync)
             return []
         }
         
         guard let client = self.client(for: primaryService.service) else {
-            print("No client available for primary service")
+            Logger.error("No client available for primary service", log: Logger.sync)
             return []
         }
         
@@ -202,11 +202,11 @@ class ServiceManager: ObservableObject {
                 token: primaryService.token
             )
         } catch {
-            print("✗ Failed to fetch history from primary service \(primaryService.service.displayName): \(error)")
+            Logger.error("Failed to fetch history from primary service \(primaryService.service.displayName): \(error)", log: Logger.sync)
             return []
         }
         
-        print("📊 Fetched \(primaryTracks.count) tracks from primary service \(primaryService.service.displayName)")
+        Logger.info("Fetched \(primaryTracks.count) tracks from primary service \(primaryService.service.displayName)", log: Logger.sync)
         
         // Enrich with data from other enabled services for undo/love actions
         let otherServices = Defaults.shared.enabledServices.filter { $0.service != primaryService.service }
@@ -232,7 +232,7 @@ class ServiceManager: ObservableObject {
         let oldestTimestamp = minTs.map { $0 - timeBuffer }
         let newestTimestamp = maxTs.map { $0 + timeBuffer }
         
-        print("[SYNC] 📅 Primary timestamp range: \(minTs ?? 0) to \(maxTs ?? 0) (with buffer: \(oldestTimestamp ?? 0) to \(newestTimestamp ?? 0))")
+        Logger.debug("Primary timestamp range: \(minTs ?? 0) to \(maxTs ?? 0) (with buffer: \(oldestTimestamp ?? 0) to \(newestTimestamp ?? 0))", log: Logger.sync)
         
         await withTaskGroup(of: (Int, [RecentTrack]?).self) { group in
             for (index, credentials) in otherServices.enumerated() {
@@ -241,7 +241,7 @@ class ServiceManager: ObservableObject {
                     do {
                         var allTracks: [RecentTrack] = []
                         
-                        print("[SYNC] 🔍 Attempting timestamp query for \(credentials.service.displayName) (min: \(oldestTimestamp ?? 0), max: \(newestTimestamp ?? 0))")
+                        Logger.debug("Attempting timestamp query for \(credentials.service.displayName) (min: \(oldestTimestamp ?? 0), max: \(newestTimestamp ?? 0))", log: Logger.sync)
                         
                         // Try timestamp-based query first (Last.fm and ListenBrainz support this)
                         if let timeRangeTracks = try await client.getRecentTracksByTimeRange(
@@ -252,9 +252,9 @@ class ServiceManager: ObservableObject {
                             token: credentials.token
                         ), !timeRangeTracks.isEmpty {
                             allTracks = timeRangeTracks
-                            print("[SYNC] ✓ Fetched \(allTracks.count) tracks from \(credentials.service.displayName) using timestamp range (\(oldestTimestamp ?? 0)-\(newestTimestamp ?? 0))")
+                            Logger.debug("Fetched \(allTracks.count) tracks from \(credentials.service.displayName) using timestamp range", log: Logger.sync)
                         } else {
-                            print("[SYNC] ⚠️ Timestamp query returned nil/empty for \(credentials.service.displayName), falling back to page-based")
+                            Logger.debug("Timestamp query returned nil/empty for \(credentials.service.displayName), falling back to page-based", log: Logger.sync)
                             // Fallback to page-based (Libre.fm or if timestamp query returns nil/empty)
                             let fetchLimit = min(limit * 10 * page, 1000)
                             allTracks = try await client.getRecentTracks(
@@ -263,12 +263,12 @@ class ServiceManager: ObservableObject {
                                 page: 1,
                                 token: credentials.token
                             )
-                            print("[SYNC] ⚠️ Fell back to page-based for \(credentials.service.displayName) (up to \(fetchLimit))")
+                            Logger.debug("Fell back to page-based for \(credentials.service.displayName) (up to \(fetchLimit))", log: Logger.sync)
                         }
                         
                         return (index, allTracks)
                     } catch {
-                        print("✗ Failed to fetch history from \(credentials.service.displayName): \(error)")
+                        Logger.error("Failed to fetch history from \(credentials.service.displayName): \(error)", log: Logger.sync)
                         return (index, nil)
                     }
                 }
@@ -292,7 +292,7 @@ class ServiceManager: ObservableObject {
             let service = otherServices[serviceIndex].service
             let credentials = otherServices[serviceIndex]
             
-            print("[SYNC] 🔍 Matching primary tracks with \(service.displayName)")
+            Logger.debug("Matching primary tracks with \(service.displayName)", log: Logger.sync)
             
             for primaryIndex in tracks.indices {
                 if let matchedTrack = findBestMatch(for: tracks[primaryIndex], in: serviceTracks, serviceName: service.displayName) {
@@ -300,7 +300,7 @@ class ServiceManager: ObservableObject {
                     tracks[primaryIndex].serviceInfo.merge(matchedTrack.serviceInfo) { (_, new) in new }
                 } else {
                     // Track missing in secondary service - queue for backfill
-                    print("[SYNC] ✗ Missing in \(service.displayName): '\(tracks[primaryIndex].artist) - \(tracks[primaryIndex].name)'")
+                    Logger.debug("Missing in \(service.displayName): '\(tracks[primaryIndex].artist) - \(tracks[primaryIndex].name)'", log: Logger.sync)
                     
                     // Check if backfill is allowed
                     if canBackfill(track: tracks[primaryIndex], to: service) {
@@ -332,17 +332,13 @@ class ServiceManager: ObservableObject {
     }
     
     private func backfillMissingTracks(_ tasks: [(track: RecentTrack, credentials: ServiceCredentials)]) async {
-        print("[BACKFILL] [SYNC] 🔄 Backfilling \(tasks.count) missing tracks...")
+        Logger.info("Backfilling \(tasks.count) missing tracks", log: Logger.sync)
         
         var succeeded = 0
         var failed = 0
         
         for (index, (recentTrack, credentials)) in tasks.enumerated() {
-            print("[BACKFILL] [SYNC] 📋 Backfill task \(index + 1)/\(tasks.count):")
-            print("[BACKFILL] [SYNC]    Service: \(credentials.service.displayName)")
-            print("[BACKFILL] [SYNC]    Track: '\(recentTrack.artist) - \(recentTrack.name)'")
-            print("[BACKFILL] [SYNC]    Timestamp: \(recentTrack.date ?? 0) (\(Date(timeIntervalSince1970: TimeInterval(recentTrack.date ?? 0))))")
-            print("[BACKFILL] [SYNC]    Album: '\(recentTrack.album)'")
+            Logger.debug("Backfill task \(index + 1)/\(tasks.count): '\(recentTrack.artist) - \(recentTrack.name)' to \(credentials.service.displayName)", log: Logger.sync)
             
             let track = Track(
                 artist: recentTrack.artist,
@@ -356,15 +352,13 @@ class ServiceManager: ObservableObject {
             )
             
             do {
-                print("[BACKFILL] [SYNC]    🚀 Attempting scrobble...")
                 try await scrobble(credentials: credentials, track: track)
                 let age = (recentTrack.date.map { Date().timeIntervalSince1970 - TimeInterval($0) } ?? 0) / 86400
-                print("[BACKFILL] [SYNC]   ✓ Synced to \(credentials.service.displayName): '\(track.name)' (\(Int(age))d old)")
+                Logger.info("Synced to \(credentials.service.displayName): '\(track.name)' (\(Int(age))d old)", log: Logger.sync)
                 succeeded += 1
                 
                 // Sync love state from primary service to secondary service
                 if let client = clients[credentials.service] {
-                    print("[BACKFILL] [SYNC]    💗 Syncing love state (\(recentTrack.loved)) to \(credentials.service.displayName)...")
                     try? await client.updateLove(sessionKey: credentials.token, artist: recentTrack.artist, track: recentTrack.name, loved: recentTrack.loved)
                 }
                 
@@ -379,15 +373,14 @@ class ServiceManager: ObservableObject {
                 }
                 
                 // Rate limiting
-                print("[BACKFILL] [SYNC]    ⏳ Rate limiting (0.5s)...")
                 try await Task.sleep(nanoseconds: 500_000_000)
             } catch {
-                print("[BACKFILL] [SYNC]   ✗ Failed \(credentials.service.displayName): '\(track.name)' - \(error)")
+                Logger.error("Failed \(credentials.service.displayName): '\(track.name)' - \(error)", log: Logger.sync)
                 failed += 1
             }
         }
         
-        print("[BACKFILL] [SYNC] 📊 Backfill complete: \(succeeded) succeeded, \(failed) failed")
+        Logger.info("Backfill complete: \(succeeded) succeeded, \(failed) failed", log: Logger.sync)
     }
     
     private func findBestMatch(for track: RecentTrack, in candidates: [RecentTrack], serviceName: String) -> RecentTrack? {
@@ -397,7 +390,7 @@ class ServiceManager: ObservableObject {
         var candidatesSkippedTimestamp = 0
         var candidatesSkippedSimilarity = 0
         
-        print("[MATCH] 🔎 Trying to match: '\(track.artist) - \(track.name)' (timestamp: \(track.date ?? 0))")
+        Logger.debug("Trying to match: '\(track.artist) - \(track.name)' (timestamp: \(track.date ?? 0))", log: Logger.sync)
         
         for candidate in candidates {
             candidatesChecked += 1
@@ -412,7 +405,7 @@ class ServiceManager: ObservableObject {
             
             // Exact or near-exact timestamp match (within 5s) - accept immediately
             if timestampDelta <= 5 {
-                print("[MATCH]   • Candidate: '\(candidate.artist) - \(candidate.name)' | TS Δ: \(timestampDelta)s → EXACT MATCH")
+                Logger.debug("Exact match found: '\(candidate.artist) - \(candidate.name)' (TS Δ: \(timestampDelta)s)", log: Logger.sync)
                 bestMatch = candidate
                 bestScore = 1.0
                 break  // No need to check more candidates
@@ -431,21 +424,16 @@ class ServiceManager: ObservableObject {
             // Combined score (weighted average)
             let score = (artistScore * 0.5 + trackScore * 0.5)
             
-            print("[MATCH]   • Candidate: '\(candidate.artist) - \(candidate.name)' | Artist: \(String(format: "%.2f", artistScore)) | Track: \(String(format: "%.2f", trackScore)) | Total: \(String(format: "%.2f", score)) | TS Δ: \(timestampDelta)s")
-            
             // Require at least 80% similarity
             if score >= 0.8 {
                 if score > bestScore {
                     bestScore = score
                     bestMatch = candidate
-                    print("[MATCH]     ✓ New best match (score: \(String(format: "%.2f", score)))")
                 }
             } else {
                 candidatesSkippedSimilarity += 1
             }
         }
-        
-        print("[MATCH] 📊 Summary: Checked \(candidatesChecked), Skipped (timestamp: \(candidatesSkippedTimestamp), similarity: \(candidatesSkippedSimilarity)), Best score: \(String(format: "%.2f", bestScore))")
         
         return bestMatch
     }

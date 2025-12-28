@@ -131,10 +131,8 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
     }
     
     func updateLove(sessionKey: String, artist: String, track: String, loved: Bool) async throws {
-        print("🎵 ListenBrainz updateLove called - artist: \(artist), track: \(track), loved: \(loved)")
-        
         guard let mbid = try await lookupRecordingMBID(artist: artist, track: track) else {
-            print("⚠️ Could not find MusicBrainz ID for track, skipping love update on ListenBrainz")
+            Logger.info("Could not find MusicBrainz ID for track, skipping love update on ListenBrainz", log: Logger.scrobbling)
             return
         }
         
@@ -145,18 +143,16 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         
         do {
             try await sendRequest(endpoint: "feedback/recording-feedback", token: sessionKey, payload: payload)
-            print("✓ Love status updated successfully on ListenBrainz: \(loved ? "loved" : "unloved")")
+            Logger.info("ListenBrainz love status updated: \(loved ? "loved" : "unloved")", log: Logger.scrobbling)
         } catch {
-            print("✗ Failed to update love status on ListenBrainz: \(error)")
+            Logger.error("Failed to update love status on ListenBrainz: \(error)", log: Logger.scrobbling)
             throw error
         }
     }
     
     func deleteScrobble(sessionKey: String, identifier: ScrobbleIdentifier) async throws {
-        print("🎵 ListenBrainz deleteScrobble called - artist: \(identifier.artist), track: \(identifier.track)")
-        
         guard let timestamp = identifier.timestamp, let msid = identifier.serviceId else {
-            print("⚠️ ListenBrainz delete skipped - requires timestamp AND recording_msid")
+            Logger.info("ListenBrainz delete skipped - requires timestamp AND recording_msid", log: Logger.scrobbling)
             return
         }
         
@@ -167,9 +163,9 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         
         do {
             try await sendRequest(endpoint: "delete-listen", token: sessionKey, payload: payload)
-            print("✓ ListenBrainz delete request sent")
+            Logger.info("ListenBrainz delete request sent", log: Logger.scrobbling)
         } catch {
-            print("✗ ListenBrainz delete failed: \(error)")
+            Logger.error("ListenBrainz delete failed: \(error)", log: Logger.scrobbling)
         }
     }
     
@@ -195,7 +191,7 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
             let recordings = json?["recordings"] as? [[String: Any]]
             return recordings?.first?["id"] as? String
         } catch {
-            print("⚠️ Failed to lookup recording MBID: \(error)")
+            Logger.error("Failed to lookup recording MBID: \(error)", log: Logger.network)
             return nil
         }
     }
@@ -228,7 +224,7 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
             let (data, response) = try await URLSession.shared.data(from: url)
             guard let httpResponse = response as? HTTPURLResponse,
                   httpResponse.statusCode == 200 else {
-                print("⚠️ MBID Mapper: HTTP \((response as? HTTPURLResponse)?.statusCode ?? -1) for '\(artist) - \(track)'")
+                Logger.error("MBID Mapper: HTTP \((response as? HTTPURLResponse)?.statusCode ?? -1) for '\(artist) - \(track)'", log: Logger.network)
                 return nil
             }
             
@@ -237,7 +233,7 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
             
             // Only use results with reasonable confidence
             guard confidence > 0.5 else {
-                print("⚠️ MBID Mapper: Low confidence (\(String(format: "%.2f", confidence))) for '\(artist) - \(track)'")
+                Logger.debug("MBID Mapper: Low confidence (\(String(format: "%.2f", confidence))) for '\(artist) - \(track)'", log: Logger.network)
                 return nil
             }
             
@@ -245,8 +241,7 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
             let releaseMbid = json?["release_mbid"] as? String
             let recordingMbid = json?["recording_mbid"] as? String
             
-            let matchedName = json?["recording_name"] as? String
-            print("✓ MBID Mapper: Matched '\(artist) - \(track)' → '\(matchedName ?? "")' (confidence: \(String(format: "%.2f", confidence)))")
+            Logger.debug("MBID Mapper: Matched '\(artist) - \(track)' (confidence: \(String(format: "%.2f", confidence)))", log: Logger.network)
             
             return MapperResult(
                 artistMbid: artistMbids?.first,
@@ -255,7 +250,7 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
                 confidence: confidence
             )
         } catch {
-            print("⚠️ MBID Mapper lookup failed: \(error)")
+            Logger.error("MBID Mapper lookup failed: \(error)", log: Logger.network)
             return nil
         }
     }
@@ -263,21 +258,21 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
     // MARK: - Profile Data
     
     func getRecentTracks(username: String, limit: Int, page: Int, token: String?) async throws -> [RecentTrack] {
-        print("🎵 [ListenBrainz] getRecentTracks called - page: \(page), limit: \(limit), username: \(username)")
+        Logger.debug("ListenBrainz getRecentTracks - page: \(page), limit: \(limit)", log: Logger.api)
         
         // Populate cache first (only on first page)
         if page == 1 {
             _ = paginationState.withLock { state in
                 state.paginationState.removeValue(forKey: username)
             }
-            print("🎵 [ListenBrainz] Page 1 - reset pagination state")
+            Logger.debug("ListenBrainz page 1 - reset pagination state", log: Logger.api)
             
             do {
                 try await cache.populatePlayCountCache(username: username) { username, period, limit, offset in
                     try await self.getTopTracksWithOffset(username: username, period: period, limit: limit, offset: offset)
                 }
             } catch {
-                print("⚠️ [ListenBrainz] Failed to populate cache: \(error)")
+                Logger.error("ListenBrainz failed to populate cache: \(error)", log: Logger.cache)
             }
         }
         
@@ -292,22 +287,21 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
                 state.paginationState[username]
             }
             if let maxTs = maxTs {
-                print("🎵 [ListenBrainz] Page \(page) - using max_ts: \(maxTs)")
+                Logger.debug("ListenBrainz page \(page) - using max_ts: \(maxTs)", log: Logger.api)
                 queryItems.append(URLQueryItem(name: "max_ts", value: "\(maxTs)"))
             } else {
-                print("⚠️ [ListenBrainz] Page \(page) - NO max_ts found in pagination state!")
+                Logger.error("ListenBrainz page \(page) - NO max_ts found in pagination state", log: Logger.api)
             }
         }
         
         components.queryItems = queryItems
-        print("🎵 [ListenBrainz] Request URL: \(components.url!.absoluteString)")
         
         let (data, _) = try await URLSession.shared.data(from: components.url!)
         let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         let payload = json?["payload"] as? [String: Any]
         let listens = payload?["listens"] as? [[String: Any]] ?? []
         
-        print("🎵 [ListenBrainz] Received \(listens.count) listens for page \(page)")
+        Logger.debug("ListenBrainz received \(listens.count) listens for page \(page)", log: Logger.api)
         
         // Store the last timestamp for next page
         if let lastListen = listens.last,
@@ -315,9 +309,9 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
             paginationState.withLock { state in
                 state.paginationState[username] = lastTimestamp
             }
-            print("🎵 [ListenBrainz] Stored pagination timestamp: \(lastTimestamp)")
+            Logger.debug("ListenBrainz stored pagination timestamp: \(lastTimestamp)", log: Logger.api)
         } else {
-            print("⚠️ [ListenBrainz] No timestamp found in last listen - pagination may fail!")
+            Logger.error("ListenBrainz no timestamp found in last listen - pagination may fail", log: Logger.api)
         }
         
         // First pass: extract data from ListenBrainz response
@@ -351,7 +345,7 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
                     
                     // Only lookup if we're missing MBIDs from ListenBrainz
                     if recordingMbid == nil || releaseMbid == nil || artistMbid == nil {
-                        print("🔍 [Mapper] '\(track.artist) - \(track.name)' missing: \(missingMbids.joined(separator: ", "))")
+                        Logger.debug("MBID Mapper: '\(track.artist) - \(track.name)' missing: \(missingMbids.joined(separator: ", "))", log: Logger.network)
                         if let mapperResult = try? await self.lookupMBIDFromMapper(
                             artist: track.artist,
                             track: track.name,
@@ -414,16 +408,14 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         }.count
         
         if tracksNeedingLookup > 0 {
-            print("🎵 [ListenBrainz] MBID Mapper: \(tracksNeedingLookup) tracks needed lookup, \(enrichedCount) successfully enriched")
-        } else {
-            print("🎵 [ListenBrainz] All \(tracks.count) tracks already have MBIDs from ListenBrainz")
+            Logger.debug("ListenBrainz MBID Mapper: \(tracksNeedingLookup) tracks needed lookup, \(enrichedCount) enriched", log: Logger.api)
         }
         
         return result.compactMap { $0.1 }
     }
     
     func getRecentTracksByTimeRange(username: String, minTs: Int?, maxTs: Int?, limit: Int, token: String?) async throws -> [RecentTrack]? {
-        print("🎵 [ListenBrainz] getRecentTracksByTimeRange - minTs: \(minTs ?? 0), maxTs: \(maxTs ?? 0), limit: \(limit)")
+        Logger.debug("ListenBrainz getRecentTracksByTimeRange - minTs: \(minTs ?? 0), maxTs: \(maxTs ?? 0), limit: \(limit)", log: Logger.api)
         
         let encodedUsername = username.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? username
         var components = URLComponents(url: baseURL.appendingPathComponent("user/\(encodedUsername)/listens"), resolvingAgainstBaseURL: false)!
@@ -442,7 +434,7 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         let payload = json?["payload"] as? [String: Any]
         let listens = payload?["listens"] as? [[String: Any]] ?? []
         
-        print("🎵 [ListenBrainz] Received \(listens.count) listens for time range")
+        Logger.debug("ListenBrainz received \(listens.count) listens for time range", log: Logger.api)
         
         // Extract and build tracks (simplified version without cache)
         let tracks = listens.compactMap { listen -> RecentTrack? in

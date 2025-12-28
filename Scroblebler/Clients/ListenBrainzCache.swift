@@ -33,20 +33,15 @@ final class ListenBrainzCache {
             }.prefix(3)
             
             if let similar = similarKeys, !similar.isEmpty {
-                print("🎵 [ListenBrainz] No match for '\(key)', similar keys: \(similar.joined(separator: ", "))")
-            } else {
-                print("🎵 [ListenBrainz] No match for '\(key)' and no similar keys found")
+                Logger.debug("No match for '\(key)', similar keys: \(similar.joined(separator: ", "))", log: Logger.cache)
             }
-        } else if count != nil {
-            print("🎵 [ListenBrainz] Found playcount for '\(key)': \(count ?? 0)")
         }
         
         return count
     }
     
     func populatePlayCountCache(username: String, getTopTracks: @escaping (String, String, Int, Int) async throws -> [TopTrack]) async throws {
-        print("🎵 [ListenBrainz] ========== populatePlayCountCache TRIGGERED ==========")
-        print("🎵 [ListenBrainz] Username: \(username)")
+        Logger.debug("ListenBrainz populatePlayCountCache for \(username)", log: Logger.cache)
         
         // Try to load from disk first
         if let (cachedCounts, continueFromTs, completedAt) = loadCacheFromDisk(username: username) {
@@ -54,33 +49,28 @@ final class ListenBrainzCache {
                 state.playCountCache[username] = cachedCounts
                 state.cacheExpiry[username] = Date().addingTimeInterval(cacheValidityDuration)
             }
-            print("🎵 [ListenBrainz] ✅ Loaded \(cachedCounts.count) tracks from disk")
+            Logger.info("Loaded \(cachedCounts.count) tracks from disk", log: Logger.cache)
             
             if let continueFrom = continueFromTs {
-                print("🎵 [ListenBrainz] ⚠️ INCOMPLETE FETCH - will resume from timestamp \(continueFrom)")
+                Logger.info("Incomplete fetch - resuming from timestamp \(continueFrom)", log: Logger.cache)
                 startBackgroundCacheFetch(username: username, continueFrom: continueFrom)
             } else if let completedAt = completedAt {
                 let age = Date().timeIntervalSince1970 - completedAt
                 if age > 300 { // 5 minutes
                     let minTs = Int(completedAt) + 1
-                    print("🎵 [ListenBrainz] 🔄 Cache is \(Int(age/60))min old (>5min threshold)")
-                    print("🎵 [ListenBrainz] 🚀 AUTO-TRIGGERING incremental update from timestamp \(minTs)")
+                    Logger.info("Cache is \(Int(age/60))min old - triggering incremental update", log: Logger.cache)
                     startIncrementalUpdate(username: username, since: minTs)
-                } else {
-                    print("🎵 [ListenBrainz] ✅ Cache is FRESH (\(Int(age))s old, <5min threshold)")
                 }
-            } else {
-                print("🎵 [ListenBrainz] ✅ Cache is COMPLETE (all history fetched)")
             }
             return
         }
         
-        print("🎵 [ListenBrainz] No cache on disk, will fetch from beginning")
+        Logger.debug("No cache on disk, will fetch from beginning", log: Logger.cache)
         
         let isCacheValid = cacheState.withLock { state in
             if let expiry = state.cacheExpiry[username], Date() < expiry {
                 let count = state.playCountCache[username]?.count ?? 0
-                print("🎵 [ListenBrainz] Cache still valid, skipping fetch. Entries: \(count)")
+                Logger.debug("Cache still valid, skipping fetch. Entries: \(count)", log: Logger.cache)
                 return true
             }
             return false
@@ -89,7 +79,7 @@ final class ListenBrainzCache {
         if isCacheValid { return }
         
         // Fetch first page quickly for immediate use
-        print("🎵 [ListenBrainz] Fetching first page (1000 tracks) for immediate use...")
+        Logger.debug("Fetching first page (1000 tracks) for immediate use", log: Logger.cache)
         let firstPage = try await getTopTracks(username, "all_time", 1000, 0)
         
         var cache: [String: Int] = [:]
@@ -102,7 +92,7 @@ final class ListenBrainzCache {
             state.playCountCache[username] = cache
             state.cacheExpiry[username] = Date().addingTimeInterval(cacheValidityDuration)
         }
-        print("🎵 [ListenBrainz] Initial cache populated with \(cache.count) entries")
+        Logger.info("Initial cache populated with \(cache.count) entries", log: Logger.cache)
         
         startBackgroundCacheFetch(username: username, continueFrom: nil)
     }
@@ -111,13 +101,13 @@ final class ListenBrainzCache {
     
     private func startBackgroundCacheFetch(username: String, continueFrom: Int?) {
         if let existingTask = backgroundFetchTasks[username], !existingTask.isCancelled {
-            print("⏸️ [ListenBrainz] ⚠️ DUPLICATE PREVENTED: Background task already running for \(username)")
+            Logger.debug("Duplicate prevented: Background task already running for \(username)", log: Logger.cache)
             return
         }
         
         backgroundFetchTasks[username]?.cancel()
         
-        print("🎵 [ListenBrainz] 🚀 Starting background fetch task")
+        Logger.debug("Starting background fetch task", log: Logger.cache)
         let task = Task {
             await fetchAllPagesInBackground(username: username, continueFrom: continueFrom)
         }
@@ -126,13 +116,13 @@ final class ListenBrainzCache {
     
     private func startIncrementalUpdate(username: String, since: Int) {
         if let existingTask = backgroundFetchTasks[username], !existingTask.isCancelled {
-            print("⏸️ [ListenBrainz] ⚠️ DUPLICATE PREVENTED: Background task already running for \(username)")
+            Logger.debug("Duplicate prevented: Background task already running for \(username)", log: Logger.cache)
             return
         }
         
         backgroundFetchTasks[username]?.cancel()
         
-        print("🎵 [ListenBrainz] 🚀 Starting incremental update task")
+        Logger.debug("Starting incremental update task", log: Logger.cache)
         let task = Task {
             await fetchNewListens(username: username, since: since)
         }
@@ -140,7 +130,7 @@ final class ListenBrainzCache {
     }
     
     private func fetchNewListens(username: String, since: Int) async {
-        print("🎵 [ListenBrainz] ========== INCREMENTAL UPDATE STARTED ==========")
+        Logger.info("Incremental update started", log: Logger.cache)
         
         var playcounts: [String: Int] = cacheState.withLock { state in
             state.playCountCache[username] ?? [:]
@@ -148,26 +138,24 @@ final class ListenBrainzCache {
         
         do {
             let listens = try await fetchListensPage(username: username, minTs: since, count: 1000)
-            print("🎵 [ListenBrainz] Found \(listens.count) new listens")
-            
             let newCount = addListensToCounts(listens: listens, playcounts: &playcounts)
-            print("🎵 [ListenBrainz] Added \(newCount) new listens, total: \(playcounts.count)")
+            Logger.info("Added \(newCount) new listens, total: \(playcounts.count)", log: Logger.cache)
             
             cacheState.withLock { state in
                 state.playCountCache[username] = playcounts
             }
             
             saveCacheToDisk(username: username, cache: playcounts, continueFromTs: nil, completedAt: Date().timeIntervalSince1970)
-            print("🎵 [ListenBrainz] ✅ Incremental update complete")
+            Logger.info("Incremental update complete", log: Logger.cache)
         } catch {
-            print("⚠️ [ListenBrainz] Error: \(error)")
+            Logger.error("Incremental update error: \(error)", log: Logger.cache)
         }
         
         backgroundFetchTasks.removeValue(forKey: username)
     }
     
     private func fetchAllPagesInBackground(username: String, continueFrom: Int?) async {
-        print("🎵 [ListenBrainz] ========== BACKGROUND FETCH STARTED ==========")
+        Logger.info("Background fetch started", log: Logger.cache)
         
         var playcounts: [String: Int] = cacheState.withLock { state in
             state.playCountCache[username] ?? [:]
@@ -197,7 +185,7 @@ final class ListenBrainzCache {
                 
                 try? await Task.sleep(nanoseconds: 200_000_000)
             } catch {
-                print("⚠️ [ListenBrainz] Error page \(page): \(error)")
+                Logger.error("Error fetching page \(page): \(error)", log: Logger.cache)
                 break
             }
         }
@@ -208,7 +196,7 @@ final class ListenBrainzCache {
         }
         
         saveCacheToDisk(username: username, cache: playcounts, continueFromTs: nil, completedAt: Date().timeIntervalSince1970)
-        print("🎵 [ListenBrainz] ✅ Complete: \(page) pages, \(totalListens) listens, \(playcounts.count) tracks")
+        Logger.info("Background fetch complete: \(page) pages, \(totalListens) listens, \(playcounts.count) tracks", log: Logger.cache)
         
         backgroundFetchTasks.removeValue(forKey: username)
     }
@@ -268,7 +256,7 @@ final class ListenBrainzCache {
             let data = try JSONSerialization.data(withJSONObject: cacheData, options: [.prettyPrinted])
             try data.write(to: filePath)
         } catch {
-            print("⚠️ [ListenBrainz] Save failed: \(error)")
+            Logger.error("Failed to save cache: \(error)", log: Logger.cache)
         }
     }
     

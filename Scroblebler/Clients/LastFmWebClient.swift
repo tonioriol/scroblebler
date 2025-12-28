@@ -99,7 +99,7 @@ class LastFmWebClient {
         }
         
         self.username = username
-        print("✓ Web authentication successful for user: \(username)")
+        Logger.info("Last.fm web authentication successful for user: \(username)", log: Logger.authentication)
     }
     
     // MARK: - Scrobble Deletion
@@ -157,7 +157,7 @@ class LastFmWebClient {
             throw Error.authenticationFailed("Failed to parse delete response: \(error.localizedDescription)")
         }
         
-        print("✓ Deleted scrobble via web endpoint: \(artist) - \(track) at \(timestamp)")
+        Logger.info("Deleted scrobble via web endpoint: \(artist) - \(track)", log: Logger.scrobbling)
     }
     
     // MARK: - Helper Methods

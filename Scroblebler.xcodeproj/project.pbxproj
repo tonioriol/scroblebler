@@ -49,6 +49,7 @@
 		UN0000000000000000000002 /* UndoButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = UN0000000000000000000001 /* UndoButton.swift */; };
 		IMGCACHE000000000000002 /* ImageCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = IMGCACHE000000000000001 /* ImageCache.swift */; };
 		SYNCBADGE00000000000002 /* SyncStatusBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = SYNCBADGE00000000000001 /* SyncStatusBadge.swift */; };
+		LOGGER00000000000000002 /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = LOGGER00000000000000001 /* Logger.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -97,6 +98,7 @@
 		UN0000000000000000000001 /* UndoButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UndoButton.swift; sourceTree = "<group>"; };
 		IMGCACHE000000000000001 /* ImageCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageCache.swift; sourceTree = "<group>"; };
 		SYNCBADGE00000000000001 /* SyncStatusBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncStatusBadge.swift; sourceTree = "<group>"; };
+		LOGGER00000000000000001 /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -195,6 +197,7 @@
 				SS7777777777777777777777 /* StringSimilarity.swift */,
 				KEYC0000000000000000001 /* KeychainHelper.swift */,
 				IMGCACHE000000000000001 /* ImageCache.swift */,
+				LOGGER00000000000000001 /* Logger.swift */,
 			);
 			path = Scroblebler;
 			sourceTree = "<group>";
@@ -343,6 +346,7 @@
 				LBCACHE0000000000000002 /* ListenBrainzCache.swift in Sources */,
 				IMGCACHE000000000000002 /* ImageCache.swift in Sources */,
 				SYNCBADGE00000000000002 /* SyncStatusBadge.swift in Sources */,
+				LOGGER00000000000000002 /* Logger.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

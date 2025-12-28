@@ -98,9 +98,7 @@ struct MainView: View {
                                     .id(track.id)
                                     .onAppear {
                                         let isLastItem = index == recentTracks.count - 1
-                                        print("📊 Track \(index + 1)/\(recentTracks.count) appeared. isLast: \(isLastItem), isLoadingMore: \(isLoadingMore), hasMore: \(hasMoreTracks)")
                                         if isLastItem && !isLoadingMore && hasMoreTracks {
-                                            print("🔄 Triggering loadMoreTracks()")
                                             loadMoreTracks()
                                         }
                                     }
@@ -210,14 +208,13 @@ struct MainView: View {
                     // Don't stop pagination based on count - merging can reduce it
                     // Keep trying until we get an empty result
                     hasMoreTracks = !tracks.isEmpty
-                    print("📊 Loaded \(tracks.count) tracks, hasMoreTracks: \(hasMoreTracks)")
                 }
                 // Preload in background without blocking
                 Task.detached {
                     await self.preloadImages(for: tracks)
                 }
             } catch {
-                print("Failed to load recent tracks: \(error)")
+                Logger.error("Failed to load recent tracks: \(error)", log: Logger.ui)
             }
         }
     }
@@ -251,14 +248,12 @@ struct MainView: View {
                 await MainActor.run {
                     isLoadingMore = false
                 }
-                print("Failed to load more tracks: \(error)")
+                Logger.error("Failed to load more tracks: \(error)", log: Logger.ui)
             }
         }
     }
     
     private func preloadImages(for tracks: [RecentTrack]) async {
-        print("🖼️ Starting preload for \(tracks.count) images")
-        
         await withTaskGroup(of: Void.self) { group in
             for track in tracks {
                 guard let imageUrl = track.imageUrl else { continue }
@@ -267,32 +262,25 @@ struct MainView: View {
                     // Check if already cached
                     let cached = await MainActor.run { ImageCache.shared.get(imageUrl) }
                     if cached != nil {
-                        print("🖼️ Already cached: \(imageUrl)")
                         return
                     }
                     
                     // Load from network
                     guard let url = URL(string: imageUrl) else { return }
                     do {
-                        print("🖼️ Loading: \(imageUrl)")
                         let (data, _) = try await URLSession.shared.data(from: url)
                         await MainActor.run {
                             ImageCache.shared.set(imageUrl, data: data)
-                            print("🖼️ Cached: \(imageUrl)")
                         }
                     } catch {
-                        print("🖼️ Failed to load: \(imageUrl)")
+                        // Silently fail - not critical
                     }
                 }
             }
         }
-        
-        print("🖼️ Preload complete")
     }
     
     private func handleBackfillEvent(_ event: BackfillEvent) {
-        print("🔄 Backfill event received for '\(event.artist) - \(event.track)' on \(event.service.displayName)")
-        
         // Find and update the matching track inline
         if let index = recentTracks.firstIndex(where: {
             $0.artist == event.artist && $0.name == event.track && $0.date == event.timestamp
@@ -303,8 +291,6 @@ struct MainView: View {
                 id: nil
             )
             
-            let enabledServices = Set(defaults.enabledServices.map { $0.service })
-            print("✅ Updated track at index \(index): syncStatus = \(recentTracks[index].syncStatus(enabledServices: enabledServices))")
         }
     }
     
@@ -318,7 +304,7 @@ struct MainView: View {
             NSWorkspace.shared.open(targetURL)
         } catch {
             await MainActor.run { loginService = nil }
-            print("Error preparing \(service.displayName) authentication: \(error)")
+            Logger.error("Error preparing \(service.displayName) authentication: \(error)", log: Logger.authentication)
             return
         }
         
@@ -334,7 +320,7 @@ struct MainView: View {
                 continue
             } catch {
                 await MainActor.run { loginService = nil }
-                print("Error during \(service.displayName) authentication: \(error)")
+                Logger.error("Error during \(service.displayName) authentication: \(error)", log: Logger.authentication)
                 return
             }
         }
@@ -410,7 +396,7 @@ struct MainView: View {
                 loginService = nil
                 tokenInput = ""
             }
-            print("Error during ListenBrainz token validation: \(error)")
+            Logger.error("Error during ListenBrainz token validation: \(error)", log: Logger.authentication)
         }
     }
     
@@ -430,8 +416,7 @@ struct MainView: View {
             
             // Store password in Keychain for future use
             try KeychainHelper.shared.savePassword(username: username, password: password)
-            print("✓ Last.fm web client setup successful - undo functionality enabled")
-            print("✓ Password securely saved to Keychain")
+            Logger.info("Last.fm web client setup successful - undo functionality enabled", log: Logger.authentication)
             
             await MainActor.run {
                 showPasswordSheet = false
@@ -439,7 +424,7 @@ struct MainView: View {
                 passwordInput = ""
             }
         } catch {
-            print("✗ Failed to setup Last.fm web client: \(error)")
+            Logger.error("Failed to setup Last.fm web client: \(error)", log: Logger.authentication)
             await MainActor.run {
                 showPasswordSheet = false
                 pendingLastFmUsername = nil

@@ -99,14 +99,9 @@ class LastFmClient: ObservableObject, ScrobbleClient {
             args["duration"] = String(format: "%.0f", track.length)
         }
         
-        print("[BACKFILL] 🎵 [Last.fm] Scrobbling: '\(track.artist) - \(track.name)' (timestamp: \(track.startedAt), album: '\(track.album)', duration: \(track.length > 0 ? String(format: "%.0f", track.length) : "omitted"))")
+        Logger.debug("Last.fm scrobbling: '\(track.artist) - \(track.name)' (timestamp: \(track.startedAt))", log: Logger.scrobbling)
         
         let responseData = try await executeRequest(method: "track.scrobble", args: args)
-        
-        // Log the response
-        if let jsonString = String(data: responseData, encoding: .utf8) {
-            print("[BACKFILL] 🎵 [Last.fm] Scrobble response: \(jsonString.prefix(500))")
-        }
         
         // Check for ignored scrobbles in response
         if let json = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any],
@@ -120,32 +115,29 @@ class LastFmClient: ObservableObject, ScrobbleClient {
                let ignoreMsg = first["ignoredMessage"] as? [String: Any],
                let code = ignoreMsg["code"] as? String,
                let text = ignoreMsg["#text"] as? String {
-                print("[BACKFILL] ⚠️ [Last.fm] Scrobble was IGNORED (code \(code): \(text))")
+                Logger.error("Last.fm scrobble was IGNORED (code \(code): \(text))", log: Logger.scrobbling)
             } else if let scrobbleDict = scrobbles["scrobble"] as? [String: Any],
                       let ignoreMsg = scrobbleDict["ignoredMessage"] as? [String: Any],
                       let code = ignoreMsg["code"] as? String,
                       let text = ignoreMsg["#text"] as? String {
-                print("[BACKFILL] ⚠️ [Last.fm] Scrobble was IGNORED (code \(code): \(text.isEmpty ? "no message" : text))")
+                Logger.error("Last.fm scrobble was IGNORED (code \(code): \(text.isEmpty ? "no message" : text))", log: Logger.scrobbling)
             } else {
-                print("[BACKFILL] ⚠️ [Last.fm] Scrobble was IGNORED by Last.fm API")
+                Logger.error("Last.fm scrobble was IGNORED by API", log: Logger.scrobbling)
             }
-        } else {
-            print("[BACKFILL] ✅ [Last.fm] Scrobble accepted by Last.fm API")
         }
     }
     
     func updateLove(sessionKey: String, artist: String, track: String, loved: Bool) async throws {
         let method = loved ? "track.love" : "track.unlove"
-        print("🎵 updateLove called - method: \(method), artist: \(artist), track: \(track), loved: \(loved)")
         do {
             _ = try await executeRequest(method: method, args: [
                 "artist": artist,
                 "track": track,
                 "sk": sessionKey
             ])
-            print("✓ Love status updated successfully on Last.fm: \(method)")
+            Logger.info("Last.fm love status updated: \(method)", log: Logger.scrobbling)
         } catch {
-            print("✗ Failed to update love status: \(error)")
+            Logger.error("Failed to update love status on Last.fm: \(error)", log: Logger.scrobbling)
             throw error
         }
     }
@@ -163,15 +155,14 @@ class LastFmClient: ObservableObject, ScrobbleClient {
                 "timestamp": String(timestamp),
                 "sk": sessionKey
             ])
-            print("✓ Deleted scrobble via API: \(identifier.artist) - \(identifier.track)")
+            Logger.info("Deleted scrobble via API: \(identifier.artist) - \(identifier.track)", log: Logger.scrobbling)
         } catch {
-            print("⚠️ API deletion failed: \(error)")
-            print("⚠️ Web client available: \(webClient != nil), authenticated: \(webClient?.isAuthenticated ?? false), username: \(authenticatedUsername ?? "nil")")
+            Logger.error("Last.fm API deletion failed: \(error)", log: Logger.scrobbling)
             
             // If API fails and web client is authenticated, try web deletion
             if let webClient = webClient, webClient.isAuthenticated,
                let username = authenticatedUsername {
-                print("🌐 Attempting web deletion for \(identifier.artist) - \(identifier.track)")
+                Logger.debug("Attempting web deletion for \(identifier.artist) - \(identifier.track)", log: Logger.scrobbling)
                 try await webClient.deleteScrobble(
                     username: username,
                     artist: identifier.artist,
@@ -180,7 +171,7 @@ class LastFmClient: ObservableObject, ScrobbleClient {
                 )
                 return // Successfully deleted via web
             } else {
-                print("❌ Web client not available - ensure setupLastFmWebClientForTesting() was called with correct password")
+                Logger.error("Web client not available for deletion", log: Logger.scrobbling)
                 // Re-throw the original error if web client is not available
                 throw error
             }
@@ -196,7 +187,7 @@ class LastFmClient: ObservableObject, ScrobbleClient {
         try await client.authenticate(username: username, password: password)
         self.webClient = client
         self.authenticatedUsername = username
-        print("✓ Web client authenticated for user: \(username)")
+        Logger.info("Last.fm web client authenticated for user: \(username)", log: Logger.authentication)
     }
     
     /// Set web client credentials manually (for testing or when obtained from browser)
@@ -204,13 +195,13 @@ class LastFmClient: ObservableObject, ScrobbleClient {
         let client = LastFmWebClient(username: username)
         client.setCredentials(csrfToken: csrfToken, sessionId: sessionId)
         self.webClient = client
-        print("✓ Web client credentials set for user: \(username)")
+        Logger.info("Last.fm web client credentials set for user: \(username)", log: Logger.authentication)
     }
     
     // MARK: - Profile Data
     
     func getRecentTracks(username: String, limit: Int, page: Int, token: String?) async throws -> [RecentTrack] {
-        print("🎵 [Last.fm] getRecentTracks - user: \(username), limit: \(limit), page: \(page)")
+        Logger.debug("Last.fm getRecentTracks - user: \(username), limit: \(limit), page: \(page)", log: Logger.api)
         
         let data = try await executeRequestWithRetry(method: "user.getRecentTracks", args: [
             "user": username,
@@ -218,20 +209,15 @@ class LastFmClient: ObservableObject, ScrobbleClient {
             "page": String(page)
         ])
         
-        // Debug: print raw response snippet
-        if let jsonString = String(data: data, encoding: .utf8) {
-            print("🎵 [Last.fm] Raw response: \(jsonString.prefix(300))...")
-        }
-        
         // Check for API error response before decoding
         if let errorResponse = try? JSONDecoder().decode(APIErrorResponse.self, from: data) {
-            print("✗ Last.fm API error: [\(errorResponse.error)] \(errorResponse.message)")
+            Logger.error("Last.fm API error: [\(errorResponse.error)] \(errorResponse.message)", log: Logger.api)
             throw Error.apiError(errorResponse.error, errorResponse.message)
         }
         
         let response = try JSONDecoder().decode(RecentTracksResponse.self, from: data)
         let baseTracks = response.recenttracks.track.filter { $0.attr?.nowplaying != "true" }.map { $0.toDomain(client: self) }
-        print("🎵 [Last.fm] Decoded \(baseTracks.count) tracks successfully")
+        Logger.debug("Last.fm decoded \(baseTracks.count) tracks", log: Logger.api)
         
         // If we have a token, fetch playcounts in parallel
         guard let token = token else {
@@ -269,7 +255,7 @@ class LastFmClient: ObservableObject, ScrobbleClient {
     }
     
     func getRecentTracksByTimeRange(username: String, minTs: Int?, maxTs: Int?, limit: Int, token: String?) async throws -> [RecentTrack]? {
-        print("🎵 [Last.fm] getRecentTracksByTimeRange - minTs: \(minTs ?? 0), maxTs: \(maxTs ?? 0), limit: \(limit)")
+        Logger.debug("Last.fm getRecentTracksByTimeRange - minTs: \(minTs ?? 0), maxTs: \(maxTs ?? 0), limit: \(limit)", log: Logger.api)
         
         // Last.fm supports 'from' and 'to' timestamp parameters
         var args: [String: String] = [
@@ -285,22 +271,16 @@ class LastFmClient: ObservableObject, ScrobbleClient {
         }
         
         do {
-            print("🎵 [Last.fm] Executing timestamp query with args: \(args)")
             let data = try await executeRequestWithRetry(method: "user.getRecentTracks", args: args)
-            
-            // Debug: print raw response for troubleshooting
-            if let jsonString = String(data: data, encoding: .utf8) {
-                print("🎵 [Last.fm] Timestamp query raw response: \(jsonString.prefix(300))...")
-            }
             
             let response = try JSONDecoder().decode(RecentTracksResponse.self, from: data)
             let tracks = response.recenttracks.track.filter { $0.attr?.nowplaying != "true" }.map { $0.toDomain(client: self) }
             
-            print("🎵 [Last.fm] ✓ Fetched \(tracks.count) tracks using timestamp range (from=\(minTs ?? 0), to=\(maxTs ?? 0))")
+            Logger.info("Last.fm fetched \(tracks.count) tracks using timestamp range", log: Logger.api)
             
             return tracks
         } catch {
-            print("🎵 [Last.fm] ✗ Timestamp query failed with error: \(error)")
+            Logger.error("Last.fm timestamp query failed: \(error)", log: Logger.api)
             return nil  // Return nil to trigger fallback to page-based
         }
     }
@@ -439,7 +419,7 @@ class LastFmClient: ObservableObject, ScrobbleClient {
                 return try await executeRequest(method: method, args: args)
             } catch Error.apiError(8, _) {
                 let delay = UInt64(pow(2.0, Double(attempt)) * 1_000_000_000)
-                print("API call failed (attempt \(attempt + 1)/\(maxRetries)), retrying...")
+                Logger.info("Last.fm API call failed (attempt \(attempt + 1)/\(maxRetries)), retrying", log: Logger.network)
                 try await Task.sleep(nanoseconds: delay)
                 continue
             } catch {

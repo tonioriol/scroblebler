@@ -70,7 +70,7 @@ class LaunchAtStartup {
                     try SMAppService.mainApp.unregister()
                 }
             } catch {
-                print("Failed to \(newValue ? "enable" : "disable") launch at login: \(error.localizedDescription)")
+                Logger.error("Failed to \(newValue ? "enable" : "disable") launch at login: \(error.localizedDescription)", log: Logger.lifecycle)
             }
         }
     }

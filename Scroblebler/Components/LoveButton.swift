@@ -31,21 +31,15 @@ struct LoveButton: View {
     }
     
     func toggleLove() {
-        print("❤️ LoveButton clicked - artist: \(artist), track: \(trackName)")
-        
-        guard let primary = defaults.primaryService else {
-            print("✗ No primary service configured")
+        guard defaults.primaryService != nil else {
+            Logger.error("No primary service configured", log: Logger.scrobbling)
             return
         }
-        
-        print("✓ Primary service: \(primary.service)")
         
         withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
             loved.toggle()
             isAnimating = true
         }
-        
-        print("UI updated - new loved state: \(loved)")
         
         Task {
             var allSucceeded = true
@@ -59,11 +53,9 @@ struct LoveButton: View {
                 }
                 
                 do {
-                    print("✓ Updating love state on \(service.displayName)...")
                     try await client.updateLove(sessionKey: credentials.token, artist: artist, track: trackName, loved: loved)
-                    print("✓ Love state updated on \(service.displayName)")
                 } catch {
-                    print("✗ Failed to update love on \(service.displayName): \(error)")
+                    Logger.error("Failed to update love on \(service.displayName): \(error)", log: Logger.scrobbling)
                     allSucceeded = false
                 }
             }

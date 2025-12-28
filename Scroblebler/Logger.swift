@@ -10,6 +10,11 @@ enum Logger {
     static let merge = OSLog(subsystem: subsystem, category: "Merge")
     static let cache = OSLog(subsystem: subsystem, category: "Cache")
     static let ui = OSLog(subsystem: subsystem, category: "UI")
+    static let authentication = OSLog(subsystem: subsystem, category: "Authentication")
+    static let sync = OSLog(subsystem: subsystem, category: "Sync")
+    static let api = OSLog(subsystem: subsystem, category: "API")
+    static let playback = OSLog(subsystem: subsystem, category: "Playback")
+    static let lifecycle = OSLog(subsystem: subsystem, category: "Lifecycle")
     
     // Convenience methods
     static func debug(_ message: String, log: OSLog = .default) {
