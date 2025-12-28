@@ -204,58 +204,6 @@ class ServiceManager: ObservableObject {
         return primaryTracks
     }
     
-    func getNewRecentTracks(since timestamp: Int) async throws -> [RecentTrack] {
-        guard let primaryService = Defaults.shared.primaryService else {
-            return []
-        }
-        
-        guard let client = self.client(for: primaryService.service) else {
-            return []
-        }
-        
-        // Fetch tracks newer than the given timestamp
-        let currentTime = Int(Date().timeIntervalSince1970)
-        
-        var newTracks: [RecentTrack]
-        do {
-            // Try timestamp-based query first
-            if let timeRangeTracks = try await client.getRecentTracksByTimeRange(
-                username: primaryService.username,
-                minTs: timestamp + 1, // Exclude the timestamp we already have
-                maxTs: currentTime,
-                limit: 100,
-                token: primaryService.token
-            ) {
-                newTracks = timeRangeTracks
-                print("📊 Fetched \(newTracks.count) new tracks using timestamp range")
-            } else {
-                // Fallback: fetch first page and filter
-                let allTracks = try await client.getRecentTracks(
-                    username: primaryService.username,
-                    limit: 50,
-                    page: 1,
-                    token: primaryService.token
-                )
-                newTracks = allTracks.filter { track in
-                    guard let trackDate = track.date else { return false }
-                    return trackDate > timestamp
-                }
-                print("📊 Fetched \(newTracks.count) new tracks from first page (filtered)")
-            }
-        } catch {
-            print("✗ Failed to fetch new tracks: \(error)")
-            return []
-        }
-        
-        // Enrich with data from other enabled services
-        let otherServices = Defaults.shared.enabledServices.filter { $0.service != primaryService.service }
-        if !otherServices.isEmpty && !newTracks.isEmpty {
-            await enrichTracksWithOtherServices(tracks: &newTracks, otherServices: otherServices, limit: newTracks.count, page: 1)
-        }
-        
-        return newTracks
-    }
-    
     private func enrichTracksWithOtherServices(tracks: inout [RecentTrack], otherServices: [ServiceCredentials], limit: Int, page: Int) async {
         guard let primaryService = Defaults.shared.primaryService else { return }
         
