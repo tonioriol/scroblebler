@@ -87,8 +87,13 @@ class ServiceManager: ObservableObject {
     }
     
     func scrobble(credentials: ServiceCredentials, track: Track) async throws {
-        guard let client = clients[credentials.service] else { return }
+        guard let client = clients[credentials.service] else {
+            print("[BACKFILL] ❌ [ServiceManager] No client found for \(credentials.service.displayName)")
+            return
+        }
+        print("[BACKFILL] 📤 [ServiceManager] Scrobbling to \(credentials.service.displayName): '\(track.artist) - \(track.name)' (timestamp: \(track.startedAt))")
         try await client.scrobble(sessionKey: credentials.token, track: track)
+        print("[BACKFILL] ✅ [ServiceManager] Successfully scrobbled to \(credentials.service.displayName)")
     }
     
     func scrobbleAll(track: Track) async {
@@ -327,12 +332,18 @@ class ServiceManager: ObservableObject {
     }
     
     private func backfillMissingTracks(_ tasks: [(track: RecentTrack, credentials: ServiceCredentials)]) async {
-        print("[SYNC] 🔄 Backfilling \(tasks.count) missing tracks...")
+        print("[BACKFILL] [SYNC] 🔄 Backfilling \(tasks.count) missing tracks...")
         
         var succeeded = 0
         var failed = 0
         
-        for (recentTrack, credentials) in tasks {
+        for (index, (recentTrack, credentials)) in tasks.enumerated() {
+            print("[BACKFILL] [SYNC] 📋 Backfill task \(index + 1)/\(tasks.count):")
+            print("[BACKFILL] [SYNC]    Service: \(credentials.service.displayName)")
+            print("[BACKFILL] [SYNC]    Track: '\(recentTrack.artist) - \(recentTrack.name)'")
+            print("[BACKFILL] [SYNC]    Timestamp: \(recentTrack.date ?? 0) (\(Date(timeIntervalSince1970: TimeInterval(recentTrack.date ?? 0))))")
+            print("[BACKFILL] [SYNC]    Album: '\(recentTrack.album)'")
+            
             let track = Track(
                 artist: recentTrack.artist,
                 album: recentTrack.album,
@@ -345,10 +356,17 @@ class ServiceManager: ObservableObject {
             )
             
             do {
+                print("[BACKFILL] [SYNC]    🚀 Attempting scrobble...")
                 try await scrobble(credentials: credentials, track: track)
                 let age = (recentTrack.date.map { Date().timeIntervalSince1970 - TimeInterval($0) } ?? 0) / 86400
-                print("[SYNC]   ✓ Synced to \(credentials.service.displayName): '\(track.name)' (\(Int(age))d old)")
+                print("[BACKFILL] [SYNC]   ✓ Synced to \(credentials.service.displayName): '\(track.name)' (\(Int(age))d old)")
                 succeeded += 1
+                
+                // Sync love state from primary service to secondary service
+                if let client = clients[credentials.service] {
+                    print("[BACKFILL] [SYNC]    💗 Syncing love state (\(recentTrack.loved)) to \(credentials.service.displayName)...")
+                    try? await client.updateLove(sessionKey: credentials.token, artist: recentTrack.artist, track: recentTrack.name, loved: recentTrack.loved)
+                }
                 
                 // Publish backfill event
                 await MainActor.run {
@@ -361,14 +379,15 @@ class ServiceManager: ObservableObject {
                 }
                 
                 // Rate limiting
+                print("[BACKFILL] [SYNC]    ⏳ Rate limiting (0.5s)...")
                 try await Task.sleep(nanoseconds: 500_000_000)
             } catch {
-                print("[SYNC]   ✗ Failed \(credentials.service.displayName): '\(track.name)' - \(error)")
+                print("[BACKFILL] [SYNC]   ✗ Failed \(credentials.service.displayName): '\(track.name)' - \(error)")
                 failed += 1
             }
         }
         
-        print("[SYNC] 📊 Backfill complete: \(succeeded) succeeded, \(failed) failed")
+        print("[BACKFILL] [SYNC] 📊 Backfill complete: \(succeeded) succeeded, \(failed) failed")
     }
     
     private func findBestMatch(for track: RecentTrack, in candidates: [RecentTrack], serviceName: String) -> RecentTrack? {

@@ -85,19 +85,53 @@ class LastFmClient: ObservableObject, ScrobbleClient {
     }
     
     func scrobble(sessionKey: String, track: Track) async throws {
-        // Fetch current loved state from Last.fm instead of using stale Apple Music data
-        let currentLovedState = try? await getTrackLoved(token: sessionKey, artist: track.artist, track: track.name)
-        if let loved = currentLovedState {
-            _ = try await updateLove(sessionKey: sessionKey, artist: track.artist, track: track.name, loved: loved)
-        }
-        _ = try await executeRequest(method: "track.scrobble", args: [
+        // Build args - only include duration if > 0 (Last.fm rejects 0 duration)
+        var args: [String: String] = [
             "artist": track.artist,
             "track": track.name,
             "album": track.album,
-            "duration": String(format: "%.0f", track.length),
             "timestamp": String(format: "%d", track.startedAt),
             "sk": sessionKey
-        ])
+        ]
+        
+        // Only include duration if we have it (Last.fm ignores scrobbles with 0 duration)
+        if track.length > 0 {
+            args["duration"] = String(format: "%.0f", track.length)
+        }
+        
+        print("[BACKFILL] 🎵 [Last.fm] Scrobbling: '\(track.artist) - \(track.name)' (timestamp: \(track.startedAt), album: '\(track.album)', duration: \(track.length > 0 ? String(format: "%.0f", track.length) : "omitted"))")
+        
+        let responseData = try await executeRequest(method: "track.scrobble", args: args)
+        
+        // Log the response
+        if let jsonString = String(data: responseData, encoding: .utf8) {
+            print("[BACKFILL] 🎵 [Last.fm] Scrobble response: \(jsonString.prefix(500))")
+        }
+        
+        // Check for ignored scrobbles in response
+        if let json = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any],
+           let scrobbles = json["scrobbles"] as? [String: Any],
+           let attr = scrobbles["@attr"] as? [String: Any],
+           let ignored = attr["ignored"] as? Int,
+           ignored > 0 {
+            // Extract the ignore reason
+            if let scrobbleArray = scrobbles["scrobble"] as? [[String: Any]],
+               let first = scrobbleArray.first,
+               let ignoreMsg = first["ignoredMessage"] as? [String: Any],
+               let code = ignoreMsg["code"] as? String,
+               let text = ignoreMsg["#text"] as? String {
+                print("[BACKFILL] ⚠️ [Last.fm] Scrobble was IGNORED (code \(code): \(text))")
+            } else if let scrobbleDict = scrobbles["scrobble"] as? [String: Any],
+                      let ignoreMsg = scrobbleDict["ignoredMessage"] as? [String: Any],
+                      let code = ignoreMsg["code"] as? String,
+                      let text = ignoreMsg["#text"] as? String {
+                print("[BACKFILL] ⚠️ [Last.fm] Scrobble was IGNORED (code \(code): \(text.isEmpty ? "no message" : text))")
+            } else {
+                print("[BACKFILL] ⚠️ [Last.fm] Scrobble was IGNORED by Last.fm API")
+            }
+        } else {
+            print("[BACKFILL] ✅ [Last.fm] Scrobble accepted by Last.fm API")
+        }
     }
     
     func updateLove(sessionKey: String, artist: String, track: String, loved: Bool) async throws {
