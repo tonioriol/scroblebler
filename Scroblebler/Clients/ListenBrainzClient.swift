@@ -220,39 +220,50 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         
         guard let url = components.url else { return nil }
         
-        do {
-            let (data, response) = try await URLSession.shared.data(from: url)
-            guard let httpResponse = response as? HTTPURLResponse,
-                  httpResponse.statusCode == 200 else {
-                Logger.error("MBID Mapper: HTTP \((response as? HTTPURLResponse)?.statusCode ?? -1) for '\(artist) - \(track)'", log: Logger.network)
-                return nil
+        let maxRetries = 3
+        let retryDelay: UInt64 = 1_000_000_000 // 1 second
+        
+        for attempt in 1...maxRetries {
+            do {
+                let (data, response) = try await URLSession.shared.data(from: url)
+                guard let httpResponse = response as? HTTPURLResponse,
+                      httpResponse.statusCode == 200 else {
+                    Logger.error("MBID Mapper: HTTP \((response as? HTTPURLResponse)?.statusCode ?? -1) for '\(artist) - \(track)'", log: Logger.network)
+                    return nil
+                }
+                
+                let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+                let confidence = json?["confidence"] as? Double ?? 0.0
+                
+                guard confidence > 0.5 else {
+                    Logger.debug("MBID Mapper: Low confidence (\(String(format: "%.2f", confidence))) for '\(artist) - \(track)'", log: Logger.network)
+                    return nil
+                }
+                
+                let artistMbids = json?["artist_credit_mbids"] as? [String]
+                let releaseMbid = json?["release_mbid"] as? String
+                let recordingMbid = json?["recording_mbid"] as? String
+                
+                Logger.debug("MBID Mapper: Matched '\(artist) - \(track)' (confidence: \(String(format: "%.2f", confidence)))", log: Logger.network)
+                
+                return MapperResult(
+                    artistMbid: artistMbids?.first,
+                    releaseMbid: releaseMbid,
+                    recordingMbid: recordingMbid,
+                    confidence: confidence
+                )
+            } catch {
+                if attempt < maxRetries {
+                    Logger.info("MBID Mapper: Attempt \(attempt) failed, retrying", log: Logger.network)
+                    try? await Task.sleep(nanoseconds: retryDelay)
+                } else {
+                    Logger.error("MBID Mapper lookup failed: \(error)", log: Logger.network)
+                    return nil
+                }
             }
-            
-            let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-            let confidence = json?["confidence"] as? Double ?? 0.0
-            
-            // Only use results with reasonable confidence
-            guard confidence > 0.5 else {
-                Logger.debug("MBID Mapper: Low confidence (\(String(format: "%.2f", confidence))) for '\(artist) - \(track)'", log: Logger.network)
-                return nil
-            }
-            
-            let artistMbids = json?["artist_credit_mbids"] as? [String]
-            let releaseMbid = json?["release_mbid"] as? String
-            let recordingMbid = json?["recording_mbid"] as? String
-            
-            Logger.debug("MBID Mapper: Matched '\(artist) - \(track)' (confidence: \(String(format: "%.2f", confidence)))", log: Logger.network)
-            
-            return MapperResult(
-                artistMbid: artistMbids?.first,
-                releaseMbid: releaseMbid,
-                recordingMbid: recordingMbid,
-                confidence: confidence
-            )
-        } catch {
-            Logger.error("MBID Mapper lookup failed: \(error)", log: Logger.network)
-            return nil
         }
+        
+        return nil
     }
     
     // MARK: - Profile Data
