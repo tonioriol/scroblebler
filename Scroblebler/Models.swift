@@ -16,7 +16,12 @@ struct RecentTrack: Codable {
     let playcount: Int?
     var serviceInfo: [String: ServiceTrackData] = [:]
     var sourceService: ScrobbleService? = nil
-    var syncStatus: SyncStatus = .unknown
+    
+    /// Compute sync status based on which services have this track
+    func syncStatus(enabledServices: Set<ScrobbleService>) -> SyncStatus {
+        let presentIn = Set([sourceService].compactMap { $0 } + serviceInfo.keys.compactMap { ScrobbleService(rawValue: $0) })
+        return SyncStatus.calculate(presentInServices: presentIn, enabledServices: enabledServices)
+    }
 }
 
 // MARK: - Sync Models
@@ -24,25 +29,23 @@ struct RecentTrack: Codable {
 enum SyncStatus: Codable {
     case unknown
     case synced           // Present in all enabled services
-    case partial          // Present in some services
-    case primaryOnly      // Only in primary service
+    case partial          // Not in all enabled services
     
     var icon: String {
         switch self {
         case .unknown: return "questionmark.circle"
         case .synced: return "checkmark.circle.fill"
-        case .partial: return "exclamationmark.circle.fill"
-        case .primaryOnly: return "xmark.circle.fill"
+        case .partial: return "xmark.circle.fill"
         }
     }
     
-    var color: String {
-        switch self {
-        case .unknown: return "gray"
-        case .synced: return "green"
-        case .partial: return "orange"
-        case .primaryOnly: return "red"
-        }
+    /// Calculate sync status based on which services have the track
+    static func calculate(
+        presentInServices: Set<ScrobbleService>,
+        enabledServices: Set<ScrobbleService>
+    ) -> SyncStatus {
+        guard !enabledServices.isEmpty else { return .unknown }
+        return presentInServices == enabledServices ? .synced : .partial
     }
 }
 

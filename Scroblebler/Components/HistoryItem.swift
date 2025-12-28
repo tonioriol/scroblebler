@@ -7,15 +7,20 @@ struct HistoryItem: View {
     let track: RecentTrack
     @State private var loved: Bool
     @State private var playcount: Int?
-    @State private var syncStatus: SyncStatus
     @State private var serviceInfo: [String: ServiceTrackData]
     
     init(track: RecentTrack) {
         self.track = track
         self._loved = State(initialValue: track.loved)
         self._playcount = State(initialValue: track.playcount)
-        self._syncStatus = State(initialValue: track.syncStatus)
         self._serviceInfo = State(initialValue: track.serviceInfo)
+    }
+    
+    private var syncStatus: SyncStatus {
+        let enabledServices = Set(defaults.enabledServices.map { $0.service })
+        var updatedTrack = track
+        updatedTrack.serviceInfo = serviceInfo
+        return updatedTrack.syncStatus(enabledServices: enabledServices)
     }
     
     var body: some View {
@@ -103,20 +108,8 @@ struct HistoryItem: View {
         // Add the newly synced service to serviceInfo
         if let serviceRawValue = userInfo["service"] as? String,
            let service = ScrobbleService(rawValue: serviceRawValue) {
-            // Update serviceInfo with the new service
+            // Update serviceInfo - syncStatus will be recomputed automatically
             serviceInfo[service.id] = ServiceTrackData(timestamp: timestamp, id: nil)
-            
-            // Calculate new sync status
-            let allEnabledServices = Set(defaults.enabledServices.map { $0.service })
-            let presentIn = Set([track.sourceService].compactMap { $0 } + serviceInfo.keys.compactMap { ScrobbleService(rawValue: $0) })
-            
-            if presentIn == allEnabledServices {
-                syncStatus = .synced
-            } else if presentIn.count == 1 {
-                syncStatus = .primaryOnly
-            } else {
-                syncStatus = .partial
-            }
         }
     }
 }

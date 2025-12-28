@@ -296,25 +296,14 @@ struct MainView: View {
         if let index = recentTracks.firstIndex(where: {
             $0.artist == event.artist && $0.name == event.track && $0.date == event.timestamp
         }) {
-            // Add service info (we don't have the full data, but we know it exists now)
+            // Add service info - sync status will be recomputed automatically via the method
             recentTracks[index].serviceInfo[event.service.id] = ServiceTrackData(
                 timestamp: event.timestamp,
                 id: nil
             )
             
-            // Update sync status
-            let allEnabledServices = Set(defaults.enabledServices.map { $0.service })
-            let presentIn = Set(recentTracks[index].serviceInfo.keys.compactMap { ScrobbleService(rawValue: $0) })
-            
-            if presentIn == allEnabledServices {
-                recentTracks[index].syncStatus = .synced
-            } else if presentIn.count == 1 {
-                recentTracks[index].syncStatus = .primaryOnly
-            } else {
-                recentTracks[index].syncStatus = .partial
-            }
-            
-            print("✅ Updated track at index \(index): syncStatus = \(recentTracks[index].syncStatus)")
+            let enabledServices = Set(defaults.enabledServices.map { $0.service })
+            print("✅ Updated track at index \(index): syncStatus = \(recentTracks[index].syncStatus(enabledServices: enabledServices))")
         }
     }
     

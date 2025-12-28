@@ -8,25 +8,24 @@ struct SyncStatusBadge: View {
     let sourceService: ScrobbleService?
     
     var body: some View {
-        HStack(spacing: 2) {
-            Image(systemName: syncStatus.icon)
-                .foregroundColor(statusColor)
-                .font(.system(size: 12))
-                .help(tooltipText)
+        let enabledServices = defaults.enabledServices.filter { $0.isEnabled }
+        
+        // Hide badge when only one service is enabled
+        if enabledServices.count <= 1 {
+            EmptyView()
+        } else {
+            HStack(spacing: 2) {
+                Image(systemName: syncStatus.icon)
+                    .foregroundColor(statusColor)
+                    .font(.system(size: 12))
+                    .help(tooltipText)
+            }
         }
     }
     
     private var statusColor: Color {
-        switch syncStatus {
-        case .unknown:
-            return .gray
-        case .synced:
-            return .green
-        case .partial:
-            return .orange
-        case .primaryOnly:
-            return .red
-        }
+        // Green for synced, red for not synced
+        syncStatus == .synced ? .green : .red
     }
     
     private var tooltipText: String {
@@ -42,17 +41,7 @@ struct SyncStatusBadge: View {
             lines.append("\(icon) \(service.displayName)")
         }
         
-        let statusText: String
-        switch syncStatus {
-        case .unknown:
-            statusText = "Sync Status Unknown"
-        case .synced:
-            statusText = "Synced to All Services"
-        case .partial:
-            statusText = "Partially Synced"
-        case .primaryOnly:
-            statusText = "Primary Service Only"
-        }
+        let statusText = syncStatus == .synced ? "Synced to All Services" : "Not Fully Synced"
         
         return "\(statusText)\n\n" + lines.joined(separator: "\n")
     }

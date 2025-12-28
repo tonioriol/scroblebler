@@ -305,20 +305,6 @@ class ServiceManager: ObservableObject {
             }
         }
         
-        // Calculate sync status
-        let allEnabledServices = Set([primaryService.service] + otherServices.map { $0.service })
-        for index in tracks.indices {
-            let presentIn = Set([primaryService.service] + tracks[index].serviceInfo.keys.compactMap { ScrobbleService(rawValue: $0) })
-            
-            if presentIn == allEnabledServices {
-                tracks[index].syncStatus = .synced
-            } else if presentIn.count == 1 {
-                tracks[index].syncStatus = .primaryOnly
-            } else {
-                tracks[index].syncStatus = .partial
-            }
-        }
-        
         // Backfill missing tracks asynchronously
         if !tracksToBackfill.isEmpty {
             Task {
