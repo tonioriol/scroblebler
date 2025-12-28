@@ -68,6 +68,8 @@ on their repository](https://github.com/lastfm/lastfm-desktop/blob/9ae84cf4ab204
 - [ ] Update the reverse domain.
 - [ ] Offline support
 - [ ] Auto-update
+- [ ] Testing
+- [ ] Extract and unify the exponential backoff logic
 
 ## License
 
