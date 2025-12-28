@@ -93,8 +93,9 @@ struct MainView: View {
                     
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 0) {
-                            ForEach(Array(recentTracks.enumerated()), id: \.offset) { index, track in
+                            ForEach(Array(recentTracks.enumerated()), id: \.element.id) { index, track in
                                 HistoryItem(track: track)
+                                    .id(track.id)
                                     .onAppear {
                                         let isLastItem = index == recentTracks.count - 1
                                         print("📊 Track \(index + 1)/\(recentTracks.count) appeared. isLast: \(isLastItem), isLoadingMore: \(isLoadingMore), hasMore: \(hasMoreTracks)")

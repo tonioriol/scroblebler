@@ -2,7 +2,14 @@ import Foundation
 
 // MARK: - Domain Models
 
-struct RecentTrack: Codable {
+struct RecentTrack: Codable, Identifiable {
+    var id: String {
+        // Create unique ID from artist, track name, timestamp, and source service
+        let timestamp = date ?? 0
+        let source = sourceService?.rawValue ?? "unknown"
+        return "\(artist)-\(name)-\(timestamp)-\(source)"
+    }
+    
     let name: String
     let artist: String
     let album: String

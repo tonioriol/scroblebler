@@ -214,7 +214,7 @@ class ServiceManager: ObservableObject {
     }
     
     private func enrichTracksWithOtherServices(tracks: inout [RecentTrack], otherServices: [ServiceCredentials], limit: Int, page: Int) async {
-        guard let primaryService = Defaults.shared.primaryService else { return }
+        guard Defaults.shared.primaryService != nil else { return }
         
         var otherServiceTracks: [[RecentTrack]] = []
         
