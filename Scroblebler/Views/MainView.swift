@@ -14,6 +14,7 @@ struct MainView: View {
     @State private var currentPage = 1
     @State private var isLoadingMore = false
     @State private var hasMoreTracks = true
+    @State private var isRefreshingNew = false
     @State private var loginState: WaitingLogin.Status = .generatingToken
 
     var body: some View {
@@ -184,14 +185,18 @@ struct MainView: View {
         .onAppear {
             loadRecentTracks()
         }
-        .onChange(of: watcher.currentTrack?.name) { _ in
-            loadRecentTracks()
+        .onChange(of: watcher.currentTrack?.name) { newName in
+            // Refresh new scrobbles when track changes
+            if newName != nil {
+                refreshNewScrobbles()
+            }
         }
         .onChange(of: defaults.mainServicePreference) { _ in
             loadRecentTracks()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ScrobleblerDidShow"))) { _ in
-            loadRecentTracks()
+            // Refresh new scrobbles when popover is shown
+            refreshNewScrobbles()
         }
     }
     
@@ -215,6 +220,44 @@ struct MainView: View {
                 }
             } catch {
                 print("Failed to load recent tracks: \(error)")
+            }
+        }
+    }
+    
+    private func refreshNewScrobbles() {
+        guard !isRefreshingNew, !recentTracks.isEmpty else {
+            return
+        }
+        
+        // Get the newest timestamp from current tracks
+        guard let newestTimestamp = recentTracks.compactMap({ $0.date }).max() else {
+            return
+        }
+        
+        isRefreshingNew = true
+        
+        Task {
+            do {
+                let newTracks = try await serviceManager.getNewRecentTracks(since: newestTimestamp)
+                await MainActor.run {
+                    if !newTracks.isEmpty {
+                        print("📊 Found \(newTracks.count) new tracks, prepending to list")
+                        // Prepend new tracks to the beginning
+                        recentTracks.insert(contentsOf: newTracks, at: 0)
+                    }
+                    isRefreshingNew = false
+                }
+                // Preload in background
+                if !newTracks.isEmpty {
+                    Task.detached {
+                        await self.preloadImages(for: newTracks)
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    isRefreshingNew = false
+                }
+                print("Failed to refresh new tracks: \(error)")
             }
         }
     }
