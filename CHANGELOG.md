@@ -1,3 +1,16 @@
+# [0.3.0](https://github.com/tonioriol/scroblebler/compare/v0.2.1...v0.3.0) (2025-12-28)
+
+
+### Bug Fixes
+
+* update build script to set app version from semantic-release ([dcaf0a8](https://github.com/tonioriol/scroblebler/commit/dcaf0a8998e408e317fafaa699ea72a718c89bb4))
+* update release assets and build script to include Info.plist and project.pbxproj ([b2f7b08](https://github.com/tonioriol/scroblebler/commit/b2f7b08791c8643f5da47c55ac533bcc8a62e102))
+
+
+### Features
+
+* add testing and unify exponential backoff logic to README ([bfa3e70](https://github.com/tonioriol/scroblebler/commit/bfa3e7048255b9ec8222d53552a03981ca3ef43d))
+
 ## [0.2.1](https://github.com/tonioriol/scroblebler/compare/v0.2.0...v0.2.1) (2025-12-28)
 
 
