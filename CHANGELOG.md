@@ -1,3 +1,13 @@
+## [0.2.1](https://github.com/tonioriol/scroblebler/compare/v0.2.0...v0.2.1) (2025-12-28)
+
+
+### Bug Fixes
+
+* add retry logic for MBID mapper SSL failures ([9e31075](https://github.com/tonioriol/scroblebler/commit/9e31075c74c1dedc9e82d0a13904bee44ddb7c0b))
+* resolve backfill rejection by omitting duration:0 and add love state syncing with enhanced logging ([011274d](https://github.com/tonioriol/scroblebler/commit/011274d429b73e35475a865d80bda8ba73a6ec3d))
+* sync status computation issues and update UI handling ([dab86cc](https://github.com/tonioriol/scroblebler/commit/dab86cca0be1bbc66c29d67e67af79dcd2ad9e19))
+* wrong images displayed when switching main service ([085218b](https://github.com/tonioriol/scroblebler/commit/085218bdedc273bdb606b82fb09f56a57dbff63c))
+
 # [0.2.0](https://github.com/tonioriol/scroblebler/compare/v0.1.0...v0.2.0) (2025-12-28)
 
 
