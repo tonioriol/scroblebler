@@ -102,13 +102,13 @@ class ServiceManager: ObservableObject {
     
     private let backfillQueue = BackfillQueue()
     
-    // Per-service buffers: stores the NEXT page for cross-service matching
+    // Per-service buffers: stores the NEXT page for cross-service matching ONLY
     private var serviceBuffers: [ScrobbleService: [RecentTrack]] = [:]
-    private var lastFetchedPage: Int = 0
+    private var returnedTrackIds: Set<String> = [] // Track IDs already returned to prevent duplicates
     
     func resetBuffers() {
         serviceBuffers.removeAll()
-        lastFetchedPage = 0
+        returnedTrackIds.removeAll()
     }
     
     func client(for service: ScrobbleService) -> ScrobbleClient? {
@@ -339,15 +339,21 @@ class ServiceManager: ObservableObject {
         
         print("[SYNC] 📊 Merged into \(mergedTracks.count) tracks")
         
-        // PHASE 3: Update buffers for next iteration
-        serviceBuffers = newBuffers
-        lastFetchedPage = page
-        
-        // Return only the first `limit` tracks
+        // PHASE 3: Return only the first `limit` tracks
         let currentPageTracks = Array(mergedTracks.prefix(limit))
+        
+        // PHASE 4: Mark ONLY the returned tracks as processed
+        for track in currentPageTracks {
+            let trackId = "\(track.date ?? 0)_\(track.artist)_\(track.name)"
+            returnedTrackIds.insert(trackId)
+        }
+        
+        // PHASE 5: Update buffers for next iteration
+        serviceBuffers = newBuffers
+        
         print("[SYNC] 📊 Returning \(currentPageTracks.count) tracks for page \(page)")
         
-        // PHASE 4: Detect backfill opportunities
+        // PHASE 5: Detect backfill opportunities
         if !skipBackfill && page >= 2 {
             await detectAndQueueBackfills(mergedTracks: currentPageTracks, enabledServices: enabledServices)
             
@@ -371,11 +377,15 @@ class ServiceManager: ObservableObject {
         var mergedTracks: [RecentTrack] = []
         var processedIds: Set<String> = []
         
-        // Collect ONLY current page tracks to process
+        // Collect ONLY current page tracks to process, excluding already returned tracks
         var tracksToProcess: [(track: RecentTrack, service: ScrobbleService)] = []
         for (service, tracks) in currentPageResults {
             for track in tracks {
-                tracksToProcess.append((track, service))
+                let trackId = "\(track.date ?? 0)_\(track.artist)_\(track.name)"
+                // Skip tracks we've already returned in previous pages
+                if !returnedTrackIds.contains(trackId) {
+                    tracksToProcess.append((track, service))
+                }
             }
         }
         
@@ -467,6 +477,12 @@ class ServiceManager: ObservableObject {
         for track in mergedTracks {
             let presentInServices = Set([track.sourceService].compactMap { $0 } + track.serviceInfo.keys.compactMap { ScrobbleService(rawValue: $0) })
             let missingServices = enabledServiceSet.subtracting(presentInServices)
+            
+            print("[SYNC] 🔍 Backfill check for '\(track.artist) - \(track.name)':")
+            print("[SYNC]   - Source service: \(track.sourceService?.displayName ?? "nil")")
+            print("[SYNC]   - ServiceInfo keys: \(track.serviceInfo.keys.sorted())")
+            print("[SYNC]   - Present in: \(presentInServices.map { $0.displayName }.sorted())")
+            print("[SYNC]   - Missing from: \(missingServices.map { $0.displayName }.sorted())")
             
             if !missingServices.isEmpty {
                 print("[SYNC] 🔍 Track '\(track.artist) - \(track.name)' missing from: \(missingServices.map { $0.displayName }.joined(separator: ", "))")
