@@ -18,7 +18,7 @@
     [
       "@semantic-release/git",
       {
-        "assets": ["CHANGELOG.md", "scroblebler.rb"],
+        "assets": ["CHANGELOG.md", "scroblebler.rb", "Scroblebler/Info.plist", "Scroblebler.xcodeproj/project.pbxproj"],
         "message": "chore: release v${nextRelease.version}\n\n${nextRelease.notes}"
       }
     ],

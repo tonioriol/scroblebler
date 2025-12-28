@@ -14,6 +14,13 @@ fi
 
 echo "📦 Building Scroblebler v$VERSION..."
 
+# Update version in Xcode project
+sed -i '' "s/MARKETING_VERSION = [^;]*/MARKETING_VERSION = $VERSION/" Scroblebler.xcodeproj/project.pbxproj
+
+# Update Info.plist with version
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" Scroblebler/Info.plist
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VERSION" Scroblebler/Info.plist
+
 # Clean
 rm -rf build dist Scroblebler*.dmg
 
