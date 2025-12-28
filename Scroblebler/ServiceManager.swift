@@ -1,7 +1,16 @@
 import Foundation
 
+struct BackfillEvent: Equatable {
+    let artist: String
+    let track: String
+    let timestamp: Int
+    let service: ScrobbleService
+}
+
 class ServiceManager: ObservableObject {
     static let shared = ServiceManager()
+    
+    @Published var lastBackfilledTrack: BackfillEvent?
     
     private let clients: [ScrobbleService: ScrobbleClient] = [
         .lastfm: LastFmClient(),
@@ -347,17 +356,13 @@ class ServiceManager: ObservableObject {
                 print("[SYNC]   ✓ Synced to \(credentials.service.displayName): '\(track.name)' (\(Int(age))d old)")
                 succeeded += 1
                 
-                // Notify UI that track was backfilled
+                // Publish backfill event
                 await MainActor.run {
-                    NotificationCenter.default.post(
-                        name: NSNotification.Name("TrackBackfillSucceeded"),
-                        object: nil,
-                        userInfo: [
-                            "artist": recentTrack.artist,
-                            "track": recentTrack.name,
-                            "timestamp": recentTrack.date ?? 0,
-                            "service": credentials.service.rawValue
-                        ]
+                    self.lastBackfilledTrack = BackfillEvent(
+                        artist: recentTrack.artist,
+                        track: recentTrack.name,
+                        timestamp: recentTrack.date ?? 0,
+                        service: credentials.service
                     )
                 }
                 

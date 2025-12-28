@@ -191,6 +191,10 @@ struct MainView: View {
         .onChange(of: defaults.mainServicePreference) { _ in
             loadRecentTracks()
         }
+        .onChange(of: serviceManager.lastBackfilledTrack) { event in
+            guard let event = event else { return }
+            handleBackfillEvent(event)
+        }
     }
     
     private func loadRecentTracks() {
@@ -283,6 +287,35 @@ struct MainView: View {
         }
         
         print("🖼️ Preload complete")
+    }
+    
+    private func handleBackfillEvent(_ event: BackfillEvent) {
+        print("🔄 Backfill event received for '\(event.artist) - \(event.track)' on \(event.service.displayName)")
+        
+        // Find and update the matching track inline
+        if let index = recentTracks.firstIndex(where: {
+            $0.artist == event.artist && $0.name == event.track && $0.date == event.timestamp
+        }) {
+            // Add service info (we don't have the full data, but we know it exists now)
+            recentTracks[index].serviceInfo[event.service.id] = ServiceTrackData(
+                timestamp: event.timestamp,
+                id: nil
+            )
+            
+            // Update sync status
+            let allEnabledServices = Set(defaults.enabledServices.map { $0.service })
+            let presentIn = Set(recentTracks[index].serviceInfo.keys.compactMap { ScrobbleService(rawValue: $0) })
+            
+            if presentIn == allEnabledServices {
+                recentTracks[index].syncStatus = .synced
+            } else if presentIn.count == 1 {
+                recentTracks[index].syncStatus = .primaryOnly
+            } else {
+                recentTracks[index].syncStatus = .partial
+            }
+            
+            print("✅ Updated track at index \(index): syncStatus = \(recentTracks[index].syncStatus)")
+        }
     }
     
     private func doServiceLogin(service: ScrobbleService) async {
