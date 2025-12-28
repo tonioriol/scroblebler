@@ -7,11 +7,15 @@ struct HistoryItem: View {
     let track: RecentTrack
     @State private var loved: Bool
     @State private var playcount: Int?
+    @State private var syncStatus: SyncStatus
+    @State private var serviceInfo: [String: ServiceTrackData]
     
     init(track: RecentTrack) {
         self.track = track
         self._loved = State(initialValue: track.loved)
         self._playcount = State(initialValue: track.playcount)
+        self._syncStatus = State(initialValue: track.syncStatus)
+        self._serviceInfo = State(initialValue: track.serviceInfo)
     }
     
     var body: some View {
@@ -30,8 +34,8 @@ struct HistoryItem: View {
                 HStack(spacing: 4) {
                     // Sync status indicator
                     SyncStatusBadge(
-                        syncStatus: track.syncStatus,
-                        serviceInfo: track.serviceInfo,
+                        syncStatus: syncStatus,
+                        serviceInfo: serviceInfo,
                         sourceService: track.sourceService
                     )
                     
@@ -59,6 +63,9 @@ struct HistoryItem: View {
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TrackLoveStateChanged"))) { _ in
             fetchLovedState()
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TrackBackfillSucceeded"))) { notification in
+            updateSyncStatus(from: notification)
+        }
     }
     
     private func fetchLovedState() {
@@ -74,6 +81,41 @@ struct HistoryItem: View {
                 if let lovedState = lovedState {
                     loved = lovedState
                 }
+            }
+        }
+    }
+    
+    private func updateSyncStatus(from notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let artist = userInfo["artist"] as? String,
+              let trackName = userInfo["track"] as? String,
+              let timestamp = userInfo["timestamp"] as? Int else {
+            return
+        }
+        
+        // Check if this notification is for our track
+        guard track.artist == artist,
+              track.name == trackName,
+              track.date == timestamp else {
+            return
+        }
+        
+        // Add the newly synced service to serviceInfo
+        if let serviceRawValue = userInfo["service"] as? String,
+           let service = ScrobbleService(rawValue: serviceRawValue) {
+            // Update serviceInfo with the new service
+            serviceInfo[service.id] = ServiceTrackData(timestamp: timestamp, id: nil)
+            
+            // Calculate new sync status
+            let allEnabledServices = Set(defaults.enabledServices.map { $0.service })
+            let presentIn = Set([track.sourceService].compactMap { $0 } + serviceInfo.keys.compactMap { ScrobbleService(rawValue: $0) })
+            
+            if presentIn == allEnabledServices {
+                syncStatus = .synced
+            } else if presentIn.count == 1 {
+                syncStatus = .primaryOnly
+            } else {
+                syncStatus = .partial
             }
         }
     }

@@ -347,6 +347,20 @@ class ServiceManager: ObservableObject {
                 print("[SYNC]   ✓ Synced to \(credentials.service.displayName): '\(track.name)' (\(Int(age))d old)")
                 succeeded += 1
                 
+                // Notify UI that track was backfilled
+                await MainActor.run {
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("TrackBackfillSucceeded"),
+                        object: nil,
+                        userInfo: [
+                            "artist": recentTrack.artist,
+                            "track": recentTrack.name,
+                            "timestamp": recentTrack.date ?? 0,
+                            "service": credentials.service.rawValue
+                        ]
+                    )
+                }
+                
                 // Rate limiting
                 try await Task.sleep(nanoseconds: 500_000_000)
             } catch {
