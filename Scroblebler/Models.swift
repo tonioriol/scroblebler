@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - Domain Models
 
-struct RecentTrack: Codable {
+struct RecentTrack: Codable, Identifiable {
     let name: String
     let artist: String
     let album: String
@@ -17,6 +17,38 @@ struct RecentTrack: Codable {
     var serviceInfo: [String: ServiceTrackData] = [:]
     var sourceService: ScrobbleService? = nil
     var syncStatus: SyncStatus = .unknown
+    let uniqueId: UUID
+    
+    // Unique ID for SwiftUI
+    var id: String {
+        // For tracks with timestamps, use timestamp-based ID for merging
+        // For tracks without timestamps, use UUID to ensure uniqueness
+        if let date = date, date > 0 {
+            let serviceKeys = serviceInfo.keys.sorted().joined(separator: ",")
+            let sourceKey = sourceService?.rawValue ?? "unknown"
+            return "\(date)_\(artist)_\(name)_\(sourceKey)_\(serviceKeys)"
+        } else {
+            return uniqueId.uuidString
+        }
+    }
+    
+    init(name: String, artist: String, album: String, date: Int?, isNowPlaying: Bool, loved: Bool, imageUrl: String?, artistURL: URL, albumURL: URL, trackURL: URL, playcount: Int?, serviceInfo: [String: ServiceTrackData] = [:], sourceService: ScrobbleService? = nil, syncStatus: SyncStatus = .unknown, uniqueId: UUID = UUID()) {
+        self.name = name
+        self.artist = artist
+        self.album = album
+        self.date = date
+        self.isNowPlaying = isNowPlaying
+        self.loved = loved
+        self.imageUrl = imageUrl
+        self.artistURL = artistURL
+        self.albumURL = albumURL
+        self.trackURL = trackURL
+        self.playcount = playcount
+        self.serviceInfo = serviceInfo
+        self.sourceService = sourceService
+        self.syncStatus = syncStatus
+        self.uniqueId = uniqueId
+    }
 }
 
 // MARK: - Sync Models
