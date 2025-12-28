@@ -48,4 +48,37 @@ class LibreFmClient: LastFmClient {
             )
         }
     }
+    
+    override func getRecentTracksByTimeRange(username: String, minTs: Int?, maxTs: Int?, limit: Int, token: String?) async throws -> [RecentTrack]? {
+        print("🎵 [Libre.fm] getRecentTracksByTimeRange - minTs: \(minTs ?? 0), maxTs: \(maxTs ?? 0), limit: \(limit)")
+        
+        // Call parent implementation and update URLs for Libre.fm
+        guard let tracks = try await super.getRecentTracksByTimeRange(username: username, minTs: minTs, maxTs: maxTs, limit: limit, token: token) else {
+            return nil
+        }
+        
+        return tracks.map { track in
+            let encodedArtist = track.artist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
+            let encodedAlbum = track.album.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
+            let encodedTrack = track.name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
+            
+            return RecentTrack(
+                name: track.name,
+                artist: track.artist,
+                album: track.album,
+                date: track.date,
+                isNowPlaying: track.isNowPlaying,
+                loved: track.loved,
+                imageUrl: track.imageUrl,
+                artistURL: URL(string: "https://libre.fm/music/\(encodedArtist)")!,
+                albumURL: URL(string: "https://libre.fm/music/\(encodedArtist)/\(encodedAlbum)")!,
+                trackURL: URL(string: "https://libre.fm/music/\(encodedArtist)/_/\(encodedTrack)")!,
+                playcount: track.playcount,
+                serviceInfo: [
+                    ScrobbleService.librefm.id: ServiceTrackData.lastfm(timestamp: track.date ?? 0)
+                ],
+                sourceService: .librefm
+            )
+        }
+    }
 }

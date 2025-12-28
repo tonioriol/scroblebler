@@ -219,6 +219,31 @@ class LastFmClient: ObservableObject, ScrobbleClient {
         }
     }
     
+    func getRecentTracksByTimeRange(username: String, minTs: Int?, maxTs: Int?, limit: Int, token: String?) async throws -> [RecentTrack]? {
+        print("🎵 [Last.fm] getRecentTracksByTimeRange - minTs: \(minTs ?? 0), maxTs: \(maxTs ?? 0), limit: \(limit)")
+        
+        // Last.fm supports 'from' and 'to' timestamp parameters
+        var args: [String: String] = [
+            "user": username,
+            "limit": String(limit)
+        ]
+        
+        if let minTs = minTs {
+            args["from"] = String(minTs)
+        }
+        if let maxTs = maxTs {
+            args["to"] = String(maxTs)
+        }
+        
+        let data = try await executeRequestWithRetry(method: "user.getRecentTracks", args: args)
+        let response = try JSONDecoder().decode(RecentTracksResponse.self, from: data)
+        let tracks = response.recenttracks.track.filter { $0.attr?.nowplaying != "true" }.map { $0.toDomain(client: self) }
+        
+        print("🎵 [Last.fm] Fetched \(tracks.count) tracks using timestamp range (from=\(minTs ?? 0), to=\(maxTs ?? 0))")
+        
+        return tracks
+    }
+    
     func getUserStats(username: String) async throws -> UserStats? {
         let data = try await executeRequest(method: "user.getInfo", args: ["user": username])
         let response = try JSONDecoder().decode(UserInfoResponse.self, from: data)
