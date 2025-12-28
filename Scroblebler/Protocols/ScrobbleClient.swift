@@ -40,4 +40,9 @@ extension ScrobbleClient {
     func getTrackLoved(token: String, artist: String, track: String) async throws -> Bool {
         return false
     }
+    
+    func getRecentTracksByTimeRange(username: String, minTs: Int?, maxTs: Int?, limit: Int, token: String?) async throws -> [RecentTrack]? {
+        // Optional - only services that support timestamp-based queries implement this
+        return nil
+    }
 }

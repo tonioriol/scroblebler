@@ -209,23 +209,40 @@ class ServiceManager: ObservableObject {
         
         var otherServiceTracks: [[RecentTrack]] = []
         
-        // Fetch wider range from secondary services since they may have different items/offsets
-        // We need to fetch enough to cover the timestamp range of the current page
-        // Fetch 3x the accumulated tracks (page * limit * 3) to ensure coverage
-        let fetchLimit = limit * 3 * page
+        // Get timestamp range from primary tracks
+        let oldestTimestamp = tracks.compactMap { $0.date }.min()
+        let newestTimestamp = tracks.compactMap { $0.date }.max()
+        
+        print("[SYNC] 📅 Primary timestamp range: \(oldestTimestamp ?? 0) to \(newestTimestamp ?? 0)")
         
         await withTaskGroup(of: (Int, [RecentTrack]?).self) { group in
             for (index, credentials) in otherServices.enumerated() {
                 guard let client = self.client(for: credentials.service) else { continue }
                 group.addTask {
                     do {
-                        // Fetch enough tracks from page 1 to cover the timestamp range
-                        let allTracks = try await client.getRecentTracks(
+                        var allTracks: [RecentTrack] = []
+                        
+                        // Try timestamp-based query first (ListenBrainz supports this)
+                        if let timeRangeTracks = try await client.getRecentTracksByTimeRange(
                             username: credentials.username,
-                            limit: fetchLimit,
-                            page: 1,
+                            minTs: oldestTimestamp,
+                            maxTs: newestTimestamp,
+                            limit: 200,
                             token: credentials.token
-                        )
+                        ) {
+                            allTracks = timeRangeTracks
+                            print("[SYNC] ✓ Fetched \(allTracks.count) tracks from \(credentials.service.displayName) using timestamp range")
+                        } else {
+                            // Fallback to page-based with buffer (Last.fm/Libre.fm)
+                            let fetchLimit = min(limit * 3 * page, 500)
+                            allTracks = try await client.getRecentTracks(
+                                username: credentials.username,
+                                limit: fetchLimit,
+                                page: 1,
+                                token: credentials.token
+                            )
+                            print("[SYNC] ✓ Fetched \(allTracks.count) tracks from \(credentials.service.displayName) using page-based (up to \(fetchLimit))")
+                        }
                         
                         return (index, allTracks)
                     } catch {
@@ -241,7 +258,6 @@ class ServiceManager: ObservableObject {
                 }
                 if let fetchedTracks = fetchedTracks {
                     otherServiceTracks[index] = fetchedTracks
-                    print("📊 Fetched \(fetchedTracks.count) tracks from \(otherServices[index].service.displayName) (covering up to page \(page))")
                 }
             }
         }

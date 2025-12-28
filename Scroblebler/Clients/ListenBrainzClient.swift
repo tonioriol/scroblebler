@@ -422,6 +422,65 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         return result.compactMap { $0.1 }
     }
     
+    func getRecentTracksByTimeRange(username: String, minTs: Int?, maxTs: Int?, limit: Int, token: String?) async throws -> [RecentTrack]? {
+        print("🎵 [ListenBrainz] getRecentTracksByTimeRange - minTs: \(minTs ?? 0), maxTs: \(maxTs ?? 0), limit: \(limit)")
+        
+        let encodedUsername = username.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? username
+        var components = URLComponents(url: baseURL.appendingPathComponent("user/\(encodedUsername)/listens"), resolvingAgainstBaseURL: false)!
+        
+        var queryItems = [URLQueryItem(name: "count", value: "\(limit)")]
+        if let minTs = minTs {
+            queryItems.append(URLQueryItem(name: "min_ts", value: "\(minTs)"))
+        }
+        if let maxTs = maxTs {
+            queryItems.append(URLQueryItem(name: "max_ts", value: "\(maxTs)"))
+        }
+        components.queryItems = queryItems
+        
+        let (data, _) = try await URLSession.shared.data(from: components.url!)
+        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        let payload = json?["payload"] as? [String: Any]
+        let listens = payload?["listens"] as? [[String: Any]] ?? []
+        
+        print("🎵 [ListenBrainz] Received \(listens.count) listens for time range")
+        
+        // Extract and build tracks (simplified version without cache)
+        let tracks = listens.compactMap { listen -> RecentTrack? in
+            guard let metadata = listen["track_metadata"] as? [String: Any],
+                  let artist = metadata["artist_name"] as? String,
+                  let name = metadata["track_name"] as? String else { return nil }
+            
+            let album = metadata["release_name"] as? String ?? ""
+            let mbids = extractMbids(from: metadata)
+            let msid = listen["recording_msid"] as? String
+            let timestamp = listen["listened_at"] as? Int
+            let imageUrl = extractCoverArtUrl(from: metadata)
+            
+            return RecentTrack(
+                name: name,
+                artist: artist,
+                album: album,
+                date: timestamp,
+                isNowPlaying: false,
+                loved: false,
+                imageUrl: imageUrl,
+                artistURL: artistURL(artist: artist, mbid: mbids.artistMbid),
+                albumURL: albumURL(artist: artist, album: album, mbid: mbids.releaseMbid),
+                trackURL: trackURL(artist: artist, track: name, mbid: mbids.recordingMbid),
+                playcount: nil,
+                serviceInfo: [
+                    ScrobbleService.listenbrainz.id: ServiceTrackData.listenbrainz(
+                        recordingMsid: msid ?? "",
+                        timestamp: timestamp ?? 0
+                    )
+                ],
+                sourceService: .listenbrainz
+            )
+        }
+        
+        return tracks
+    }
+    
     func getUserStats(username: String) async throws -> UserStats? {
         let encodedUsername = username.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? username
         let url = baseURL.appendingPathComponent("user/\(encodedUsername)/listen-count")
