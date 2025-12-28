@@ -48,6 +48,7 @@
 		SS8888888888888888888888 /* StringSimilarity.swift in Sources */ = {isa = PBXBuildFile; fileRef = SS7777777777777777777777 /* StringSimilarity.swift */; };
 		UN0000000000000000000002 /* UndoButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = UN0000000000000000000001 /* UndoButton.swift */; };
 		IMGCACHE000000000000002 /* ImageCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = IMGCACHE000000000000001 /* ImageCache.swift */; };
+		SYNCBADGE00000000000002 /* SyncStatusBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = SYNCBADGE00000000000001 /* SyncStatusBadge.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -95,6 +96,7 @@
 		SS7777777777777777777777 /* StringSimilarity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StringSimilarity.swift; sourceTree = "<group>"; };
 		UN0000000000000000000001 /* UndoButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UndoButton.swift; sourceTree = "<group>"; };
 		IMGCACHE000000000000001 /* ImageCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageCache.swift; sourceTree = "<group>"; };
+		SYNCBADGE00000000000001 /* SyncStatusBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncStatusBadge.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -135,6 +137,7 @@
 				A0F361811AED80EF7ACDCA43 /* LoveButton.swift */,
 				BB1111111111111111111111 /* AlbumArtwork.swift */,
 				BB2222222222222222222222 /* PlayCountBadge.swift */,
+				SYNCBADGE00000000000001 /* SyncStatusBadge.swift */,
 				BB4444444444444444444444 /* TrackInfo.swift */,
 				BB5555555555555555555555 /* MarqueeText.swift */,
 				EE6666666666666666666666 /* WaitingLogin.swift */,
@@ -339,6 +342,7 @@
 				LFWC0000000000000000002 /* LastFmWebClient.swift in Sources */,
 				LBCACHE0000000000000002 /* ListenBrainzCache.swift in Sources */,
 				IMGCACHE000000000000002 /* ImageCache.swift in Sources */,
+				SYNCBADGE00000000000002 /* SyncStatusBadge.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

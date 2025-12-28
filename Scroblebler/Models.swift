@@ -46,29 +46,6 @@ enum SyncStatus: Codable {
     }
 }
 
-struct BackfillTask {
-    let track: RecentTrack
-    let targetService: ScrobbleService
-    let targetCredentials: ServiceCredentials
-    let sourceServices: [ScrobbleService]
-    
-    var canBackfill: Bool {
-        // Check age constraints based on service
-        guard let timestamp = track.date else { return false }
-        let age = Date().timeIntervalSince1970 - TimeInterval(timestamp)
-        let daysOld = age / 86400
-        
-        switch targetService {
-        case .lastfm, .librefm:
-            // Last.fm/Libre.fm: only allow backfill if <14 days old
-            return daysOld < 14
-        case .listenbrainz:
-            // ListenBrainz: no time restriction
-            return true
-        }
-    }
-}
-
 struct ServiceTrackData: Codable {
     let timestamp: Int?  // Required for Last.fm/Libre.fm
     let id: String?      // Required for ListenBrainz (recording_msid)
