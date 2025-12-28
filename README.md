@@ -8,12 +8,14 @@ they are not in your library).
 ## Features
 
 - **Multiple Scrobbling Services**: Support for Last.fm, ListenBrainz, and Libre.fm
--️ **Track Loving**: Love/unlove tracks directly from the app
+- **Unidirectional Sync**: Sync your listening history from a primary service to secondary services
+- **Service-Specific Branding**: Visual indicators for each scrobbling service with logos and colors
+- **Track Loving**: Love/unlove tracks directly from the app
 - **Blacklist Management**: Blacklist tracks to prevent unwanted scrobbles
--️ **Undo Support**: Undo recent scrobbles
+- **Undo Support**: Undo recent scrobbles
 - **Play Count Display**: View play counts for your tracks
-- **Listening History**: Browse your recent scrobbles
-- **Profile View**: View your scrobbling profile information
+- **Listening History**: Browse your recent scrobbles with detailed track information and links
+- **Profile View**: View your scrobbling profile with avatar and statistics
 - **Album Artwork**: Display beautiful album artwork
 - **Now Playing**: Real-time now playing updates
 - **Launch at Startup**: Automatically start scrobbling when you log in
