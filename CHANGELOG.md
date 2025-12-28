@@ -1,3 +1,51 @@
+# [1.4.0](https://github.com/tonioriol/scroblebler/compare/v1.3.0...v1.4.0) (2025-12-28)
+
+
+### Bug Fixes
+
+* homebrew cask livecheck syntax and download url ([cbd8694](https://github.com/tonioriol/scroblebler/commit/cbd8694238d125cfc7738a5adb22441fb8edb718))
+
+
+### Features
+
+* add ad-hoc code signing to build script for DMG ([eb5be6a](https://github.com/tonioriol/scroblebler/commit/eb5be6a0b38b04959b6c1b37ee73b4241c735f1f))
+* add service-specific branding with logos, gradients, and colors ([1b34bb6](https://github.com/tonioriol/scroblebler/commit/1b34bb6dba57d12a42273b45c0bc131b6fd1b258))
+* auto-size container when no history and fix gitignore for xcode files ([198fd79](https://github.com/tonioriol/scroblebler/commit/198fd794172769e560c198e326528ee0517c57a7))
+* clear profile picture on Last.fm logout ([e2f10b1](https://github.com/tonioriol/scroblebler/commit/e2f10b1f56b31456721e6bcec7aca8b4f8b87dc4))
+* enhance logo rendering and update properties in asset catalog ([dcc8c3e](https://github.com/tonioriol/scroblebler/commit/dcc8c3ed949624834cf077d03bda22f85196978a))
+* enhance LoveButton UI with service availability checks and improved accessibility ([be0ad9a](https://github.com/tonioriol/scroblebler/commit/be0ad9a05e6be6e9c82e390ca6309c86f3723c30))
+* enhance track matching logic with detailed logging and improved similarity scoring ([375da42](https://github.com/tonioriol/scroblebler/commit/375da4299cecd916badba29bbd88d0d0a3f9bfe8))
+* enrich track information with URLs and update NowPlaying component ([dd2f148](https://github.com/tonioriol/scroblebler/commit/dd2f148cf703fb125eb835143ef3ade5fbda7d33))
+* implement bidirectional sync with automatic backfill across all services ([8c7bf27](https://github.com/tonioriol/scroblebler/commit/8c7bf27c9c4e00ab2440fe065ca21ccc7ad83e0f))
+* implement image caching mechanism and preload images for tracks ([5decb1f](https://github.com/tonioriol/scroblebler/commit/5decb1f4d2e25556415f1da6de7e413f35bb0ce3))
+* implement MBID lookup for tracks and enrich URLs in TrackInfo ([b0dbc2b](https://github.com/tonioriol/scroblebler/commit/b0dbc2b93fabddbf4dab71c39f626ff28ebef4f0))
+* update LastFmClient API keys and enhance MainView with popover display on auth success ([aabfd0c](https://github.com/tonioriol/scroblebler/commit/aabfd0c5dc383fb974e78ac1fdff033948803089))
+* update link text in AnimatedHeaderView to reflect selected service name ([5f24e39](https://github.com/tonioriol/scroblebler/commit/5f24e3971d4a721ffd19372de6942bee777c971a))
+
+# [1.4.0](https://github.com/tonioriol/scroblebler/compare/v1.3.0...v1.4.0) (2025-12-28)
+
+
+### Bug Fixes
+
+* homebrew cask livecheck syntax and download url ([cbd8694](https://github.com/tonioriol/scroblebler/commit/cbd8694238d125cfc7738a5adb22441fb8edb718))
+
+
+### Features
+
+* add ad-hoc code signing to build script for DMG ([eb5be6a](https://github.com/tonioriol/scroblebler/commit/eb5be6a0b38b04959b6c1b37ee73b4241c735f1f))
+* add service-specific branding with logos, gradients, and colors ([1b34bb6](https://github.com/tonioriol/scroblebler/commit/1b34bb6dba57d12a42273b45c0bc131b6fd1b258))
+* auto-size container when no history and fix gitignore for xcode files ([198fd79](https://github.com/tonioriol/scroblebler/commit/198fd794172769e560c198e326528ee0517c57a7))
+* clear profile picture on Last.fm logout ([e2f10b1](https://github.com/tonioriol/scroblebler/commit/e2f10b1f56b31456721e6bcec7aca8b4f8b87dc4))
+* enhance logo rendering and update properties in asset catalog ([dcc8c3e](https://github.com/tonioriol/scroblebler/commit/dcc8c3ed949624834cf077d03bda22f85196978a))
+* enhance LoveButton UI with service availability checks and improved accessibility ([be0ad9a](https://github.com/tonioriol/scroblebler/commit/be0ad9a05e6be6e9c82e390ca6309c86f3723c30))
+* enhance track matching logic with detailed logging and improved similarity scoring ([375da42](https://github.com/tonioriol/scroblebler/commit/375da4299cecd916badba29bbd88d0d0a3f9bfe8))
+* enrich track information with URLs and update NowPlaying component ([dd2f148](https://github.com/tonioriol/scroblebler/commit/dd2f148cf703fb125eb835143ef3ade5fbda7d33))
+* implement bidirectional sync with automatic backfill across all services ([8c7bf27](https://github.com/tonioriol/scroblebler/commit/8c7bf27c9c4e00ab2440fe065ca21ccc7ad83e0f))
+* implement image caching mechanism and preload images for tracks ([5decb1f](https://github.com/tonioriol/scroblebler/commit/5decb1f4d2e25556415f1da6de7e413f35bb0ce3))
+* implement MBID lookup for tracks and enrich URLs in TrackInfo ([b0dbc2b](https://github.com/tonioriol/scroblebler/commit/b0dbc2b93fabddbf4dab71c39f626ff28ebef4f0))
+* update LastFmClient API keys and enhance MainView with popover display on auth success ([aabfd0c](https://github.com/tonioriol/scroblebler/commit/aabfd0c5dc383fb974e78ac1fdff033948803089))
+* update link text in AnimatedHeaderView to reflect selected service name ([5f24e39](https://github.com/tonioriol/scroblebler/commit/5f24e3971d4a721ffd19372de6942bee777c971a))
+
 # [1.3.0](https://github.com/tonioriol/scroblebler/compare/v1.2.1...v1.3.0) (2025-12-27)
 
 
