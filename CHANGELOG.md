@@ -1,3 +1,10 @@
+# [0.2.0](https://github.com/tonioriol/scroblebler/compare/v0.1.0...v0.2.0) (2025-12-28)
+
+
+### Features
+
+* update app icons and add logo variants ([78c20d7](https://github.com/tonioriol/scroblebler/commit/78c20d7ba0401b9ab3a542d3f9c8f800646c933c))
+
 # [0.1.0](https://github.com/tonioriol/scroblebler/compare/v0.0.0...v0.1.0) (2025-12-28)
 
 
