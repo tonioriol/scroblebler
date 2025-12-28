@@ -51,6 +51,7 @@ struct MainView: View {
         .frame(width: 400)
         .frame(height: recentTracks.isEmpty ? nil : 655)
         .fixedSize(horizontal: false, vertical: recentTracks.isEmpty)
+        .background(Color(NSColor.windowBackgroundColor))
         .clipped()
         .animation(.spring(response: 0.5, dampingFraction: 0.75), value: showProfileView)
     }
