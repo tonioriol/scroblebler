@@ -14,6 +14,7 @@ protocol ScrobbleClient {
     
     // Profile methods
     func getRecentTracks(username: String, limit: Int, page: Int, token: String?) async throws -> [RecentTrack]
+    func getRecentTracksByTimeRange(username: String, minTs: Int?, maxTs: Int?, limit: Int, token: String?) async throws -> [RecentTrack]?
     func getUserStats(username: String) async throws -> UserStats?
     func getTopArtists(username: String, period: String, limit: Int) async throws -> [TopArtist]
     func getTopAlbums(username: String, period: String, limit: Int) async throws -> [TopAlbum]

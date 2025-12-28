@@ -218,11 +218,16 @@ class ServiceManager: ObservableObject {
         
         var otherServiceTracks: [[RecentTrack]] = []
         
-        // Get timestamp range from primary tracks
-        let oldestTimestamp = tracks.compactMap { $0.date }.min()
-        let newestTimestamp = tracks.compactMap { $0.date }.max()
+        // Get timestamp range from primary tracks with buffer
+        // Add 5 minutes (300s) buffer on each side to catch boundary cases and clock skew
+        let minTs = tracks.compactMap { $0.date }.min()
+        let maxTs = tracks.compactMap { $0.date }.max()
+        let timeBuffer = 300 // 5 minutes in seconds
         
-        print("[SYNC] 📅 Primary timestamp range: \(oldestTimestamp ?? 0) to \(newestTimestamp ?? 0)")
+        let oldestTimestamp = minTs.map { $0 - timeBuffer }
+        let newestTimestamp = maxTs.map { $0 + timeBuffer }
+        
+        print("[SYNC] 📅 Primary timestamp range: \(minTs ?? 0) to \(maxTs ?? 0) (with buffer: \(oldestTimestamp ?? 0) to \(newestTimestamp ?? 0))")
         
         await withTaskGroup(of: (Int, [RecentTrack]?).self) { group in
             for (index, credentials) in otherServices.enumerated() {
@@ -231,26 +236,29 @@ class ServiceManager: ObservableObject {
                     do {
                         var allTracks: [RecentTrack] = []
                         
-                        // Try timestamp-based query first (ListenBrainz supports this)
+                        print("[SYNC] 🔍 Attempting timestamp query for \(credentials.service.displayName) (min: \(oldestTimestamp ?? 0), max: \(newestTimestamp ?? 0))")
+                        
+                        // Try timestamp-based query first (Last.fm and ListenBrainz support this)
                         if let timeRangeTracks = try await client.getRecentTracksByTimeRange(
                             username: credentials.username,
                             minTs: oldestTimestamp,
                             maxTs: newestTimestamp,
-                            limit: 200,
+                            limit: 1000,
                             token: credentials.token
-                        ) {
+                        ), !timeRangeTracks.isEmpty {
                             allTracks = timeRangeTracks
-                            print("[SYNC] ✓ Fetched \(allTracks.count) tracks from \(credentials.service.displayName) using timestamp range")
+                            print("[SYNC] ✓ Fetched \(allTracks.count) tracks from \(credentials.service.displayName) using timestamp range (\(oldestTimestamp ?? 0)-\(newestTimestamp ?? 0))")
                         } else {
-                            // Fallback to page-based with buffer (Last.fm/Libre.fm)
-                            let fetchLimit = min(limit * 3 * page, 500)
+                            print("[SYNC] ⚠️ Timestamp query returned nil/empty for \(credentials.service.displayName), falling back to page-based")
+                            // Fallback to page-based (Libre.fm or if timestamp query returns nil/empty)
+                            let fetchLimit = min(limit * 10 * page, 1000)
                             allTracks = try await client.getRecentTracks(
                                 username: credentials.username,
                                 limit: fetchLimit,
                                 page: 1,
                                 token: credentials.token
                             )
-                            print("[SYNC] ✓ Fetched \(allTracks.count) tracks from \(credentials.service.displayName) using page-based (up to \(fetchLimit))")
+                            print("[SYNC] ⚠️ Fell back to page-based for \(credentials.service.displayName) (up to \(fetchLimit))")
                         }
                         
                         return (index, allTracks)
@@ -395,7 +403,17 @@ class ServiceManager: ObservableObject {
                 continue
             }
             
-            // Normalize strings
+            let timestampDelta = abs((track.date ?? 0) - (candidate.date ?? 0))
+            
+            // Exact or near-exact timestamp match (within 5s) - accept immediately
+            if timestampDelta <= 5 {
+                print("[MATCH]   • Candidate: '\(candidate.artist) - \(candidate.name)' | TS Δ: \(timestampDelta)s → EXACT MATCH")
+                bestMatch = candidate
+                bestScore = 1.0
+                break  // No need to check more candidates
+            }
+            
+            // Normalize strings for fuzzy matching
             let normalizedTrackArtist = normalize(track.artist)
             let normalizedTrackName = normalize(track.name)
             let normalizedCandidateArtist = normalize(candidate.artist)
@@ -408,7 +426,7 @@ class ServiceManager: ObservableObject {
             // Combined score (weighted average)
             let score = (artistScore * 0.5 + trackScore * 0.5)
             
-            print("[MATCH]   • Candidate: '\(candidate.artist) - \(candidate.name)' | Artist: \(String(format: "%.2f", artistScore)) | Track: \(String(format: "%.2f", trackScore)) | Total: \(String(format: "%.2f", score)) | TS Δ: \(abs((track.date ?? 0) - (candidate.date ?? 0)))s")
+            print("[MATCH]   • Candidate: '\(candidate.artist) - \(candidate.name)' | Artist: \(String(format: "%.2f", artistScore)) | Track: \(String(format: "%.2f", trackScore)) | Total: \(String(format: "%.2f", score)) | TS Δ: \(timestampDelta)s")
             
             // Require at least 80% similarity
             if score >= 0.8 {

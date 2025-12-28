@@ -176,13 +176,28 @@ class LastFmClient: ObservableObject, ScrobbleClient {
     // MARK: - Profile Data
     
     func getRecentTracks(username: String, limit: Int, page: Int, token: String?) async throws -> [RecentTrack] {
+        print("🎵 [Last.fm] getRecentTracks - user: \(username), limit: \(limit), page: \(page)")
+        
         let data = try await executeRequestWithRetry(method: "user.getRecentTracks", args: [
             "user": username,
             "limit": String(limit),
             "page": String(page)
         ])
+        
+        // Debug: print raw response snippet
+        if let jsonString = String(data: data, encoding: .utf8) {
+            print("🎵 [Last.fm] Raw response: \(jsonString.prefix(300))...")
+        }
+        
+        // Check for API error response before decoding
+        if let errorResponse = try? JSONDecoder().decode(APIErrorResponse.self, from: data) {
+            print("✗ Last.fm API error: [\(errorResponse.error)] \(errorResponse.message)")
+            throw Error.apiError(errorResponse.error, errorResponse.message)
+        }
+        
         let response = try JSONDecoder().decode(RecentTracksResponse.self, from: data)
         let baseTracks = response.recenttracks.track.filter { $0.attr?.nowplaying != "true" }.map { $0.toDomain(client: self) }
+        print("🎵 [Last.fm] Decoded \(baseTracks.count) tracks successfully")
         
         // If we have a token, fetch playcounts in parallel
         guard let token = token else {
@@ -235,13 +250,25 @@ class LastFmClient: ObservableObject, ScrobbleClient {
             args["to"] = String(maxTs)
         }
         
-        let data = try await executeRequestWithRetry(method: "user.getRecentTracks", args: args)
-        let response = try JSONDecoder().decode(RecentTracksResponse.self, from: data)
-        let tracks = response.recenttracks.track.filter { $0.attr?.nowplaying != "true" }.map { $0.toDomain(client: self) }
-        
-        print("🎵 [Last.fm] Fetched \(tracks.count) tracks using timestamp range (from=\(minTs ?? 0), to=\(maxTs ?? 0))")
-        
-        return tracks
+        do {
+            print("🎵 [Last.fm] Executing timestamp query with args: \(args)")
+            let data = try await executeRequestWithRetry(method: "user.getRecentTracks", args: args)
+            
+            // Debug: print raw response for troubleshooting
+            if let jsonString = String(data: data, encoding: .utf8) {
+                print("🎵 [Last.fm] Timestamp query raw response: \(jsonString.prefix(300))...")
+            }
+            
+            let response = try JSONDecoder().decode(RecentTracksResponse.self, from: data)
+            let tracks = response.recenttracks.track.filter { $0.attr?.nowplaying != "true" }.map { $0.toDomain(client: self) }
+            
+            print("🎵 [Last.fm] ✓ Fetched \(tracks.count) tracks using timestamp range (from=\(minTs ?? 0), to=\(maxTs ?? 0))")
+            
+            return tracks
+        } catch {
+            print("🎵 [Last.fm] ✗ Timestamp query failed with error: \(error)")
+            return nil  // Return nil to trigger fallback to page-based
+        }
     }
     
     func getUserStats(username: String) async throws -> UserStats? {
