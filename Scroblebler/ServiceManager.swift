@@ -5,18 +5,8 @@ import Foundation
 actor BackfillQueue {
     private var queue: [BackfillTask] = []
     private var isProcessing = false
-    private var processedTracks: Set<String> = [] // Track timestamp+artist+track to avoid re-backfilling
     
     func enqueue(_ task: BackfillTask) {
-        // Create unique ID for this track+service combination
-        let trackId = "\(task.track.date ?? 0)_\(task.track.artist)_\(task.track.name)_\(task.targetService.rawValue)"
-        
-        // Skip if already processed
-        if processedTracks.contains(trackId) {
-            print("[SYNC] ⏭️ Skipping already backfilled: '\(task.track.artist) - \(task.track.name)' → \(task.targetService.displayName)")
-            return
-        }
-        
         queue.append(task)
         print("[SYNC] 📥 Queued backfill: '\(task.track.artist) - \(task.track.name)' → \(task.targetService.displayName)")
     }
@@ -65,10 +55,6 @@ actor BackfillQueue {
                 print("[SYNC]   ✓ Synced to \(task.targetService.displayName): '\(task.track.name)' (\(Int(age))d old)")
                 succeeded += 1
                 
-                // Mark as processed to avoid re-backfilling
-                let trackId = "\(task.track.date ?? 0)_\(task.track.artist)_\(task.track.name)_\(task.targetService.rawValue)"
-                processedTracks.insert(trackId)
-                
                 // Rate limiting: wait between requests
                 try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
             } catch {
@@ -81,13 +67,6 @@ actor BackfillQueue {
         
         // Clear queue
         queue.removeAll()
-        
-        // Notify UI to refresh if any backfills succeeded
-        if succeeded > 0 {
-            await MainActor.run {
-                NotificationCenter.default.post(name: NSNotification.Name("BackfillCompleted"), object: nil)
-            }
-        }
     }
 }
 
@@ -101,15 +80,6 @@ class ServiceManager: ObservableObject {
     ]
     
     private let backfillQueue = BackfillQueue()
-    
-    // Per-service buffers: stores the NEXT page for cross-service matching
-    private var serviceBuffers: [ScrobbleService: [RecentTrack]] = [:]
-    private var lastFetchedPage: Int = 0
-    
-    func resetBuffers() {
-        serviceBuffers.removeAll()
-        lastFetchedPage = 0
-    }
     
     func client(for service: ScrobbleService) -> ScrobbleClient? {
         clients[service]
@@ -268,218 +238,99 @@ class ServiceManager: ObservableObject {
         }
     }
     
-    func getAllRecentTracks(limit: Int = 20, page: Int = 1, skipBackfill: Bool = false) async throws -> [RecentTrack] {
-        let enabledServices = Defaults.shared.enabledServices
-        
-        guard !enabledServices.isEmpty else {
-            print("📊 No enabled services")
+    func getAllRecentTracks(limit: Int = 20, page: Int = 1) async throws -> [RecentTrack] {
+        // New approach: render tracks from the main/primary service only
+        guard let primaryService = Defaults.shared.primaryService else {
+            print("No primary service configured")
             return []
         }
         
-        // Reset buffers if starting fresh (page 1)
-        if page == 1 {
-            resetBuffers()
+        guard let client = self.client(for: primaryService.service) else {
+            print("No client available for primary service")
+            return []
         }
         
-        print("[SYNC] 📊 Fetching page \(page) from ALL \(enabledServices.count) enabled services...")
+        // Fetch tracks from primary service
+        var primaryTracks: [RecentTrack]
+        do {
+            primaryTracks = try await client.getRecentTracks(
+                username: primaryService.username,
+                limit: limit,
+                page: page,
+                token: primaryService.token
+            )
+        } catch {
+            print("✗ Failed to fetch history from primary service \(primaryService.service.displayName): \(error)")
+            return []
+        }
         
-        // PHASE 1: Fetch current page + next page buffer from all services
-        var currentPageResults: [ScrobbleService: [RecentTrack]] = [:]
-        var newBuffers: [ScrobbleService: [RecentTrack]] = [:]
+        print("📊 Fetched \(primaryTracks.count) tracks from primary service \(primaryService.service.displayName)")
         
-        await withTaskGroup(of: (ScrobbleService, [RecentTrack]?, [RecentTrack]?).self) { group in
-            for credentials in enabledServices {
+        // Enrich with data from other enabled services for undo/love actions
+        let otherServices = Defaults.shared.enabledServices.filter { $0.service != primaryService.service }
+        
+        if !otherServices.isEmpty {
+            await enrichTracksWithOtherServices(tracks: &primaryTracks, otherServices: otherServices, limit: limit, page: page)
+        }
+        
+        return primaryTracks
+    }
+    
+    private func enrichTracksWithOtherServices(tracks: inout [RecentTrack], otherServices: [ServiceCredentials], limit: Int, page: Int) async {
+        var otherServiceTracks: [[RecentTrack]] = []
+        
+        // Fetch from other services in parallel
+        await withTaskGroup(of: (Int, [RecentTrack]?).self) { group in
+            for (index, credentials) in otherServices.enumerated() {
                 guard let client = self.client(for: credentials.service) else { continue }
-                
                 group.addTask {
                     do {
-                        // Fetch current page
-                        let currentPage = try await client.getRecentTracks(
+                        let tracks = try await client.getRecentTracks(
                             username: credentials.username,
                             limit: limit,
                             page: page,
                             token: credentials.token
                         )
-                        
-                        // Fetch next page as buffer for cross-service matching
-                        let nextPage = try await client.getRecentTracks(
-                            username: credentials.username,
-                            limit: limit,
-                            page: page + 1,
-                            token: credentials.token
-                        )
-                        
-                        print("[SYNC] ✅ Fetched page \(page) (\(currentPage.count) tracks) + buffer (\(nextPage.count) tracks) from \(credentials.service.displayName)")
-                        
-                        return (credentials.service, currentPage, nextPage)
+                        return (index, tracks)
                     } catch {
-                        print("[SYNC] ✗ Failed to fetch from \(credentials.service.displayName): \(error)")
-                        return (credentials.service, nil, nil)
+                        print("✗ Failed to fetch history from \(credentials.service.displayName): \(error)")
+                        return (index, nil)
                     }
                 }
             }
             
-            for await (service, currentPage, nextPage) in group {
-                if let currentPage = currentPage {
-                    currentPageResults[service] = currentPage
+            for await (index, fetchedTracks) in group {
+                while otherServiceTracks.count <= index {
+                    otherServiceTracks.append([])
                 }
-                if let nextPage = nextPage {
-                    newBuffers[service] = nextPage
+                if let fetchedTracks = fetchedTracks {
+                    otherServiceTracks[index] = fetchedTracks
+                    print("📊 Fetched \(fetchedTracks.count) tracks from \(otherServices[index].service.displayName)")
                 }
             }
         }
         
-        // PHASE 2: Merge current page tracks, using buffers ONLY for matching
-        let mergedTracks = mergeTracksWithBuffers(
-            currentPageResults: currentPageResults,
-            buffers: serviceBuffers,
-            newBuffers: newBuffers,
-            enabledServices: enabledServices
-        )
-        
-        print("[SYNC] 📊 Merged into \(mergedTracks.count) tracks")
-        
-        // PHASE 3: Update buffers for next iteration
-        serviceBuffers = newBuffers
-        lastFetchedPage = page
-        
-        // Return only the first `limit` tracks
-        let currentPageTracks = Array(mergedTracks.prefix(limit))
-        print("[SYNC] 📊 Returning \(currentPageTracks.count) tracks for page \(page)")
-        
-        // PHASE 4: Detect backfill opportunities
-        if !skipBackfill && page >= 2 {
-            await detectAndQueueBackfills(mergedTracks: currentPageTracks, enabledServices: enabledServices)
+        // Match and enrich primary tracks with serviceInfo from other services
+        for serviceIndex in otherServiceTracks.indices {
+            let serviceTracks = otherServiceTracks[serviceIndex]
+            let service = otherServices[serviceIndex].service
+            let credentials = otherServices[serviceIndex]
             
-            Task {
-                await backfillQueue.processQueue(using: self)
-            }
-        } else if !skipBackfill && page < 2 {
-            print("[SYNC] ⏭️ Skipping backfill detection on page \(page) (waiting for page 2+)")
-        }
-        
-        return currentPageTracks
-    }
-    
-    /// Merge current page tracks, using buffers from other services for matching
-    private func mergeTracksWithBuffers(
-        currentPageResults: [ScrobbleService: [RecentTrack]],
-        buffers: [ScrobbleService: [RecentTrack]],
-        newBuffers: [ScrobbleService: [RecentTrack]],
-        enabledServices: [ServiceCredentials]
-    ) -> [RecentTrack] {
-        var mergedTracks: [RecentTrack] = []
-        var processedIds: Set<String> = []
-        
-        // Collect ONLY current page tracks to process
-        var tracksToProcess: [(track: RecentTrack, service: ScrobbleService)] = []
-        for (service, tracks) in currentPageResults {
-            for track in tracks {
-                tracksToProcess.append((track, service))
-            }
-        }
-        
-        // Sort by timestamp descending
-        tracksToProcess.sort { ($0.track.date ?? 0) > ($1.track.date ?? 0) }
-        
-        print("[SYNC] 🔄 Processing \(tracksToProcess.count) current page tracks")
-        
-        // Process each track
-        for (track, service) in tracksToProcess {
-            let trackServiceId = "\(track.date ?? 0)_\(track.artist)_\(track.name)_\(service.rawValue)"
+            print("[MATCH] 🔍 Starting matching for \(service.displayName) with \(serviceTracks.count) candidates")
             
-            if processedIds.contains(trackServiceId) {
-                continue
-            }
-            
-            var merged = track
-            merged.sourceService = service
-            processedIds.insert(trackServiceId)
-            
-            var matchCount = 0
-            
-            // Build comparison pool: current page from other services + their buffers
-            var comparisonTracks: [(track: RecentTrack, service: ScrobbleService)] = []
-            
-            for (otherService, otherTracks) in currentPageResults where otherService != service {
-                for otherTrack in otherTracks {
-                    comparisonTracks.append((otherTrack, otherService))
-                }
-            }
-            
-            // Add buffers from OTHER services (previous page's next-page buffer)
-            for (otherService, buffer) in buffers where otherService != service {
-                for bufferTrack in buffer {
-                    comparisonTracks.append((bufferTrack, otherService))
-                }
-            }
-            
-            // Add new buffers from OTHER services (current page's next-page buffer)
-            for (otherService, buffer) in newBuffers where otherService != service {
-                for bufferTrack in buffer {
-                    comparisonTracks.append((bufferTrack, otherService))
-                }
-            }
-            
-            // Try to match against comparison pool
-            for (otherTrack, otherService) in comparisonTracks {
-                let otherTrackServiceId = "\(otherTrack.date ?? 0)_\(otherTrack.artist)_\(otherTrack.name)_\(otherService.rawValue)"
-                
-                if processedIds.contains(otherTrackServiceId) {
-                    continue
-                }
-                
-                if tracksMatch(track, otherTrack) {
-                    print("[SYNC] ✅ MATCHED '\(track.artist) - \(track.name)' between \(service.displayName) and \(otherService.displayName)")
+            for primaryIndex in tracks.indices {
+                if let matchedTrack = findBestMatch(for: tracks[primaryIndex], in: serviceTracks, serviceName: service.displayName) {
+                    print("[MATCH] ✓ Matched '\(tracks[primaryIndex].name)' from primary with \(service.displayName)")
+                    tracks[primaryIndex].serviceInfo.merge(matchedTrack.serviceInfo) { (_, new) in new }
+                } else {
+                    print("[MATCH] ✗ No match found for '\(tracks[primaryIndex].artist) - \(tracks[primaryIndex].name)' in \(service.displayName)")
                     
-                    // Merge serviceInfo
-                    merged.serviceInfo.merge(otherTrack.serviceInfo) { (_, new) in new }
-                    
-                    // Mark as processed
-                    processedIds.insert(otherTrackServiceId)
-                    matchCount += 1
-                }
-            }
-            
-            // Calculate sync status
-            let enabledServiceSet = Set(enabledServices.map { $0.service })
-            let presentInServices = Set([service] + merged.serviceInfo.keys.compactMap { ScrobbleService(rawValue: $0) })
-            
-            if presentInServices == enabledServiceSet {
-                merged.syncStatus = .synced
-            } else if presentInServices.count == 1 {
-                merged.syncStatus = .primaryOnly
-            } else {
-                merged.syncStatus = .partial
-            }
-            
-            mergedTracks.append(merged)
-        }
-        
-        return mergedTracks
-    }
-    
-    
-    /// Detect tracks that need backfilling and queue them
-    private func detectAndQueueBackfills(mergedTracks: [RecentTrack], enabledServices: [ServiceCredentials]) async {
-        let enabledServiceSet = Set(enabledServices.map { $0.service })
-        
-        for track in mergedTracks {
-            let presentInServices = Set([track.sourceService].compactMap { $0 } + track.serviceInfo.keys.compactMap { ScrobbleService(rawValue: $0) })
-            let missingServices = enabledServiceSet.subtracting(presentInServices)
-            
-            if !missingServices.isEmpty {
-                print("[SYNC] 🔍 Track '\(track.artist) - \(track.name)' missing from: \(missingServices.map { $0.displayName }.joined(separator: ", "))")
-                
-                // Queue backfill tasks for missing services
-                for service in missingServices {
-                    guard let credentials = enabledServices.first(where: { $0.service == service }) else { continue }
-                    
+                    // PHASE 1: Backfill Detection (primary → secondary)
                     let task = BackfillTask(
-                        track: track,
+                        track: tracks[primaryIndex],
                         targetService: service,
                         targetCredentials: credentials,
-                        sourceServices: Array(presentInServices)
+                        sourceServices: [tracks[primaryIndex].sourceService].compactMap { $0 }
                     )
                     
                     if task.canBackfill {
@@ -488,28 +339,108 @@ class ServiceManager: ObservableObject {
                 }
             }
         }
-    }
-    
-    /// Check if two tracks match using timestamp + fuzzy matching
-    private func tracksMatch(_ track1: RecentTrack, _ track2: RecentTrack) -> Bool {
-        let t1 = track1.date ?? 0
-        let t2 = track2.date ?? 0
-        let timeDiff = abs(t1 - t2)
         
-        // Check name similarity
-        let artistScore = StringSimilarity.similarity(normalize(track1.artist), normalize(track2.artist))
-        let trackScore = StringSimilarity.similarity(normalize(track1.name), normalize(track2.name))
-        let combinedScore = (artistScore + trackScore) / 2.0
+        // PHASE 2: Reverse Gap Detection (secondary → primary)
+        guard let primaryService = Defaults.shared.primaryService else { return }
         
-        // Require exact timestamp match (within 30 seconds for network delays)
-        // AND high similarity score (>= 95% for case differences like "Of" vs "of")
-        let matches = timeDiff <= 30 && combinedScore >= 0.95
-        
-        if matches {
-            print("[SYNC] ✓ Matched '\(track1.artist) - \(track1.name)' vs '\(track2.artist) - \(track2.name)' | Score: \(String(format: "%.2f", combinedScore)), TS diff: \(timeDiff)s")
+        for serviceIndex in otherServiceTracks.indices {
+            let serviceTracks = otherServiceTracks[serviceIndex]
+            let service = otherServices[serviceIndex].service
+            
+            print("[SYNC] 🔍 Checking for tracks in \(service.displayName) not in primary")
+            
+            for serviceTrack in serviceTracks {
+                // Check if this service track was matched to any primary track
+                let isMatchedToPrimary = tracks.contains { primaryTrack in
+                    timestampsMatch(primaryTrack.date, serviceTrack.date) &&
+                    StringSimilarity.similarity(normalize(primaryTrack.name), normalize(serviceTrack.name)) > 0.8
+                }
+                
+                if !isMatchedToPrimary {
+                    print("[SYNC] 📥 Track in \(service.displayName) not in primary: '\(serviceTrack.artist) - \(serviceTrack.name)'")
+                    
+                    let task = BackfillTask(
+                        track: serviceTrack,
+                        targetService: primaryService.service,
+                        targetCredentials: primaryService,
+                        sourceServices: [service]
+                    )
+                    
+                    if task.canBackfill {
+                        await backfillQueue.enqueue(task)
+                    }
+                }
+            }
         }
         
-        return matches
+        // Calculate sync status for each track
+        let allEnabledServices = Set([primaryService.service] + otherServices.map { $0.service })
+        for index in tracks.indices {
+            let presentIn = Set([primaryService.service] + tracks[index].serviceInfo.keys.compactMap { ScrobbleService(rawValue: $0) })
+            
+            if presentIn == allEnabledServices {
+                tracks[index].syncStatus = .synced
+            } else if presentIn.count == 1 {
+                tracks[index].syncStatus = .primaryOnly
+            } else {
+                tracks[index].syncStatus = .partial
+            }
+        }
+        
+        // PHASE 3: Process backfill queue asynchronously
+        Task {
+            await backfillQueue.processQueue(using: self)
+        }
+    }
+    
+    private func findBestMatch(for track: RecentTrack, in candidates: [RecentTrack], serviceName: String) -> RecentTrack? {
+        var bestMatch: RecentTrack?
+        var bestScore: Double = 0
+        var candidatesChecked = 0
+        var candidatesSkippedTimestamp = 0
+        var candidatesSkippedSimilarity = 0
+        
+        print("[MATCH] 🔎 Trying to match: '\(track.artist) - \(track.name)' (timestamp: \(track.date ?? 0))")
+        
+        for candidate in candidates {
+            candidatesChecked += 1
+            
+            // First check timestamp proximity
+            guard timestampsMatch(track.date, candidate.date) else {
+                candidatesSkippedTimestamp += 1
+                continue
+            }
+            
+            // Normalize strings
+            let normalizedTrackArtist = normalize(track.artist)
+            let normalizedTrackName = normalize(track.name)
+            let normalizedCandidateArtist = normalize(candidate.artist)
+            let normalizedCandidateName = normalize(candidate.name)
+            
+            // Calculate similarity score using Levenshtein distance
+            let artistScore = StringSimilarity.similarity(normalizedTrackArtist, normalizedCandidateArtist)
+            let trackScore = StringSimilarity.similarity(normalizedTrackName, normalizedCandidateName)
+            
+            // Combined score (weighted average)
+            let score = (artistScore * 0.5 + trackScore * 0.5)
+            
+            print("[MATCH]   • Candidate: '\(candidate.artist) - \(candidate.name)' | Artist: \(String(format: "%.2f", artistScore)) | Track: \(String(format: "%.2f", trackScore)) | Total: \(String(format: "%.2f", score)) | TS Δ: \(abs((track.date ?? 0) - (candidate.date ?? 0)))s")
+            
+            // Require at least 80% similarity
+            if score >= 0.8 {
+                if score > bestScore {
+                    bestScore = score
+                    bestMatch = candidate
+                    print("[MATCH]     ✓ New best match (score: \(String(format: "%.2f", score)))")
+                }
+            } else {
+                candidatesSkippedSimilarity += 1
+            }
+        }
+        
+        print("[MATCH] 📊 Summary: Checked \(candidatesChecked), Skipped (timestamp: \(candidatesSkippedTimestamp), similarity: \(candidatesSkippedSimilarity)), Best score: \(String(format: "%.2f", bestScore))")
+        
+        return bestMatch
     }
     
     private func normalize(_ string: String) -> String {
@@ -519,6 +450,6 @@ class ServiceManager: ObservableObject {
     private func timestampsMatch(_ d1: Int?, _ d2: Int?) -> Bool {
         if d1 == nil && d2 == nil { return true }
         guard let d1 = d1, let d2 = d2 else { return false }
-        return abs(d1 - d2) <= 30  // Within 30 seconds - allows for network delays
+        return abs(d1 - d2) < 120  // Within 2 minutes
     }
 }

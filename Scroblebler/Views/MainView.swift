@@ -92,20 +92,17 @@ struct MainView: View {
                     
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 0) {
-                            ForEach(recentTracks) { track in
+                            ForEach(Array(recentTracks.enumerated()), id: \.offset) { index, track in
                                 HistoryItem(track: track)
                                     .onAppear {
-                                        if let index = recentTracks.firstIndex(where: { $0.id == track.id }) {
-                                            let isLastItem = index == recentTracks.count - 1
-                                            print("📊 Track \(index + 1)/\(recentTracks.count) appeared. isLast: \(isLastItem), isLoadingMore: \(isLoadingMore), hasMore: \(hasMoreTracks)")
-                                            if isLastItem && !isLoadingMore && hasMoreTracks {
-                                                print("🔄 Triggering loadMoreTracks()")
-                                                loadMoreTracks()
-                                            }
+                                        let isLastItem = index == recentTracks.count - 1
+                                        print("📊 Track \(index + 1)/\(recentTracks.count) appeared. isLast: \(isLastItem), isLoadingMore: \(isLoadingMore), hasMore: \(hasMoreTracks)")
+                                        if isLastItem && !isLoadingMore && hasMoreTracks {
+                                            print("🔄 Triggering loadMoreTracks()")
+                                            loadMoreTracks()
                                         }
                                     }
-                                if let index = recentTracks.firstIndex(where: { $0.id == track.id }),
-                                   index < recentTracks.count - 1 {
+                                if index < recentTracks.count - 1 {
                                     Divider()
                                         .padding(.horizontal, 16)
                                 }
@@ -196,17 +193,11 @@ struct MainView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ScrobleblerDidShow"))) { _ in
             loadRecentTracks()
         }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("BackfillCompleted"))) { _ in
-            print("[SYNC] ✅ Backfill completed. Updated tracks will appear on next pagination.")
-        }
     }
     
     private func loadRecentTracks() {
         currentPage = 1
         hasMoreTracks = true
-        
-        // Reset service buffers when starting fresh
-        serviceManager.resetBuffers()
         
         Task {
             do {

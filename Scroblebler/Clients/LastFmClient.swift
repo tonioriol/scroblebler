@@ -182,8 +182,6 @@ class LastFmClient: ObservableObject, ScrobbleClient {
             "page": String(page)
         ])
         let response = try JSONDecoder().decode(RecentTracksResponse.self, from: data)
-        
-        // Filter out now playing tracks
         let baseTracks = response.recenttracks.track.filter { $0.attr?.nowplaying != "true" }.map { $0.toDomain(client: self) }
         
         // If we have a token, fetch playcounts in parallel
