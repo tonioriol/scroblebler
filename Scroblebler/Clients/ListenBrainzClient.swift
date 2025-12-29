@@ -277,14 +277,7 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
                 state.paginationState.removeValue(forKey: username)
             }
             Logger.debug("ListenBrainz page 1 - reset pagination state", log: Logger.api)
-            
-            do {
-                try await cache.populatePlayCountCache(username: username) { username, period, limit, offset in
-                    try await self.getTopTracksWithOffset(username: username, period: period, limit: limit, offset: offset)
-                }
-            } catch {
-                Logger.error("ListenBrainz failed to populate cache: \(error)", log: Logger.cache)
-            }
+            await cache.populatePlayCountCache(username: username)
         }
         
         // ListenBrainz uses timestamp-based pagination

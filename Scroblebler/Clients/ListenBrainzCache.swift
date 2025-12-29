@@ -7,7 +7,6 @@ final class ListenBrainzCache {
     private struct CacheState {
         var playCountCache: [String: [String: Int]] = [:] // username -> [artist|track -> count]
         var cacheExpiry: [String: Date] = [:]
-        var paginationState: [String: Int] = [:] // username -> last timestamp for pagination
     }
     
     private let cacheState = Locked(CacheState())
@@ -22,28 +21,15 @@ final class ListenBrainzCache {
         let normalizedArtist = normalizeForCache(artist)
         let normalizedTrack = normalizeForCache(track)
         let key = "\(normalizedArtist)|\(normalizedTrack)"
-        
-        let (count, cache) = cacheState.withLock { state in
-            (state.playCountCache[username]?[key], state.playCountCache[username])
+        return cacheState.withLock { state in
+            state.playCountCache[username]?[key]
         }
-        
-        if count == nil && cache != nil {
-            let similarKeys = cache?.keys.filter { cacheKey in
-                cacheKey.contains(normalizedArtist.prefix(10)) || cacheKey.contains(normalizedTrack.prefix(10))
-            }.prefix(3)
-            
-            if let similar = similarKeys, !similar.isEmpty {
-                Logger.debug("No match for '\(key)', similar keys: \(similar.joined(separator: ", "))", log: Logger.cache)
-            }
-        }
-        
-        return count
     }
     
-    func populatePlayCountCache(username: String, getTopTracks: @escaping (String, String, Int, Int) async throws -> [TopTrack]) async throws {
+    func populatePlayCountCache(username: String) async {
         Logger.debug("ListenBrainz populatePlayCountCache for \(username)", log: Logger.cache)
         
-        // Try to load from disk first
+        // Load from disk if available
         if let (cachedCounts, continueFromTs, completedAt) = loadCacheFromDisk(username: username) {
             cacheState.withLock { state in
                 state.playCountCache[username] = cachedCounts
@@ -65,8 +51,7 @@ final class ListenBrainzCache {
             return
         }
         
-        Logger.debug("No cache on disk, will fetch from beginning", log: Logger.cache)
-        
+        // Check if in-memory cache is still valid
         let isCacheValid = cacheState.withLock { state in
             if let expiry = state.cacheExpiry[username], Date() < expiry {
                 let count = state.playCountCache[username]?.count ?? 0
@@ -78,22 +63,8 @@ final class ListenBrainzCache {
         
         if isCacheValid { return }
         
-        // Fetch first page quickly for immediate use
-        Logger.debug("Fetching first page (1000 tracks) for immediate use", log: Logger.cache)
-        let firstPage = try await getTopTracks(username, "all_time", 1000, 0)
-        
-        var cache: [String: Int] = [:]
-        for track in firstPage {
-            let key = "\(normalizeForCache(track.artist))|\(normalizeForCache(track.name))"
-            cache[key] = track.playcount
-        }
-        
-        cacheState.withLock { state in
-            state.playCountCache[username] = cache
-            state.cacheExpiry[username] = Date().addingTimeInterval(cacheValidityDuration)
-        }
-        Logger.info("Initial cache populated with \(cache.count) entries", log: Logger.cache)
-        
+        // Start fresh background fetch
+        Logger.debug("Starting fresh cache fetch from beginning", log: Logger.cache)
         startBackgroundCacheFetch(username: username, continueFrom: nil)
     }
     
@@ -157,8 +128,16 @@ final class ListenBrainzCache {
     private func fetchAllPagesInBackground(username: String, continueFrom: Int?) async {
         Logger.info("Background fetch started", log: Logger.cache)
         
-        var playcounts: [String: Int] = cacheState.withLock { state in
-            state.playCountCache[username] ?? [:]
+        // Start fresh if no continueFrom, otherwise resume from existing cache
+        var playcounts: [String: Int]
+        if continueFrom == nil {
+            playcounts = [:]
+            Logger.debug("Starting fresh playcount cache", log: Logger.cache)
+        } else {
+            playcounts = cacheState.withLock { state in
+                state.playCountCache[username] ?? [:]
+            }
+            Logger.debug("Resuming with \(playcounts.count) existing entries", log: Logger.cache)
         }
         
         var maxTs: Int? = continueFrom
