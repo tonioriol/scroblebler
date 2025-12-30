@@ -11,6 +11,7 @@ class ServiceManager: ObservableObject {
     static let shared = ServiceManager()
     
     @Published var lastBackfilledTrack: BackfillEvent?
+    @Published var scrobbleCompletedTrigger = 0
     
     private let clients: [ScrobbleService: ScrobbleClient] = [
         .lastfm: LastFmClient(),
@@ -115,6 +116,10 @@ class ServiceManager: ObservableObject {
                     }
                 }
             }
+        }
+        
+        await MainActor.run {
+            scrobbleCompletedTrigger += 1
         }
     }
     

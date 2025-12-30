@@ -68,6 +68,28 @@ final class ListenBrainzCache {
         startBackgroundCacheFetch(username: username, continueFrom: nil)
     }
     
+    func invalidateCache(username: String) {
+        Logger.info("Invalidating cache for \(username)", log: Logger.cache)
+        
+        // Cancel any ongoing background tasks
+        backgroundFetchTasks[username]?.cancel()
+        backgroundFetchTasks.removeValue(forKey: username)
+        
+        // Clear in-memory cache
+        cacheState.withLock { state in
+            state.playCountCache.removeValue(forKey: username)
+            state.cacheExpiry.removeValue(forKey: username)
+        }
+        
+        // Delete disk cache
+        if let filePath = getCacheFilePath(username: username) {
+            try? FileManager.default.removeItem(at: filePath)
+            Logger.info("Deleted cache file for \(username)", log: Logger.cache)
+        }
+        
+        Logger.info("Cache invalidated for \(username)", log: Logger.cache)
+    }
+    
     // MARK: - Background Fetching
     
     private func startBackgroundCacheFetch(username: String, continueFrom: Int?) {
@@ -144,7 +166,7 @@ final class ListenBrainzCache {
         var totalListens = 0
         var page = 0
         
-        while !Task.isCancelled && page < 100 {
+        while !Task.isCancelled && page < 1000 {
             page += 1
             
             do {
@@ -158,15 +180,29 @@ final class ListenBrainzCache {
                     state.playCountCache[username] = playcounts
                 }
                 
+                // Log progress every page
+                Logger.debug("Page \(page): \(listens.count) listens, \(playcounts.count) unique tracks", log: Logger.cache)
+                
                 if page % 5 == 0 {
                     saveCacheToDisk(username: username, cache: playcounts, continueFromTs: maxTs, completedAt: nil)
+                    Logger.info("Progress: \(page) pages, \(totalListens) listens, \(playcounts.count) tracks", log: Logger.cache)
                 }
                 
                 try? await Task.sleep(nanoseconds: 200_000_000)
             } catch {
-                Logger.error("Error fetching page \(page): \(error)", log: Logger.cache)
+                // Don't log cancellation errors - they're expected when rebuilding cache
+                if (error as NSError).code != NSURLErrorCancelled {
+                    Logger.error("Error fetching page \(page): \(error)", log: Logger.cache)
+                }
                 break
             }
+        }
+        
+        // Early exit if cancelled
+        guard !Task.isCancelled else {
+            Logger.debug("Background fetch cancelled for \(username)", log: Logger.cache)
+            backgroundFetchTasks.removeValue(forKey: username)
+            return
         }
         
         cacheState.withLock { state in

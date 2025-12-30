@@ -84,12 +84,27 @@ struct MainView: View {
             // History section
             if !recentTracks.isEmpty {
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("Recently Scrobbled")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.secondary)
-                        .padding(.horizontal, 16)
-                        .padding(.top, 12)
-                        .padding(.bottom, 8)
+                    HStack {
+                        Text("Recently Scrobbled")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.secondary)
+                        
+                        Spacer()
+                        
+                        // Cache rebuild button (ListenBrainz only)
+                        if defaults.primaryService?.service == .listenbrainz {
+                            Button(action: invalidateCache) {
+                                Image(systemName: "arrow.clockwise")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                            .help("Rebuild playcount cache")
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
+                    .padding(.bottom, 8)
                     
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 0) {
@@ -193,6 +208,9 @@ struct MainView: View {
         .onChange(of: serviceManager.lastBackfilledTrack) { event in
             guard let event = event else { return }
             handleBackfillEvent(event)
+        }
+        .onChange(of: serviceManager.scrobbleCompletedTrigger) { _ in
+            loadRecentTracks()
         }
     }
     
@@ -430,6 +448,19 @@ struct MainView: View {
                 pendingLastFmUsername = nil
                 passwordInput = ""
             }
+        }
+    }
+    
+    private func invalidateCache() {
+        guard let primary = defaults.primaryService,
+              primary.service == .listenbrainz,
+              let client = serviceManager.client(for: .listenbrainz) as? ListenBrainzClient else {
+            return
+        }
+        
+        Logger.info("Cache rebuild triggered", log: Logger.ui)
+        Task {
+            await client.invalidateAndRebuildCache(username: primary.username)
         }
     }
 }

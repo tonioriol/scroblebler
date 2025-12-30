@@ -589,6 +589,11 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         return cache.getCachedPlayCount(username: username, artist: artist, track: track)
     }
     
+    func invalidateAndRebuildCache(username: String) async {
+        cache.invalidateCache(username: username)
+        await cache.populatePlayCountCache(username: username)
+    }
+    
     func getTrackUserPlaycount(token: String, artist: String, track: String) async throws -> Int? {
         return nil
     }
