@@ -36,8 +36,8 @@ struct ProgressBar: View {
     }
 
     var body: some View {
-        ZStack {
-            GeometryReader { geometryReader in
+        GeometryReader { geometryReader in
+            ZStack(alignment: .leading) {
                 if self.backgroundEnabled {
                     Capsule()
                         .foregroundColor(self.backgroundColor)

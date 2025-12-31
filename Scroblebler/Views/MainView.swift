@@ -15,6 +15,7 @@ struct MainView: View {
     @State private var isLoadingMore = false
     @State private var hasMoreTracks = true
     @State private var loginState: WaitingLogin.Status = .generatingToken
+    @State private var isPlaying = false
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -65,7 +66,7 @@ struct MainView: View {
                 .accessibilityHidden(true)
             
             if watcher.currentTrack != nil {
-                NowPlaying(track: $watcher.currentTrack, currentPosition: $watcher.currentPosition)
+                NowPlaying(track: $watcher.currentTrack, currentPosition: $watcher.currentPosition, isPlaying: $isPlaying)
             } else {
                 HStack(alignment: .top, spacing: 16) {
                     Image("nocover")
@@ -201,6 +202,9 @@ struct MainView: View {
         }
         .onChange(of: watcher.currentTrack?.name) { _ in
             loadRecentTracks()
+        }
+        .onChange(of: watcher.playerState) { newState in
+            isPlaying = newState == .playing
         }
         .onChange(of: defaults.mainServicePreference) { _ in
             loadRecentTracks()

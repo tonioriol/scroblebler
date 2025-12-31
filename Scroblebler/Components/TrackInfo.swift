@@ -3,6 +3,7 @@ import SwiftUI
 struct TrackInfo<ActionButtons: View>: View {
     @EnvironmentObject var serviceManager: ServiceManager
     @EnvironmentObject var defaults: Defaults
+    @EnvironmentObject var watcher: Watcher
     
     let trackName: String
     let artist: String

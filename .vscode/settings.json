@@ -2,5 +2,6 @@
   "files.watcherExclude": {
     "**/.build/**": true,
     "**/DerivedData/**": true
-  }
+  },
+  "cmake.sourceDirectory": "/Users/tr0n/Code/scroblebler"
 }

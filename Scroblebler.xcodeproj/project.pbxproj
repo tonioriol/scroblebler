@@ -51,6 +51,8 @@
 		IMGCACHE000000000000002 /* ImageCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = IMGCACHE000000000000001 /* ImageCache.swift */; };
 		SYNCBADGE00000000000002 /* SyncStatusBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = SYNCBADGE00000000000001 /* SyncStatusBadge.swift */; };
 		LOGGER00000000000000002 /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = LOGGER00000000000000001 /* Logger.swift */; };
+		MEDCTL00000000000000002 /* MediaControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = MEDCTL00000000000000001 /* MediaControl.swift */; };
+		PLYCTL00000000000000002 /* PlayControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = PLYCTL00000000000000001 /* PlayControls.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -101,6 +103,8 @@
 		SYNCBADGE00000000000001 /* SyncStatusBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncStatusBadge.swift; sourceTree = "<group>"; };
 		LOGGER00000000000000001 /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
 		MRADPT00000000000000001 /* mediaremote-adapter */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "mediaremote-adapter"; sourceTree = "<group>"; };
+		MEDCTL00000000000000001 /* MediaControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaControl.swift; sourceTree = "<group>"; };
+		PLYCTL00000000000000001 /* PlayControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayControls.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -148,6 +152,7 @@
 				EE7777777777777777777777 /* TokenInputSheet.swift */,
 				EE8888888888888888888889 /* PasswordInputSheet.swift */,
 				EE9999999999999999999999 /* PasteableTextFields.swift */,
+				PLYCTL00000000000000001 /* PlayControls.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -201,6 +206,7 @@
 				KEYC0000000000000000001 /* KeychainHelper.swift */,
 				IMGCACHE000000000000001 /* ImageCache.swift */,
 				LOGGER00000000000000001 /* Logger.swift */,
+				MEDCTL00000000000000001 /* MediaControl.swift */,
 			);
 			path = Scroblebler;
 			sourceTree = "<group>";
@@ -359,6 +365,8 @@
 				IMGCACHE000000000000002 /* ImageCache.swift in Sources */,
 				SYNCBADGE00000000000002 /* SyncStatusBadge.swift in Sources */,
 				LOGGER00000000000000002 /* Logger.swift in Sources */,
+				MEDCTL00000000000000002 /* MediaControl.swift in Sources */,
+				PLYCTL00000000000000002 /* PlayControls.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -5,12 +5,14 @@ struct NowPlaying: View {
     @EnvironmentObject var defaults: Defaults
     @Binding var track: Track?
     @Binding var currentPosition: Double?
+    @Binding var isPlaying: Bool
     
     @State private var lovedState: Bool = false
     @State private var playCount: Int? = nil
 
     var body: some View {
-        TrackInfo(
+        VStack(spacing: 12) {
+            TrackInfo(
             trackName: track!.name,
             artist: track!.artist,
             album: track!.album,
@@ -27,15 +29,19 @@ struct NowPlaying: View {
             artistURL: track?.artistURL,
             albumURL: track?.albumURL,
             trackURL: track?.trackURL,
-            actionButtons: {
-                if let track = track {
-                    BlacklistButton(
-                        artist: track.artist,
-                        track: track.name
-                    )
+                actionButtons: {
+                    if let track = track {
+                        BlacklistButton(
+                            artist: track.artist,
+                            track: track.name
+                        )
+                    }
                 }
-            }
-        )
+            )
+            
+            PlayControls(isPlaying: $isPlaying)
+                .padding(.bottom, 8)
+        }
         .padding()
         .onAppear {
             fetchLovedState()
@@ -84,6 +90,6 @@ struct NowPlaying: View {
 
 struct NowPlaying_Previews: PreviewProvider {
     static var previews: some View {
-        NowPlaying(track: .constant(.init(artist: "Alexisonfire", album: "Watch Out!", name: "It Was Fear Of Myself That Made Me Odd", length: 123.10293, artwork: nil, year: 2004, loved: true, startedAt: 0)), currentPosition: .constant(61.5))
+        NowPlaying(track: .constant(.init(artist: "Alexisonfire", album: "Watch Out!", name: "It Was Fear Of Myself That Made Me Odd", length: 123.10293, artwork: nil, year: 2004, loved: true, startedAt: 0)), currentPosition: .constant(61.5), isPlaying: .constant(true))
     }
 }
