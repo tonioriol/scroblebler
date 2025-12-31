@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		MEDIACTL000000000000002 /* media-control in Resources */ = {isa = PBXBuildFile; fileRef = MEDIACTL000000000000001 /* media-control */; };
 		214BE49AEB926CFA16D44F62 /* LoveButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0F361811AED80EF7ACDCA43 /* LoveButton.swift */; };
 		AA1111111111111111111111 /* AlbumArtwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB1111111111111111111111 /* AlbumArtwork.swift */; };
 		AA2222222222222222222222 /* PlayCountBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB2222222222222222222222 /* PlayCountBadge.swift */; };
@@ -99,6 +100,7 @@
 		IMGCACHE000000000000001 /* ImageCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageCache.swift; sourceTree = "<group>"; };
 		SYNCBADGE00000000000001 /* SyncStatusBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncStatusBadge.swift; sourceTree = "<group>"; };
 		LOGGER00000000000000001 /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
+		MEDIACTL000000000000001 /* media-control */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "media-control"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -183,6 +185,7 @@
 				DA6859CA292FDC9C009143B3 /* Components */,
 				CL9999999999999999999999 /* Clients */,
 				EE8888888888888888888888 /* Protocols */,
+				MEDIACTL000000000000003 /* Resources */,
 				DA6859CF2930242E009143B3 /* Info.plist */,
 				DA8DE13A292FC577004DC22E /* Assets.xcassets */,
 				DA8DE13F292FC577004DC22E /* Scroblebler.entitlements */,
@@ -235,6 +238,14 @@
 				EE4444444444444444444444 /* ScrobbleClient.swift */,
 			);
 			path = Protocols;
+			sourceTree = "<group>";
+		};
+		MEDIACTL000000000000003 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				MEDIACTL000000000000001 /* media-control */,
+			);
+			path = Resources;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -297,6 +308,7 @@
 			files = (
 				DA8DE13E292FC577004DC22E /* Preview Assets.xcassets in Resources */,
 				DA8DE13B292FC577004DC22E /* Assets.xcassets in Resources */,
+				MEDIACTL000000000000002 /* media-control in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

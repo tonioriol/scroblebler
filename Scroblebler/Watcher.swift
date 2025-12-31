@@ -60,11 +60,19 @@ class Watcher: ObservableObject {
     private func getMediaControlStatus() throws -> MediaControlStatus? {
         let process = Process()
         
+        // Try bundled binary first, then fall back to system paths
+        let bundledPath = Bundle.main.resourceURL?
+            .appendingPathComponent("media-control")
+            .appendingPathComponent("bin")
+            .appendingPathComponent("media-control")
+            .path
+        
         let possiblePaths = [
+            bundledPath,
             "/opt/homebrew/bin/media-control",
             "/usr/local/bin/media-control",
             "/usr/bin/media-control"
-        ]
+        ].compactMap { $0 }
         
         guard let path = possiblePaths.first(where: { FileManager.default.fileExists(atPath: $0) }) else {
             Logger.error("media-control not found", log: Logger.playback)

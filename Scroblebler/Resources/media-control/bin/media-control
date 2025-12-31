@@ -1,0 +1,339 @@
+#!/usr/bin/perl
+# Copyright (c) 2025 Jonas van den Berg
+# This file is licensed under the BSD 3-Clause License.
+
+use strict;
+use warnings;
+use FindBin;
+use File::Spec;
+use File::Basename;
+
+use constant VERSION => '0.7.2';
+
+my $script_path =
+  File::Spec->catfile($FindBin::Bin, '..', 'lib', 'media-control',
+  'mediaremote-adapter.pl');
+my $framework_path = File::Spec->rel2abs(
+  File::Spec->catdir(
+    $FindBin::Bin, '..', 'Frameworks', 'MediaRemoteAdapter.framework'
+  )
+);
+my $test_client_path = File::Spec->rel2abs(
+  File::Spec->catdir(
+    $FindBin::Bin, '..', 'lib', 'media-control', 'MediaRemoteAdapterTestClient'
+  )
+);
+
+#<<<
+my @command_list = (
+  { name => 'play', id => 0, help => 'Start playback' },
+  { name => 'pause', id => 1, help => 'Pause playback' },
+  { name => 'toggle-play-pause', id => 2, help => 'Toggle between play and pause' },
+  { name => 'stop', id => 3, help => 'Stop playback' },
+  { name => 'next-track', id => 4, help => 'Skip to the next track' },
+  { name => 'previous-track', id => 5, help => 'Return to the previous track' },
+  { name => 'toggle-shuffle', id => 6, help => 'Toggle shuffle mode' },
+  { name => 'toggle-repeat', id => 7, help => 'Toggle repeat mode' },
+  { name => 'start-forward-seek', id => 8, help => 'Start seeking forward' },
+  { name => 'end-forward-seek', id => 9, help => 'Stop seeking forward' },
+  { name => 'start-backward-seek', id => 10, help => 'Start seeking backward' },
+  { name => 'end-backward-seek', id => 11, help => 'Stop seeking backward' },
+  { name => 'go-back-fifteen-seconds', id => 12, help => 'Go back 15 seconds' },
+  { name => 'skip-fifteen-seconds', id => 13, help => 'Skip ahead 15 seconds' },
+  { name => 'send ID', id => undef, help => 'Send a command by its ID' },
+);
+#>>>
+
+my $basename = basename($0);
+
+sub print_help {
+  print <<"HELP";
+Example usage:
+  $basename get
+  $basename stream
+  $basename toggle-play-pause
+  $basename repeat track
+  $basename seek 22.4
+
+Metadata:
+  get      Read now playing information once
+  stream   Stream updates to now playing information
+
+Controls:
+  seek POSITION   Seek to a specific timeline position (seconds)
+  shuffle MODE    Set the shuffle mode: off (1), albums (2), tracks (3)
+  repeat MODE     Set the repeat mode: off (1), track (2), playlist (3)
+  speed SPEED     Set the playback speed
+
+HELP
+  my $commands_title = "Commands:";
+  my $description_title = "";
+  my $command_id_title = "ID:";
+  my $max_name_length = 0;
+  foreach my $command (@command_list) {
+    my $length = length($command->{name});
+    $max_name_length = $length if $length > $max_name_length;
+  }
+  my $max_help_length = 0;
+  foreach my $command (@command_list) {
+    my $length = length($command->{help});
+    $max_help_length = $length if $length > $max_help_length;
+  }
+  my $padding = 3;
+  my $max_name_padding = $max_name_length + $padding;
+  my $max_help_padding = $max_help_length + $padding;
+  print $commands_title
+    . " " x ($max_name_padding - length($commands_title))
+    . $description_title
+    . " " x ($max_help_padding - length($description_title))
+    . $command_id_title."\n";
+  foreach my $command (@command_list) {
+    my $id = $command->{id};
+    my $name = $command->{name};
+    my $help = $command->{help};
+    my $name_spaces_needed = $max_name_padding - length($name);
+    my $help_spaces_needed = $max_help_padding - length($help);
+    print"  $name"
+      . " " x $name_spaces_needed. "$help"
+      . " " x $help_spaces_needed;
+    if (defined $id) {
+      print $id;
+    }
+    print"\n";
+  }
+  print <<"HELP";
+
+Testing:
+  test   Tests whether the tool is able to operate on this macOS version.
+         An exit code other than 0 indicates that the tool is not functional.
+
+Options:
+  get
+    --now: Adds an "elapsedTimeNow" key with an estimation of the current
+      elapsed playback time. This estimation may be off by up to a second.
+      To determine a more accurate time without polling "get" continuously,
+      calculate it using the "elapsedTime" and "timestamp" keys. "elapsedTime"
+      contains the elapsed time at the time that is stored in "timestamp".
+  stream
+    --no-diff: Disable diffing and always dump all metadata
+    --debounce=N: Delay in milliseconds to prevent spam (0 by default)
+  get, stream
+    --micros: Replaces the following time keys with microsecond equivalents
+      "duration" -> "durationMicros"
+      "elapsedTime" -> "elapsedTimeMicros"
+      "elapsedTimeNow" -> "elapsedTimeNowMicros"
+      "timestamp" -> "timestampEpochMicros" (converted to epoch time)
+    --human-readable, -h: Makes values human-readable. Use only for debugging.
+      The JSON output is pretty-printed and the following keys are adapted:
+      "artworkData" -> Binary data is truncated to a shorter representation
+  seek
+    --micros: Interpret the passed value as microseconds
+
+Other:
+  help      Prints this help page
+  version   Prints the version and license information
+
+HELP
+  exit;
+}
+
+sub print_version() {
+  my $version = VERSION;
+  print <<"VERSION";
+media-control $version
+Copyright (c) 2025 Jonas van den Berg
+Licensed under the BSD 3-Clause License.
+VERSION
+}
+
+sub has_command_id {
+  my ($id) = @_;
+  foreach my $command (@command_list) {
+    if (defined $command->{id} && $command->{id} == $id) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
+sub fail {
+  my ($message) = @_;
+  print STDERR "$message\n";
+  exit 1;
+}
+
+sub delegate {
+  my $name = shift;
+  my @args = ($script_path, $framework_path, $test_client_path, $name);
+  exec $^X, @args, @_, @ARGV
+    or die "Failed to execute $script_path: $!";
+  exit 1;
+}
+
+sub shift_integer() {
+  my $value = shift @ARGV;
+  if (defined $value && $value !~ /^0$/) {
+    $value =~ s/^0+//;
+  }
+  if (defined $value && $value !~ /^-?\d+$/) {
+    fail "'$value' is not a valid integer";
+  }
+  return $value;
+}
+
+sub parse_integer_or_find {
+  my ($value, $map) = @_;
+  return undef unless defined $value;
+  $value =~ s/^0+(?!$)//;
+  if ($value =~ /^-?\d+$/) {
+    return $value;
+  }
+  if (ref $map eq 'HASH' && exists $map->{$value}) {
+    return $map->{$value};
+  }
+  return undef;
+}
+
+sub shift_number() {
+  my $value = shift @ARGV;
+  if (defined $value && $value !~ /^0$/) {
+    $value =~ s/^0+//;
+  }
+  if (defined $value && $value !~ /^-?\d+(\.\d+)?$/) {
+    fail "'$value' is not a valid number";
+  }
+  return $value;
+}
+
+sub check_and_shift_option {
+  my ($name) = @_;
+  my $arg = "--$name";
+  for (my $i = 0; $i < @ARGV; $i++) {
+    if ($ARGV[$i] eq $arg) {
+      splice(@ARGV, $i, 1);
+      return 1;
+    }
+  }
+  return 0;
+}
+
+sub unwrap_scientific_number {
+  my ($value) = @_;
+  if ($value =~ /^[+-]?(\d+\.?\d*|\.\d+)[eE][+-]?\d+$/) {
+    return sprintf("%.0f", $value);
+  }
+  return $value;
+}
+
+sub safe_large_int {
+  my ($value) = @_;
+  $value = int($value);
+  return unwrap_scientific_number($value);
+}
+
+my $command = shift @ARGV or print_help() and exit;
+if ($command eq 'help' || $command eq '--help') {
+  print_help();
+}
+elsif ($command eq 'version' || $command eq '--version') {
+  print_version();
+}
+elsif ($command eq 'stream') {
+  delegate($command);
+}
+elsif ($command eq 'get') {
+  delegate($command);
+}
+elsif ($command eq 'test') {
+  delegate($command);
+}
+elsif ($command eq 'send') {
+  my $id = shift_integer();
+  if (defined $id) {
+    if (has_command_id($id)) {
+      delegate($command, $id);
+    }
+    else {
+      fail "Unknown command ID: $id";
+    }
+  }
+  else {
+    fail "Missing ID for command '$command'";
+  }
+}
+elsif ($command eq 'seek') {
+  my $multiplier = 1000 * 1000;
+  if (check_and_shift_option("micros")) {
+    $multiplier = 1;
+  }
+  my $position = shift_number();
+  if (defined $position) {
+    $position = safe_large_int($position * $multiplier);
+    delegate($command, $position);
+  }
+  else {
+    fail "Missing position for command '$command'";
+  }
+}
+elsif ($command eq 'shuffle') {
+  my $mode_value = shift @ARGV;
+  if (!defined $mode_value) {
+    fail "Missing mode for command '$command'";
+  }
+  my $mode = parse_integer_or_find(
+    $mode_value,
+    {
+      off => 1,
+      albums => 2,
+      tracks => 3,
+    }
+  );
+  if (defined $mode) {
+    delegate($command, $mode);
+  }
+  else {
+    fail "Invalid mode for command '$command': '$mode_value'";
+  }
+}
+elsif ($command eq 'repeat') {
+  my $mode_value = shift @ARGV;
+  if (!defined $mode_value) {
+    fail "Missing mode for command '$command'";
+  }
+  my $mode = parse_integer_or_find(
+    $mode_value,
+    {
+      off => 1,
+      track => 2,
+      playlist => 3,
+    }
+  );
+  if (defined $mode) {
+    delegate($command, $mode);
+  }
+  else {
+    fail "Invalid mode for command '$command': '$mode_value'";
+  }
+}
+elsif ($command eq 'speed') {
+  my $speed = shift_integer();
+  if (defined $speed) {
+    delegate($command, $speed);
+  }
+  else {
+    fail "Missing speed for command '$command'";
+  }
+}
+else {
+  my $found = 0;
+  foreach my $cmd (@command_list) {
+    my $command_id = $cmd->{id};
+    if ($cmd->{name} eq $command && defined $command_id) {
+      $found = 1;
+      delegate("send", $command_id);
+    }
+  }
+  if (!$found) {
+    fail "Unknown command '$command'";
+  }
+}
