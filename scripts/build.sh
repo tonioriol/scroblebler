@@ -25,7 +25,17 @@ rm -f Scroblebler.xcodeproj/project.pbxproj.bak
 # Clean
 rm -rf build dist Scroblebler*.dmg
 
+# Build mediaremote-adapter framework
+echo "🔨 Building mediaremote-adapter framework..."
+cd Scroblebler/Resources/mediaremote-adapter
+mkdir -p build
+cd build
+cmake .. > /dev/null 2>&1
+cmake --build . > /dev/null 2>&1
+cd ../../../..
+
 # Build app
+echo "🔨 Building Scroblebler app..."
 xcodebuild -project Scroblebler.xcodeproj \
   -scheme Scroblebler \
   -configuration Release \

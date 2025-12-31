@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		MEDIACTL000000000000002 /* media-control in Resources */ = {isa = PBXBuildFile; fileRef = MEDIACTL000000000000001 /* media-control */; };
+		MRADPT00000000000000002 /* mediaremote-adapter in Resources */ = {isa = PBXBuildFile; fileRef = MRADPT00000000000000001 /* mediaremote-adapter */; };
 		214BE49AEB926CFA16D44F62 /* LoveButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0F361811AED80EF7ACDCA43 /* LoveButton.swift */; };
 		AA1111111111111111111111 /* AlbumArtwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB1111111111111111111111 /* AlbumArtwork.swift */; };
 		AA2222222222222222222222 /* PlayCountBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB2222222222222222222222 /* PlayCountBadge.swift */; };
@@ -100,7 +100,7 @@
 		IMGCACHE000000000000001 /* ImageCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageCache.swift; sourceTree = "<group>"; };
 		SYNCBADGE00000000000001 /* SyncStatusBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncStatusBadge.swift; sourceTree = "<group>"; };
 		LOGGER00000000000000001 /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
-		MEDIACTL000000000000001 /* media-control */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "media-control"; sourceTree = "<group>"; };
+		MRADPT00000000000000001 /* mediaremote-adapter */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "mediaremote-adapter"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -243,7 +243,7 @@
 		MEDIACTL000000000000003 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-				MEDIACTL000000000000001 /* media-control */,
+				MRADPT00000000000000001 /* mediaremote-adapter */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -308,7 +308,7 @@
 			files = (
 				DA8DE13E292FC577004DC22E /* Preview Assets.xcassets in Resources */,
 				DA8DE13B292FC577004DC22E /* Assets.xcassets in Resources */,
-				MEDIACTL000000000000002 /* media-control in Resources */,
+				MRADPT00000000000000002 /* mediaremote-adapter in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

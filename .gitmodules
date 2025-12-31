@@ -1,0 +1,3 @@
+[submodule "Scroblebler/Resources/mediaremote-adapter"]
+	path = Scroblebler/Resources/mediaremote-adapter
+	url = https://github.com/ungive/mediaremote-adapter.git

@@ -43,12 +43,46 @@ xattr -cr /Applications/Scroblebler.app
 
 ## Building
 
-1. Clone this repository
-2. Open `Scroblebler.xcodeproj`, and build it.
+### Prerequisites
+
+- Xcode 15.0+
+- CMake (for building the mediaremote-adapter framework)
+  ```bash
+  brew install cmake
+  ```
+
+### From Xcode
+
+1. Clone this repository:
+   ```bash
+   git clone --recursive https://github.com/tonioriol/scroblebler.git
+   cd scroblebler
+   ```
+
+2. Build the mediaremote-adapter framework:
+   ```bash
+   cd Scroblebler/Resources/mediaremote-adapter
+   mkdir -p build && cd build
+   cmake .. && cmake --build .
+   cd ../../../..
+   ```
+
+3. Open `Scroblebler.xcodeproj` in Xcode and build
+
+### Release Build
+
+To create a release DMG:
+```bash
+./scripts/build.sh <version>
+```
+
+This automatically builds the framework and packages everything.
 
 ## Credits
 
 This project is a fork of the original [Audioscrobbler](https://github.com/heyvito/audioscrobbler) by Victor Gama, with additional features.
+
+Media playback detection is powered by [mediaremote-adapter](https://github.com/ungive/mediaremote-adapter) by Jonas van den Berg, which enables access to the MediaRemote framework on macOS 15.4+.
 
 ## Oh no, you pushed your token and secret!
 
@@ -70,6 +104,8 @@ on their repository](https://github.com/lastfm/lastfm-desktop/blob/9ae84cf4ab204
 - [ ] Auto-update
 - [ ] Testing
 - [ ] Extract and unify the exponential backoff logic
+- [ ] add playcontrols
+- [ ] show multiple playing sources in player
 
 ## License
 
