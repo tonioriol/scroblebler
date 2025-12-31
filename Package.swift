@@ -7,9 +7,15 @@ let package = Package(
     products: [
         .executable(name: "Scroblebler", targets: ["Scroblebler"])
     ],
+    dependencies: [
+        .package(url: "https://github.com/ejbills/mediaremote-adapter.git", branch: "master")
+    ],
     targets: [
         .executableTarget(
             name: "Scroblebler",
+            dependencies: [
+                .product(name: "MediaRemoteAdapter", package: "mediaremote-adapter")
+            ],
             path: "Scroblebler",
             exclude: [
                 "Info.plist",

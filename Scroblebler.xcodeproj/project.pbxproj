@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		MRADPT00000000000000002 /* mediaremote-adapter in Resources */ = {isa = PBXBuildFile; fileRef = MRADPT00000000000000001 /* mediaremote-adapter */; };
 		214BE49AEB926CFA16D44F62 /* LoveButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0F361811AED80EF7ACDCA43 /* LoveButton.swift */; };
 		AA1111111111111111111111 /* AlbumArtwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB1111111111111111111111 /* AlbumArtwork.swift */; };
 		AA2222222222222222222222 /* PlayCountBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB2222222222222222222222 /* PlayCountBadge.swift */; };
@@ -34,6 +33,7 @@
 		DADC426529318B6E00762255 /* View+OnLoad.swift in Sources */ = {isa = PBXBuildFile; fileRef = DADC426429318B6E00762255 /* View+OnLoad.swift */; };
 		DAEF0C3F2933A5010083F9AB /* LaunchAtStartup.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAEF0C3E2933A5010083F9AB /* LaunchAtStartup.swift */; };
 		DD000002000000000000001 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000001000000000000001 /* Models.swift */; };
+		DF4019FC2F05A4CF008DEBE5 /* MediaRemoteAdapter in Embed Frameworks */ = {isa = PBXBuildFile; productRef = MRAPKG00000000000000000 /* MediaRemoteAdapter */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		FF1111111111111111111111 /* LastFmClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE1111111111111111111111 /* LastFmClient.swift */; };
 		FF2222222222222222222222 /* LibreFmClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE2222222222222222222222 /* LibreFmClient.swift */; };
 		FF3333333333333333333333 /* ListenBrainzClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE3333333333333333333333 /* ListenBrainzClient.swift */; };
@@ -43,17 +43,32 @@
 		FF7777777777777777777777 /* TokenInputSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE7777777777777777777777 /* TokenInputSheet.swift */; };
 		FF8888888888888888888889 /* PasswordInputSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE8888888888888888888889 /* PasswordInputSheet.swift */; };
 		FF9999999999999999999999 /* PasteableTextFields.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE9999999999999999999999 /* PasteableTextFields.swift */; };
+		IMGCACHE000000000000002 /* ImageCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = IMGCACHE000000000000001 /* ImageCache.swift */; };
 		KEYC0000000000000000002 /* KeychainHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = KEYC0000000000000000001 /* KeychainHelper.swift */; };
 		LBCACHE0000000000000002 /* ListenBrainzCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = LBCACHE0000000000000001 /* ListenBrainzCache.swift */; };
 		LFWC0000000000000000002 /* LastFmWebClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = LFWC0000000000000000001 /* LastFmWebClient.swift */; };
-		SS8888888888888888888888 /* StringSimilarity.swift in Sources */ = {isa = PBXBuildFile; fileRef = SS7777777777777777777777 /* StringSimilarity.swift */; };
-		UN0000000000000000000002 /* UndoButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = UN0000000000000000000001 /* UndoButton.swift */; };
-		IMGCACHE000000000000002 /* ImageCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = IMGCACHE000000000000001 /* ImageCache.swift */; };
-		SYNCBADGE00000000000002 /* SyncStatusBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = SYNCBADGE00000000000001 /* SyncStatusBadge.swift */; };
 		LOGGER00000000000000002 /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = LOGGER00000000000000001 /* Logger.swift */; };
 		MEDCTL00000000000000002 /* MediaControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = MEDCTL00000000000000001 /* MediaControl.swift */; };
+		MRAPKG00000000000000001 /* MediaRemoteAdapter in Frameworks */ = {isa = PBXBuildFile; productRef = MRAPKG00000000000000000 /* MediaRemoteAdapter */; };
 		PLYCTL00000000000000002 /* PlayControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = PLYCTL00000000000000001 /* PlayControls.swift */; };
+		SS8888888888888888888888 /* StringSimilarity.swift in Sources */ = {isa = PBXBuildFile; fileRef = SS7777777777777777777777 /* StringSimilarity.swift */; };
+		SYNCBADGE00000000000002 /* SyncStatusBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = SYNCBADGE00000000000001 /* SyncStatusBadge.swift */; };
+		UN0000000000000000000002 /* UndoButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = UN0000000000000000000001 /* UndoButton.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		DF4019FD2F05A4CF008DEBE5 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				DF4019FC2F05A4CF008DEBE5 /* MediaRemoteAdapter in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		A0F361811AED80EF7ACDCA43 /* LoveButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoveButton.swift; sourceTree = "<group>"; };
@@ -94,17 +109,16 @@
 		EE7777777777777777777777 /* TokenInputSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenInputSheet.swift; sourceTree = "<group>"; };
 		EE8888888888888888888889 /* PasswordInputSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasswordInputSheet.swift; sourceTree = "<group>"; };
 		EE9999999999999999999999 /* PasteableTextFields.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasteableTextFields.swift; sourceTree = "<group>"; };
+		IMGCACHE000000000000001 /* ImageCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageCache.swift; sourceTree = "<group>"; };
 		KEYC0000000000000000001 /* KeychainHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelper.swift; sourceTree = "<group>"; };
 		LBCACHE0000000000000001 /* ListenBrainzCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListenBrainzCache.swift; sourceTree = "<group>"; };
 		LFWC0000000000000000001 /* LastFmWebClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LastFmWebClient.swift; sourceTree = "<group>"; };
-		SS7777777777777777777777 /* StringSimilarity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StringSimilarity.swift; sourceTree = "<group>"; };
-		UN0000000000000000000001 /* UndoButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UndoButton.swift; sourceTree = "<group>"; };
-		IMGCACHE000000000000001 /* ImageCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageCache.swift; sourceTree = "<group>"; };
-		SYNCBADGE00000000000001 /* SyncStatusBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncStatusBadge.swift; sourceTree = "<group>"; };
 		LOGGER00000000000000001 /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
-		MRADPT00000000000000001 /* mediaremote-adapter */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "mediaremote-adapter"; sourceTree = "<group>"; };
 		MEDCTL00000000000000001 /* MediaControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaControl.swift; sourceTree = "<group>"; };
 		PLYCTL00000000000000001 /* PlayControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayControls.swift; sourceTree = "<group>"; };
+		SS7777777777777777777777 /* StringSimilarity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StringSimilarity.swift; sourceTree = "<group>"; };
+		SYNCBADGE00000000000001 /* SyncStatusBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncStatusBadge.swift; sourceTree = "<group>"; };
+		UN0000000000000000000001 /* UndoButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UndoButton.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -113,6 +127,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				DA7B0AA5297B392100B522D6 /* OSAKit.framework in Frameworks */,
+				MRAPKG00000000000000001 /* MediaRemoteAdapter in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -190,7 +205,6 @@
 				DA6859CA292FDC9C009143B3 /* Components */,
 				CL9999999999999999999999 /* Clients */,
 				EE8888888888888888888888 /* Protocols */,
-				MEDIACTL000000000000003 /* Resources */,
 				DA6859CF2930242E009143B3 /* Info.plist */,
 				DA8DE13A292FC577004DC22E /* Assets.xcassets */,
 				DA8DE13F292FC577004DC22E /* Scroblebler.entitlements */,
@@ -246,14 +260,6 @@
 			path = Protocols;
 			sourceTree = "<group>";
 		};
-		MEDIACTL000000000000003 /* Resources */ = {
-			isa = PBXGroup;
-			children = (
-				MRADPT00000000000000001 /* mediaremote-adapter */,
-			);
-			path = Resources;
-			sourceTree = "<group>";
-		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -264,12 +270,16 @@
 				DA8DE12F292FC575004DC22E /* Sources */,
 				DA8DE130292FC575004DC22E /* Frameworks */,
 				DA8DE131292FC575004DC22E /* Resources */,
+				DF4019FD2F05A4CF008DEBE5 /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
 			name = Scroblebler;
+			packageProductDependencies = (
+				MRAPKG00000000000000000 /* MediaRemoteAdapter */,
+			);
 			productName = Scroblebler;
 			productReference = DA8DE133292FC575004DC22E /* Scroblebler.app */;
 			productType = "com.apple.product-type.application";
@@ -298,6 +308,9 @@
 				Base,
 			);
 			mainGroup = DA8DE12A292FC575004DC22E;
+			packageReferences = (
+				MRAPKGREF000000000000001 /* XCRemoteSwiftPackageReference "mediaremote-adapter" */,
+			);
 			productRefGroup = DA8DE134292FC575004DC22E /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -314,7 +327,6 @@
 			files = (
 				DA8DE13E292FC577004DC22E /* Preview Assets.xcassets in Resources */,
 				DA8DE13B292FC577004DC22E /* Assets.xcassets in Resources */,
-				MRADPT00000000000000002 /* mediaremote-adapter in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -618,6 +630,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		MRAPKGREF000000000000001 /* XCRemoteSwiftPackageReference "mediaremote-adapter" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/ejbills/mediaremote-adapter.git";
+			requirement = {
+				branch = master;
+				kind = branch;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		MRAPKG00000000000000000 /* MediaRemoteAdapter */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = MRAPKGREF000000000000001 /* XCRemoteSwiftPackageReference "mediaremote-adapter" */;
+			productName = MediaRemoteAdapter;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = DA8DE12B292FC575004DC22E /* Project object */;
 }

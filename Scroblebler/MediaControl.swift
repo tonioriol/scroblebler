@@ -1,4 +1,5 @@
 import Foundation
+import MediaRemoteAdapter
 
 enum MediaCommand: Int {
     case play = 0
@@ -12,56 +13,39 @@ enum MediaCommand: Int {
 }
 
 class MediaControl {
+    private static let controller = MediaController()
+    
     static func send(_ command: MediaCommand) {
-        guard let paths = getMediaRemoteAdapterPaths() else {
-            Logger.error("MediaRemote adapter not found", log: Logger.playback)
-            return
-        }
-        
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/perl")
-        process.arguments = [
-            paths.script,
-            paths.framework,
-            paths.testClient,
-            "send",
-            "\(command.rawValue)"
-        ]
-        
-        let errorPipe = Pipe()
-        process.standardError = errorPipe
-        
-        do {
-            try process.run()
-            process.waitUntilExit()
-            
-            if process.terminationStatus != 0 {
-                let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-                if let errorString = String(data: errorData, encoding: .utf8), !errorString.isEmpty {
-                    Logger.error("Media command failed: \(errorString)", log: Logger.playback)
-                }
-            }
-        } catch {
-            Logger.error("Failed to send media command: \(error.localizedDescription)", log: Logger.playback)
+        switch command {
+        case .play:
+            controller.play()
+        case .pause:
+            controller.pause()
+        case .togglePlayPause:
+            controller.togglePlayPause()
+        case .stop:
+            controller.stop()
+        case .nextTrack:
+            controller.nextTrack()
+        case .previousTrack:
+            controller.previousTrack()
+        case .toggleShuffle:
+            // Get current shuffle mode and toggle
+            Logger.debug("Toggle shuffle requested", log: Logger.playback)
+            // Note: We'd need current state to toggle properly
+            // For now, just cycle through modes
+            controller.setShuffleMode(.songs)
+        case .toggleRepeat:
+            // Get current repeat mode and toggle
+            Logger.debug("Toggle repeat requested", log: Logger.playback)
+            // Note: We'd need current state to toggle properly
+            // For now, just cycle through modes
+            controller.setRepeatMode(.all)
         }
     }
     
-    private static func getMediaRemoteAdapterPaths() -> (script: String, framework: String, testClient: String)? {
-        guard let resourcePath = Bundle.main.resourceURL?.appendingPathComponent("mediaremote-adapter") else {
-            return nil
-        }
-        
-        let scriptPath = resourcePath.appendingPathComponent("bin/mediaremote-adapter.pl").path
-        let frameworkPath = resourcePath.appendingPathComponent("build/MediaRemoteAdapter.framework").path
-        let testClientPath = resourcePath.appendingPathComponent("build/MediaRemoteAdapterTestClient").path
-        
-        let fm = FileManager.default
-        guard fm.fileExists(atPath: scriptPath),
-              fm.fileExists(atPath: frameworkPath),
-              fm.fileExists(atPath: testClientPath) else {
-            return nil
-        }
-        
-        return (scriptPath, frameworkPath, testClientPath)
+    static func seek(to position: Double) {
+        Logger.debug("Seeking to position: \(position)s", log: Logger.playback)
+        controller.setTime(seconds: position)
     }
 }

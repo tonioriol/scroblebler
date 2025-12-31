@@ -3,6 +3,7 @@ import SwiftUI
 struct NowPlaying: View {
     @EnvironmentObject var serviceManager: ServiceManager
     @EnvironmentObject var defaults: Defaults
+    @EnvironmentObject var watcher: Watcher
     @Binding var track: Track?
     @Binding var currentPosition: Double?
     @Binding var isPlaying: Bool
@@ -29,6 +30,10 @@ struct NowPlaying: View {
             artistURL: track?.artistURL,
             albumURL: track?.albumURL,
             trackURL: track?.trackURL,
+            onSeek: { position in
+                MediaControl.seek(to: position)
+                watcher.notifySeek()
+            },
                 actionButtons: {
                     if let track = track {
                         BlacklistButton(

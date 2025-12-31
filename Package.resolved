@@ -1,0 +1,14 @@
+{
+  "pins" : [
+    {
+      "identity" : "mediaremote-adapter",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/ejbills/mediaremote-adapter.git",
+      "state" : {
+        "branch" : "master",
+        "revision" : "78aae86c03adab11a7b352211cc82381737cf854"
+      }
+    }
+  ],
+  "version" : 2
+}

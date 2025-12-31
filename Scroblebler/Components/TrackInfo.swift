@@ -29,6 +29,9 @@ struct TrackInfo<ActionButtons: View>: View {
     let albumURL: URL?
     let trackURL: URL?
     
+    // Seek callback
+    let onSeek: ((Double) -> Void)?
+    
     // Optional action buttons
     let actionButtons: ActionButtons?
     
@@ -53,6 +56,7 @@ struct TrackInfo<ActionButtons: View>: View {
         artistURL: URL? = nil,
         albumURL: URL? = nil,
         trackURL: URL? = nil,
+        onSeek: ((Double) -> Void)? = nil,
         @ViewBuilder actionButtons: () -> ActionButtons = { EmptyView() as! ActionButtons }
     ) {
         self.trackName = trackName
@@ -73,6 +77,7 @@ struct TrackInfo<ActionButtons: View>: View {
         self.artistURL = artistURL
         self.albumURL = albumURL
         self.trackURL = trackURL
+        self.onSeek = onSeek
         self.actionButtons = actionButtons()
     }
     
@@ -215,7 +220,7 @@ struct TrackInfo<ActionButtons: View>: View {
                     HStack(spacing: 8) {
                         Text(formatDuration(currentPosition))
                             .font(.caption)
-                        ProgressBar(value: currentPosition, maxValue: trackLength)
+                        ProgressBar(value: currentPosition, maxValue: trackLength, onSeek: onSeek)
                             .frame(height: 8)
                         Text(formatDuration(trackLength))
                             .font(.caption)

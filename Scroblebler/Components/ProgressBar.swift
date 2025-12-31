@@ -15,7 +15,10 @@ struct ProgressBar: View {
     private let backgroundEnabled: Bool
     private let backgroundColor: Color
     private let foregroundColor: Color
+    private let onSeek: ((Double) -> Void)?
     @State private var animationMode: Animation?
+    @State private var isDragging: Bool = false
+    @State private var dragPosition: Double?
 
     private var popoverWillHidePublisher: AnyPublisher<Notification, Never> {
         NotificationCenter.default
@@ -27,12 +30,14 @@ struct ProgressBar: View {
          maxValue: Double,
          backgroundEnabled: Bool = true,
          backgroundColor: Color = Color(.red),
-         foregroundColor: Color = Color.red.opacity(0.3)) {
+         foregroundColor: Color = Color.red.opacity(0.3),
+         onSeek: ((Double) -> Void)? = nil) {
         self.value = value
         self.maxValue = maxValue
         self.backgroundEnabled = backgroundEnabled
         self.backgroundColor = backgroundColor
         self.foregroundColor = foregroundColor
+        self.onSeek = onSeek
     }
 
     var body: some View {
@@ -45,12 +50,36 @@ struct ProgressBar: View {
                 }
 
                 Capsule()
-                    .frame(width: self.progress(value: self.value,
+                    .frame(width: self.progress(value: isDragging ? (dragPosition ?? value) : value,
                                                 maxValue: self.maxValue,
                                                 width: geometryReader.size.width))
                     .foregroundColor(self.foregroundColor)
                     .animation(animationMode)
             }
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { gesture in
+                        if onSeek != nil {
+                            isDragging = true
+                            animationMode = nil
+                            let x = max(0, min(gesture.location.x, geometryReader.size.width))
+                            let percentage = x / geometryReader.size.width
+                            dragPosition = percentage * maxValue
+                        }
+                    }
+                    .onEnded { gesture in
+                        if let onSeek = onSeek {
+                            let x = max(0, min(gesture.location.x, geometryReader.size.width))
+                            let percentage = x / geometryReader.size.width
+                            let seekPosition = percentage * maxValue
+                            onSeek(seekPosition)
+                        }
+                        isDragging = false
+                        dragPosition = nil
+                        animationMode = .easeIn
+                    }
+            )
         }
         .onAppear {
             Task {

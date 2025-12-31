@@ -46,28 +46,26 @@ xattr -cr /Applications/Scroblebler.app
 ### Prerequisites
 
 - Xcode 15.0+
-- CMake (for building the mediaremote-adapter framework)
-  ```bash
-  brew install cmake
-  ```
 
 ### From Xcode
 
 1. Clone this repository:
    ```bash
-   git clone --recursive https://github.com/tonioriol/scroblebler.git
+   git clone https://github.com/tonioriol/scroblebler.git
    cd scroblebler
    ```
 
-2. Build the mediaremote-adapter framework:
-   ```bash
-   cd Scroblebler/Resources/mediaremote-adapter
-   mkdir -p build && cd build
-   cmake .. && cmake --build .
-   cd ../../../..
-   ```
+2. Open `Scroblebler.xcodeproj` in Xcode
 
-3. Open `Scroblebler.xcodeproj` in Xcode and build
+3. Xcode will automatically fetch the Swift package dependencies
+
+4. Build the project (⌘B)
+
+**Note**: On first build, you must configure the MediaRemoteAdapter framework embedding:
+   - Select the Scroblebler target
+   - Go to General tab
+   - Under "Frameworks, Libraries, and Embedded Content"
+   - Set MediaRemoteAdapter.framework to "Embed & Sign"
 
 ### Release Build
 
@@ -76,13 +74,12 @@ To create a release DMG:
 ./scripts/build.sh <version>
 ```
 
-This automatically builds the framework and packages everything.
 
 ## Credits
 
 This project is a fork of the original [Audioscrobbler](https://github.com/heyvito/audioscrobbler) by Victor Gama, with additional features.
 
-Media playback detection is powered by [mediaremote-adapter](https://github.com/ungive/mediaremote-adapter) by Jonas van den Berg, which enables access to the MediaRemote framework on macOS 15.4+.
+Media playback control and detection uses [mediaremote-adapter](https://github.com/ejbills/mediaremote-adapter) by ejbills (forked from ungive's original work), which provides a Swift interface to macOS's private MediaRemote framework.
 
 ## Oh no, you pushed your token and secret!
 
