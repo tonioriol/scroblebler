@@ -2,13 +2,28 @@ import Foundation
 import AppKit
 import OSAKit
 
-enum ScriptError: Error {
-    case initializationError
-    case internalError(String)
+struct MediaControlStatus: Codable {
+    let title: String?
+    let artist: String?
+    let album: String?
+    let artworkData: String?
+    let duration: Double?
+    let playing: Bool
+    let playbackRate: Double
+    let elapsedTime: Double?
+    let contentItemIdentifier: String?
+    let trackNumber: Int?
+    let totalTrackCount: Int?
+    let bundleIdentifier: String
+    
+    enum CodingKeys: String, CodingKey {
+        case title, artist, album, artworkData, duration, playing, playbackRate
+        case elapsedTime, contentItemIdentifier, trackNumber, totalTrackCount, bundleIdentifier
+    }
 }
 
 class Watcher: ObservableObject {
-    @Published var currentTrackID: Int32?
+    @Published var currentTrackID: String?
     @Published var currentTrack: Track?
     @Published var currentPosition: Double?
     @Published var maxPosition: Double?
@@ -18,6 +33,8 @@ class Watcher: ObservableObject {
     
     private var timer: Timer?
     private let debug: Bool
+    private var lastSnapshotTime: Date?
+    private var lastSnapshotPosition: Double?
     var onTrackChanged: ((Track) -> Void)?
     var onScrobbleWanted: ((Track) -> Void)?
     
@@ -39,90 +56,91 @@ class Watcher: ObservableObject {
         timer = nil
     }
     
-    private func log(_ message: String) {
-        guard debug else { return }
-        print(message)
-    }
     
-    private func runScript<T>(_ script: String) throws -> T {
-        if !isMusicRunning() {
-            switch T.self {
-            case is String.Type: return "" as! T
-            case is Bool.Type: return false as! T
-            case is Int32.Type: return 0 as! T
-            case is Double.Type: return 0.0 as! T
-            case is Data.Type: return Data() as! T
-            default: throw ScriptError.initializationError
-            }
+    private func getMediaControlStatus() throws -> MediaControlStatus? {
+        let process = Process()
+        
+        let possiblePaths = [
+            "/opt/homebrew/bin/media-control",
+            "/usr/local/bin/media-control",
+            "/usr/bin/media-control"
+        ]
+        
+        guard let path = possiblePaths.first(where: { FileManager.default.fileExists(atPath: $0) }) else {
+            Logger.error("media-control not found", log: Logger.playback)
+            return nil
         }
         
-        return try autoreleasepool {
-            var error: NSDictionary?
-            let scriptObject = OSAScript(source: script)
-            let output = scriptObject.executeAndReturnError(&error)
-            if error != nil {
-                throw ScriptError.internalError(String(describing: error))
+        process.executableURL = URL(fileURLWithPath: path)
+        process.arguments = ["get"]
+        
+        let pipe = Pipe()
+        let errorPipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = errorPipe
+        
+        do {
+            try process.run()
+            
+            // Read pipes before waiting to avoid deadlock
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
+            
+            process.waitUntilExit()
+            
+            if !errorData.isEmpty, let errorStr = String(data: errorData, encoding: .utf8) {
+                Logger.error("media-control error: \(errorStr)", log: Logger.playback)
             }
             
-            switch T.self {
-            case is String.Type: return "\(output!.stringValue!)" as! T
-            case is Bool.Type: return output!.booleanValue as! T
-            case is Int32.Type: return output!.int32Value as! T
-            case is Double.Type: return output!.doubleValue as! T
-            case is Data.Type: return NSData(data: output!.data) as! T
-            default: throw ScriptError.initializationError
+            guard process.terminationStatus == 0, !data.isEmpty else {
+                return nil
             }
+            
+            return try JSONDecoder().decode(MediaControlStatus.self, from: data)
+        } catch {
+            Logger.error("media-control failed: \(error.localizedDescription)", log: Logger.playback)
+            return nil
         }
     }
     
-    private func getPlayerPosition() throws -> Double {
-        try runScript("""
-            tell application id "com.apple.Music" to get the player position
-        """)
-    }
-    
-    private func getPlayerTrack() throws -> Track {
-        let name: String = try runScript("""
-            tell application id "com.apple.Music" to get the name of the current track
-        """)
-        let artist: String = try runScript("""
-            tell application id "com.apple.Music" to get the artist of the current track
-        """)
-        let album: String = try runScript("""
-            tell application id "com.apple.Music" to get the album of the current track
-        """)
-        let artwork: Data = try runScript("""
-            tell application id "com.apple.Music" to get the data of the first artwork of the current track
-        """)
-        let length: Double = try runScript("""
-            tell application id "com.apple.Music" to get the duration of the current track
-        """)
-        let year: Int32 = try runScript("""
-            tell application id "com.apple.Music" to get the year of the current track
-        """)
+    private func getLovedStatus() -> Bool {
+        let lovedProperties = ["favorited", "loved"]
         
-        // Try different property names for loved/favorited across macOS versions
-        let lovedPropertyNames = ["favorited", "loved"]
-        var loved = false
-        for propertyName in lovedPropertyNames {
-            do {
-                loved = try runScript("""
-                    tell application "Music" to get \(propertyName) of the current track
-                """)
-                break
-            } catch {
-                continue
+        for propertyName in lovedProperties {
+            let script = """
+                tell application "Music" to get \(propertyName) of the current track
+            """
+            
+            guard let appleScript = NSAppleScript(source: script) else { continue }
+            
+            var error: NSDictionary?
+            let result = appleScript.executeAndReturnError(&error)
+            
+            if error == nil {
+                return result.booleanValue
             }
         }
         
-        let startedAt = Int32(Date().timeIntervalSince1970 - (currentPosition ?? 0))
+        return false
+    }
+    
+    private func getPlayerTrack(from status: MediaControlStatus) throws -> Track {
+        let artwork = status.artworkData
+            .flatMap { Data(base64Encoded: $0) } ?? Data()
+        
+        let elapsedTime = status.elapsedTime ?? 0
+        let startedAt = Int32(Date().timeIntervalSince1970 - elapsedTime)
+        
+        // Only fetch loved status for Apple Music
+        let loved = status.bundleIdentifier == "com.apple.Music" ? getLovedStatus() : false
+        
         return Track(
-            artist: artist,
-            album: album,
-            name: name,
-            length: length,
+            artist: status.artist ?? "",
+            album: status.album ?? "",
+            name: status.title ?? "",
+            length: status.duration ?? 0,
             artwork: artwork,
-            year: year,
+            year: 0,
             loved: loved,
             startedAt: startedAt
         )
@@ -155,90 +173,87 @@ class Watcher: ObservableObject {
     
     func update() throws {
         let isRunning = isMusicRunning()
-        setState { self.musicRunning = isRunning }
-        log("musicRunning = \(musicRunning)")
         
-        guard musicRunning else {
+        guard isRunning else {
+            setState { self.musicRunning = false }
             reset()
             return
         }
         
-        // Get player state
-        let stringState: String = try runScript("""
-            tell application id "com.apple.Music" to get player state
-        """)
+        setState { self.musicRunning = true }
         
-        let newState: PlayerState = switch stringState {
-        case "kPSP": .playing
-        case "kPSp": .paused
-        case "kPSS": .stopped
-        case "kPSF", "kPSR": .seeking
-        default: .unknown
-        }
-        
-        if newState == .stopped {
+        guard let status = try getMediaControlStatus() else {
             reset()
             return
         }
         
+        
+        // Update player state
+        let newState: PlayerState = status.playing ? .playing : .paused
         if newState != playerState {
             setState { self.playerState = newState }
         }
         
-        log("playerState = \(playerState)")
+        // Check if track changed first
+        let trackID = status.contentItemIdentifier ?? "0"
+        let trackChanged = currentTrackID != trackID
         
-        // Get current position
-        let rawCurrentPosition: Data = try runScript("""
-            tell application id "com.apple.Music" to get the player position
-        """)
-        
-        if rawCurrentPosition.count == 4 && rawCurrentPosition.starts(with: [103, 110, 115, 109]) {
-            reset()
-            return
+        if trackChanged {
+            // Track changed - scrobble previous if needed
+            if let track = currentTrack, let maxPos = maxPosition {
+                let percentPlayed = (maxPos / track.length) * 100
+                if percentPlayed >= 95 && !track.scrobbled && track.length >= 30 {
+                    if let fn = onScrobbleWanted {
+                        DispatchQueue.main.async { fn(track) }
+                    }
+                }
+            }
+            
+            // Update track and reset position tracking
+            lastSnapshotTime = Date()
+            lastSnapshotPosition = status.elapsedTime ?? 0
+            
+            setState {
+                self.maxPosition = 0
+                self.currentTrackID = trackID
+            }
+            
+            let track = try getPlayerTrack(from: status)
+            setState { self.currentTrack = track }
+            
+            if let fn = onTrackChanged {
+                DispatchQueue.main.async { fn(track) }
+            }
         }
         
-        let position = rawCurrentPosition.withUnsafeBytes { $0.load(as: Double.self) }
+        // Update position - interpolate if playing, otherwise use snapshot
+        let now = Date()
+        let snapshotPos = status.elapsedTime ?? 0
+        
+        // Check if we got a fresh snapshot (position changed)
+        if snapshotPos != lastSnapshotPosition {
+            Logger.debug("Fresh snapshot from media-control: \(snapshotPos)s", log: Logger.playback)
+            lastSnapshotTime = now
+            lastSnapshotPosition = snapshotPos
+        }
+        
+        // Calculate interpolated position
+        let position: Double
+        if status.playing && status.playbackRate > 0,
+           let lastTime = lastSnapshotTime,
+           let lastPos = lastSnapshotPosition {
+            // Interpolate based on time elapsed since last snapshot
+            let elapsed = now.timeIntervalSince(lastTime)
+            position = lastPos + elapsed
+        } else {
+            // Use snapshot when paused or no tracking data
+            position = snapshotPos
+        }
+        
         setState {
             self.currentPosition = position
             if self.maxPosition == nil || position > (self.maxPosition ?? 0) {
                 self.maxPosition = position
-            }
-        }
-        
-        log("currentPosition = \(position)")
-        
-        // Get track ID
-        let trackID: Int32 = try runScript("""
-            tell application id "com.apple.Music" to get the database ID of the current track
-        """)
-        
-        guard currentTrackID != trackID else {
-            return
-        }
-        
-        // Track changed - check if we should scrobble the previous one
-        if let track = currentTrack, let maxPos = maxPosition {
-            let percentPlayed = (maxPos / track.length) * 100
-            if percentPlayed >= 95 && !track.scrobbled && track.length >= 30 {
-                if let fn = onScrobbleWanted {
-                    DispatchQueue.main.async {
-                        fn(track)
-                    }
-                }
-                log("Scrobble: \(track)")
-            }
-        }
-        
-        setState { self.maxPosition = 0 }
-        setState { self.currentTrackID = trackID }
-        
-        let track = try getPlayerTrack()
-        setState { self.currentTrack = track }
-        log("Current track: \(track.description)")
-        
-        if let fn = onTrackChanged {
-            DispatchQueue.main.async {
-                fn(track)
             }
         }
     }
