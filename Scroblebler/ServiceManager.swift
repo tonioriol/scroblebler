@@ -351,7 +351,6 @@ class ServiceManager: ObservableObject {
                 name: recentTrack.name,
                 length: 0,
                 artwork: nil,
-                year: 0,
                 loved: recentTrack.loved,
                 startedAt: Int32(recentTrack.date ?? 0)
             )

@@ -14,26 +14,19 @@ struct NowPlaying: View {
     var body: some View {
         VStack(spacing: 12) {
             TrackInfo(
-            trackName: track!.name,
-            artist: track!.artist,
-            album: track!.album,
-            loved: $lovedState,
-            year: Int(track!.year),
-            artworkSize: 92,
-            artworkImageData: track?.artwork,
-            titleFontSize: 18,
-            detailFontSize: 13,
-            loveFontSize: 12,
-            currentPosition: currentPosition,
-            trackLength: track!.length,
-            playCount: $playCount,
-            artistURL: track?.artistURL,
-            albumURL: track?.albumURL,
-            trackURL: track?.trackURL,
-            onSeek: { position in
-                MediaControl.seek(to: position)
-                watcher.notifySeek()
-            },
+                trackName: track!.name,
+                artist: track!.artist,
+                album: track!.album,
+                loved: $lovedState,
+                artworkSize: 92,
+                artworkImageData: track?.artwork,
+                titleFontSize: 18,
+                detailFontSize: 13,
+                loveFontSize: 12,
+                playCount: $playCount,
+                artistURL: track?.artistURL,
+                albumURL: track?.albumURL,
+                trackURL: track?.trackURL,
                 actionButtons: {
                     if let track = track {
                         BlacklistButton(
@@ -44,8 +37,16 @@ struct NowPlaying: View {
                 }
             )
             
-            PlayControls(isPlaying: $isPlaying)
-                .padding(.bottom, 8)
+            PlayerControls(
+                isPlaying: $isPlaying,
+                currentPosition: currentPosition,
+                trackLength: track?.length,
+                onSeek: { position in
+                    MediaControl.seek(to: position)
+                    watcher.notifySeek()
+                }
+            )
+            .padding(.bottom, 8)
         }
         .padding()
         .onAppear {
@@ -86,6 +87,6 @@ struct NowPlaying: View {
 
 struct NowPlaying_Previews: PreviewProvider {
     static var previews: some View {
-        NowPlaying(track: .constant(.init(artist: "Alexisonfire", album: "Watch Out!", name: "It Was Fear Of Myself That Made Me Odd", length: 123.10293, artwork: nil, year: 2004, loved: true, startedAt: 0)), currentPosition: .constant(61.5), isPlaying: .constant(true))
+        NowPlaying(track: .constant(.init(artist: "Alexisonfire", album: "Watch Out!", name: "It Was Fear Of Myself That Made Me Odd", length: 123.10293, artwork: nil, loved: true, startedAt: 0)), currentPosition: .constant(61.5), isPlaying: .constant(true))
     }
 }

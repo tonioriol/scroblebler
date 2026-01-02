@@ -51,7 +51,7 @@
 		LOGGER00000000000000002 /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = LOGGER00000000000000001 /* Logger.swift */; };
 		MEDCTL00000000000000002 /* MediaControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = MEDCTL00000000000000001 /* MediaControl.swift */; };
 		MRAPKG00000000000000001 /* MediaRemoteAdapter in Frameworks */ = {isa = PBXBuildFile; productRef = MRAPKG00000000000000000 /* MediaRemoteAdapter */; };
-		PLYCTL00000000000000002 /* PlayControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = PLYCTL00000000000000001 /* PlayControls.swift */; };
+		PLYRCTL0000000000000002 /* PlayerControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = PLYRCTL0000000000000001 /* PlayerControls.swift */; };
 		SYNCBADGE00000000000002 /* SyncStatusBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = SYNCBADGE00000000000001 /* SyncStatusBadge.swift */; };
 		UN0000000000000000000002 /* UndoButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = UN0000000000000000000001 /* UndoButton.swift */; };
 /* End PBXBuildFile section */
@@ -115,7 +115,7 @@
 		LFWC0000000000000000001 /* LastFmWebClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LastFmWebClient.swift; sourceTree = "<group>"; };
 		LOGGER00000000000000001 /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
 		MEDCTL00000000000000001 /* MediaControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaControl.swift; sourceTree = "<group>"; };
-		PLYCTL00000000000000001 /* PlayControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayControls.swift; sourceTree = "<group>"; };
+		PLYRCTL0000000000000001 /* PlayerControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerControls.swift; sourceTree = "<group>"; };
 		SYNCBADGE00000000000001 /* SyncStatusBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncStatusBadge.swift; sourceTree = "<group>"; };
 		UN0000000000000000000001 /* UndoButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UndoButton.swift; sourceTree = "<group>"; };
 		NETCL00000000000000001 /* NetworkClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkClient.swift; sourceTree = "<group>"; };
@@ -167,7 +167,7 @@
 				EE7777777777777777777777 /* TokenInputSheet.swift */,
 				EE8888888888888888888889 /* PasswordInputSheet.swift */,
 				EE9999999999999999999999 /* PasteableTextFields.swift */,
-				PLYCTL00000000000000001 /* PlayControls.swift */,
+				PLYRCTL0000000000000001 /* PlayerControls.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -385,7 +385,7 @@
 				SYNCBADGE00000000000002 /* SyncStatusBadge.swift in Sources */,
 				LOGGER00000000000000002 /* Logger.swift in Sources */,
 				MEDCTL00000000000000002 /* MediaControl.swift in Sources */,
-				PLYCTL00000000000000002 /* PlayControls.swift in Sources */,
+				PLYRCTL0000000000000002 /* PlayerControls.swift in Sources */,
 				NETCL00000000000000002 /* NetworkClient.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

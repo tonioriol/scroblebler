@@ -146,13 +146,6 @@ class Watcher: ObservableObject {
         
         Logger.debug("handleTrackInfo called for: \(payload.title ?? "Unknown")", log: Logger.playback)
         
-        // Update MediaControl with current shuffle/repeat modes
-        if let shuffleMode = payload.shuffleMode {
-            MediaControl.updateShuffleMode(shuffleMode)
-        }
-        if let repeatMode = payload.repeatMode {
-            MediaControl.updateRepeatMode(repeatMode)
-        }
         
         // Convert artwork NSImage to base64 if available (on background thread to avoid blocking)
         var artworkData: String?
@@ -260,7 +253,6 @@ class Watcher: ObservableObject {
             name: status.title ?? "",
             length: status.duration ?? 0,
             artwork: artwork,
-            year: 0,
             loved: loved,
             startedAt: startedAt
         )

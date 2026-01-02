@@ -8,7 +8,6 @@ struct TrackInfo<ActionButtons: View>: View {
     let trackName: String
     let artist: String
     let album: String
-    let year: Int?
     let artworkSize: CGFloat
     let artworkImageData: Data?
     let artworkImageUrl: String?
@@ -20,7 +19,7 @@ struct TrackInfo<ActionButtons: View>: View {
     // For history items
     let timestamp: Int?
     
-    // For now playing
+    // For now playing (progress bar moved to PlayerControls)
     let currentPosition: Double?
     let trackLength: Double?
     
@@ -29,7 +28,7 @@ struct TrackInfo<ActionButtons: View>: View {
     let albumURL: URL?
     let trackURL: URL?
     
-    // Seek callback
+    // Seek callback (moved to PlayerControls)
     let onSeek: ((Double) -> Void)?
     
     // Optional action buttons
@@ -42,7 +41,6 @@ struct TrackInfo<ActionButtons: View>: View {
         artist: String,
         album: String,
         loved: Binding<Bool>,
-        year: Int? = nil,
         artworkSize: CGFloat = 48,
         artworkImageData: Data? = nil,
         artworkImageUrl: String? = nil,
@@ -62,7 +60,6 @@ struct TrackInfo<ActionButtons: View>: View {
         self.trackName = trackName
         self.artist = artist
         self.album = album
-        self.year = year
         self._loved = loved
         self.artworkSize = artworkSize
         self.artworkImageData = artworkImageData
@@ -108,10 +105,17 @@ struct TrackInfo<ActionButtons: View>: View {
         let client = serviceManager.client(for: displayService)
         let linkColor = client?.linkColor ?? Color.primary
         
-        // Use provided URLs or build fallback URLs
-        let finalTrackURL = trackURL ?? buildTrackURL(service: displayService)
-        let finalArtistURL = artistURL ?? buildArtistURL(service: displayService)
-        let finalAlbumURL = albumURL ?? buildAlbumURL(service: displayService)
+        // Service-specific fallback homepage
+        let fallbackURL: URL = {
+            switch displayService {
+            case .lastfm:
+                return URL(string: "https://www.last.fm")!
+            case .librefm:
+                return URL(string: "https://libre.fm")!
+            case .listenbrainz:
+                return URL(string: "https://listenbrainz.org")!
+            }
+        }()
         
         HStack(alignment: .top, spacing: 12) {
             if let imageData = artworkImageData {
@@ -124,7 +128,7 @@ struct TrackInfo<ActionButtons: View>: View {
                 HStack(alignment: .top, spacing: 0) {
                     VStack(alignment: .leading, spacing: 2) {
                         // Track name
-                        Link(destination: finalTrackURL) {
+                        Link(destination: trackURL ?? fallbackURL) {
                             MarqueeText(
                                 text: trackName,
                                 font: .system(size: titleFontSize, weight: .semibold),
@@ -140,7 +144,7 @@ struct TrackInfo<ActionButtons: View>: View {
                                 Text("by")
                                     .font(.system(size: detailFontSize))
                                     .foregroundColor(.secondary)
-                                Link(destination: finalArtistURL) {
+                                Link(destination: artistURL ?? fallbackURL) {
                                     MarqueeText(
                                         text: artist,
                                         font: .system(size: detailFontSize),
@@ -161,7 +165,7 @@ struct TrackInfo<ActionButtons: View>: View {
                                 Text("on")
                                     .font(.system(size: detailFontSize))
                                     .foregroundColor(.secondary)
-                                Link(destination: finalAlbumURL) {
+                                Link(destination: albumURL ?? fallbackURL) {
                                     MarqueeText(
                                         text: album,
                                         font: .system(size: detailFontSize),
@@ -173,18 +177,6 @@ struct TrackInfo<ActionButtons: View>: View {
                             } else {
                                 Text("")
                                     .font(.system(size: detailFontSize))
-                            }
-                        }
-                        
-                        // Year - only show if we have data
-                        if let year = year {
-                            HStack(spacing: 3) {
-                                Text("released")
-                                    .font(.system(size: detailFontSize))
-                                    .foregroundColor(.secondary)
-                                Text("\(String(format: "%04d", year))")
-                                    .font(.system(size: detailFontSize))
-                                    .foregroundColor(.secondary)
                             }
                         }
                     }
@@ -214,71 +206,7 @@ struct TrackInfo<ActionButtons: View>: View {
                         }
                     }
                 }
-                
-                // Progress bar or timestamp placeholder - always reserve space
-                if let currentPosition = currentPosition, let trackLength = trackLength {
-                    HStack(spacing: 8) {
-                        Text(formatDuration(currentPosition))
-                            .font(.caption)
-                        ProgressBar(value: currentPosition, maxValue: trackLength, onSeek: onSeek)
-                            .frame(height: 8)
-                        Text(formatDuration(trackLength))
-                            .font(.caption)
-                    }
-                } else if timestamp == nil {
-                    // Reserve space for progress bar even if not present
-                    HStack(spacing: 8) {
-                        Text("00:00")
-                            .font(.caption)
-                            .opacity(0)
-                        Rectangle()
-                            .frame(height: 8)
-                            .opacity(0)
-                        Text("00:00")
-                            .font(.caption)
-                            .opacity(0)
-                    }
-                }
             }
-        }
-    }
-    
-    // Fallback URL builders (simple service-specific URLs without MBID enrichment)
-    private func buildArtistURL(service: ScrobbleService) -> URL {
-        let encoded = artist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
-        switch service {
-        case .lastfm:
-            return URL(string: "https://www.last.fm/music/\(encoded)")!
-        case .librefm:
-            return URL(string: "https://libre.fm/music/\(encoded)")!
-        case .listenbrainz:
-            return URL(string: "https://musicbrainz.org/search?query=artist:%22\(encoded)%22&type=artist&limit=1&method=advanced")!
-        }
-    }
-    
-    private func buildAlbumURL(service: ScrobbleService) -> URL {
-        let encodedArtist = artist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
-        let encodedAlbum = album.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
-        switch service {
-        case .lastfm:
-            return URL(string: "https://www.last.fm/music/\(encodedArtist)/\(encodedAlbum)")!
-        case .librefm:
-            return URL(string: "https://libre.fm/music/\(encodedArtist)/\(encodedAlbum)")!
-        case .listenbrainz:
-            return URL(string: "https://musicbrainz.org/search?query=artist:%22\(encodedArtist)%22%20AND%20release:%22\(encodedAlbum)%22&type=release&limit=1&method=advanced")!
-        }
-    }
-    
-    private func buildTrackURL(service: ScrobbleService) -> URL {
-        let encodedArtist = artist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
-        let encodedTrack = trackName.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
-        switch service {
-        case .lastfm:
-            return URL(string: "https://www.last.fm/music/\(encodedArtist)/_/\(encodedTrack)")!
-        case .librefm:
-            return URL(string: "https://libre.fm/music/\(encodedArtist)/_/\(encodedTrack)")!
-        case .listenbrainz:
-            return URL(string: "https://musicbrainz.org/search?query=artist:%22\(encodedArtist)%22%20AND%20recording:%22\(encodedTrack)%22&type=recording&limit=1&method=advanced")!
         }
     }
 }

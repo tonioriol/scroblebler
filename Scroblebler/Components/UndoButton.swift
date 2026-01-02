@@ -115,7 +115,6 @@ struct UndoButton: View {
                 name: track,
                 length: 0,
                 artwork: nil,
-                year: 0,
                 loved: false,
                 startedAt: timestamp,
                 scrobbled: false

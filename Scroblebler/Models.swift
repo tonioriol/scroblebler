@@ -119,7 +119,6 @@ struct Track {
     let name: String
     let length: Double
     let artwork: Data?
-    let year: Int32
     var loved: Bool
     let startedAt: Int32
     var scrobbled: Bool = false
@@ -130,7 +129,7 @@ struct Track {
     var trackURL: URL?
     
     var description: String {
-        "\(name) - \(artist) on \(album) (\(year))"
+        "\(name) - \(artist) on \(album)"
     }
 }
 

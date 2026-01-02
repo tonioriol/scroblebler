@@ -146,27 +146,62 @@ await MainActor.run { updateUI(result) }
 
 ---
 
-## Phase 3: Clean Up UI (TODO)
+## Phase 3: Clean Up UI ✅ COMPLETED
 
-### 3.1 Remove Year Field
-**Problem:** `Track.year` is always 0 (MediaRemote doesn't provide it)
-- Delete `year: Int32` from Track model
-- Remove year display from TrackInfo
-- Remove year parameter from Track creation
-- **Lines:** -15
+### What Was Done
 
-### 3.2 Remove URL Fallbacks from TrackInfo
-**Problem:** TrackInfo has 37 lines of URL builders that duplicate what clients do
-- Clients should ALWAYS provide URLs
-- Remove fallback builders from view layer
-- **Lines:** -37
+#### 1. ✅ Removed Year Field
+- **Deleted:** `year: Int32` from Track model
+- **Removed:** Year display from TrackInfo (11 lines)
+- **Removed:** Year parameter from all Track initializations (Watcher, ServiceManager, UndoButton, NowPlaying)
+- **Updated:** Track description to not include year
+- **Lines removed:** 15
 
-### 3.3 Create PlayerControls Component
-**Problem:** Progress bar in TrackInfo, controls in separate PlayControls - should be unified
-- Create `PlayerControls.swift` with progress bar + buttons
-- Add shuffle/repeat buttons (MediaControl already supports them)
-- Remove progress bar from TrackInfo
-- **Lines:** +38 net (adds shuffle/repeat features)
+#### 2. ✅ Removed URL Fallback Builders
+- **Deleted:** `buildArtistURL()`, `buildAlbumURL()`, `buildTrackURL()` methods (37 lines)
+- **Simplified:** Direct use of provided URLs with simple fallback to Last.fm homepage
+- **Impact:** View layer no longer duplicates client URL building logic
+- **Lines removed:** 37
+
+#### 3. ✅ Unified Player Controls
+- **Created:** `Scroblebler/Components/PlayerControls.swift` (68 lines)
+- **Deleted:** `Scroblebler/Components/PlayControls.swift` (44 lines)
+- **Features:**
+  - Unified progress bar + playback controls
+  - Previous/Play-Pause/Next buttons
+  - Time display with progress bar
+  - Seek support
+- **Note:** Shuffle/repeat buttons attempted but removed (MediaRemote framework can't control these)
+- **Lines added:** 68
+- **Lines removed:** 44
+
+#### 4. ✅ Updated Xcode Project
+- **Updated:** `Scroblebler.xcodeproj/project.pbxproj` to include PlayerControls
+- **Added:** File references and build phase entries
+
+### Results
+
+**Code Reduction:**
+- ~96 lines removed (52 year/URL fallbacks + 44 PlayControls)
+- +68 lines added (PlayerControls)
+- **Net:** -28 lines removed
+
+**Code Quality:**
+- ✅ Removed unused year field (always 0)
+- ✅ Eliminated duplicate URL building logic
+- ✅ Unified player controls in single component
+- ✅ Cleaner separation of concerns
+
+### Files Modified
+- `Scroblebler/Models.swift` - Removed year field
+- `Scroblebler/Watcher.swift` - Removed year parameter
+- `Scroblebler/ServiceManager.swift` - Removed year parameter
+- `Scroblebler/Components/UndoButton.swift` - Removed year parameter
+- `Scroblebler/Components/TrackInfo.swift` - Removed year display and URL fallbacks
+- `Scroblebler/Components/NowPlaying.swift` - Removed year parameter, uses PlayerControls
+- `Scroblebler/Components/PlayerControls.swift` - **CREATED**
+- `Scroblebler/Components/PlayControls.swift` - **DELETED**
+- `Scroblebler.xcodeproj/project.pbxproj` - Added PlayerControls, removed PlayControls
 
 ---
 
@@ -199,11 +234,22 @@ Simplify `enrichTracksWithOtherServices` (99 lines → ~70 lines)
 - ✅ **Net: +11 lines**
 - ✅ **Better code reuse and maintainability**
 
+### Phase 3 (Completed)
+- ✅ **~96 lines removed** (52 year/URL fallbacks + 44 PlayControls)
+- ✅ **+68 lines added** (PlayerControls)
+- ✅ **Net: -28 lines**
+- ✅ **Better UI organization, unified controls**
+
 ### Remaining Phases (TODO)
-- Phase 3: -14 lines (remove year, URL fallbacks) + 38 lines (PlayerControls with shuffle/repeat)
 - Phase 4: -30 lines (simplify sync)
 
+### Total So Far (Phases 1-3 Completed)
+- **~237 lines removed** (114 + 27 + 96)
+- **+106 lines added** (38 NetworkClient + 68 PlayerControls)
+- **Net: ~131 lines reduction**
+- **Plus:** Significantly better code quality, cleaner architecture
+
 ### Total Expected (After All Phases)
-- **~158 lines removed** (114 + 27 + 44)
-- **+76 lines added** (38 NetworkClient + 38 PlayerControls with new features)
-- **Net: ~82 lines reduction + significantly better code quality**
+- **~267 lines removed** (114 + 27 + 96 + 30)
+- **+106 lines added** (38 NetworkClient + 68 PlayerControls)
+- **Net: ~161 lines reduction + significantly better code quality**
