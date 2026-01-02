@@ -45,6 +45,7 @@ class Watcher: ObservableObject {
     
     init(debug: Bool = false) {
         setupMediaController()
+        MediaControl.setup(controller: mediaController)
     }
     
     private func setupMediaController() {
@@ -62,6 +63,13 @@ class Watcher: ObservableObject {
                 Task { @MainActor in
                     self.reset()
                 }
+            }
+        }
+        
+        mediaController.onDecodingError = { error, data in
+            Logger.error("MediaController JSON decode error: \(error)", log: Logger.playback)
+            if let jsonString = String(data: data, encoding: .utf8) {
+                Logger.debug("Failed JSON: \(jsonString)", log: Logger.playback)
             }
         }
         
@@ -137,6 +145,14 @@ class Watcher: ObservableObject {
         let payload = trackInfo.payload
         
         Logger.debug("handleTrackInfo called for: \(payload.title ?? "Unknown")", log: Logger.playback)
+        
+        // Update MediaControl with current shuffle/repeat modes
+        if let shuffleMode = payload.shuffleMode {
+            MediaControl.updateShuffleMode(shuffleMode)
+        }
+        if let repeatMode = payload.repeatMode {
+            MediaControl.updateRepeatMode(repeatMode)
+        }
         
         // Convert artwork NSImage to base64 if available (on background thread to avoid blocking)
         var artworkData: String?
