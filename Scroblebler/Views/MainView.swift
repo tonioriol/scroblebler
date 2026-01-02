@@ -200,9 +200,6 @@ struct MainView: View {
         .onAppear {
             loadRecentTracks()
         }
-        .onChange(of: watcher.currentTrack?.name) { _ in
-            loadRecentTracks()
-        }
         .onChange(of: watcher.playerState) { newState in
             isPlaying = newState == .playing
         }

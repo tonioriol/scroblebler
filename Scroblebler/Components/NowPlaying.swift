@@ -50,48 +50,34 @@ struct NowPlaying: View {
         .padding()
         .onAppear {
             Logger.debug("NowPlaying onAppear: track artwork size: \(track?.artwork?.count ?? 0) bytes", log: Logger.ui)
-            fetchLovedState()
-            fetchPlayCount()
+            fetchTrackInfo()
         }
         .onChange(of: track?.name) { _ in
             Logger.debug("NowPlaying track changed: '\(track?.name ?? "nil")', artwork size: \(track?.artwork?.count ?? 0) bytes", log: Logger.ui)
-            fetchLovedState()
-            fetchPlayCount()
+            fetchTrackInfo()
         }
         .onChange(of: track?.artwork) { newArtwork in
             Logger.debug("NowPlaying artwork changed: new size: \(newArtwork?.count ?? 0) bytes", log: Logger.ui)
         }
     }
     
-    private func fetchLovedState() {
+    private func fetchTrackInfo() {
         guard let currentTrack = track,
               let primary = defaults.primaryService,
-              primary.service == .lastfm,
-              let client = serviceManager.client(for: .lastfm) else {
+              let client = serviceManager.client(for: primary.service) else {
             lovedState = track?.loved ?? false
-            return
-        }
-        
-        Task {
-            let loved = try? await client.getTrackLoved(token: primary.token, artist: currentTrack.artist, track: currentTrack.name)
-            await MainActor.run {
-                lovedState = loved ?? currentTrack.loved
-            }
-        }
-    }
-    
-    private func fetchPlayCount() {
-        guard let currentTrack = track,
-              let primary = defaults.primaryService,
-              primary.service == .lastfm,
-              let client = serviceManager.client(for: .lastfm) else {
             playCount = nil
             return
         }
         
         Task {
-            let count = try? await client.getTrackUserPlaycount(token: primary.token, artist: currentTrack.artist, track: currentTrack.name)
+            let (loved, count) = (try? await client.getTrackInfo(
+                artist: currentTrack.artist,
+                track: currentTrack.name
+            )) ?? (currentTrack.loved, nil)
+            
             await MainActor.run {
+                lovedState = loved
                 playCount = count
             }
         }

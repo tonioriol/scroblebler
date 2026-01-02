@@ -51,7 +51,6 @@
 		MEDCTL00000000000000002 /* MediaControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = MEDCTL00000000000000001 /* MediaControl.swift */; };
 		MRAPKG00000000000000001 /* MediaRemoteAdapter in Frameworks */ = {isa = PBXBuildFile; productRef = MRAPKG00000000000000000 /* MediaRemoteAdapter */; };
 		PLYCTL00000000000000002 /* PlayControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = PLYCTL00000000000000001 /* PlayControls.swift */; };
-		SS8888888888888888888888 /* StringSimilarity.swift in Sources */ = {isa = PBXBuildFile; fileRef = SS7777777777777777777777 /* StringSimilarity.swift */; };
 		SYNCBADGE00000000000002 /* SyncStatusBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = SYNCBADGE00000000000001 /* SyncStatusBadge.swift */; };
 		UN0000000000000000000002 /* UndoButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = UN0000000000000000000001 /* UndoButton.swift */; };
 /* End PBXBuildFile section */
@@ -116,7 +115,6 @@
 		LOGGER00000000000000001 /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
 		MEDCTL00000000000000001 /* MediaControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaControl.swift; sourceTree = "<group>"; };
 		PLYCTL00000000000000001 /* PlayControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayControls.swift; sourceTree = "<group>"; };
-		SS7777777777777777777777 /* StringSimilarity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StringSimilarity.swift; sourceTree = "<group>"; };
 		SYNCBADGE00000000000001 /* SyncStatusBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncStatusBadge.swift; sourceTree = "<group>"; };
 		UN0000000000000000000001 /* UndoButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UndoButton.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -216,7 +214,6 @@
 				DAC47090293166B300734C24 /* main.swift */,
 				DAEF0C3E2933A5010083F9AB /* LaunchAtStartup.swift */,
 				EE5555555555555555555555 /* ServiceManager.swift */,
-				SS7777777777777777777777 /* StringSimilarity.swift */,
 				KEYC0000000000000000001 /* KeychainHelper.swift */,
 				IMGCACHE000000000000001 /* ImageCache.swift */,
 				LOGGER00000000000000001 /* Logger.swift */,
@@ -371,7 +368,6 @@
 				FF7777777777777777777777 /* TokenInputSheet.swift in Sources */,
 				FF8888888888888888888889 /* PasswordInputSheet.swift in Sources */,
 				KEYC0000000000000000002 /* KeychainHelper.swift in Sources */,
-				SS8888888888888888888888 /* StringSimilarity.swift in Sources */,
 				LFWC0000000000000000002 /* LastFmWebClient.swift in Sources */,
 				LBCACHE0000000000000002 /* ListenBrainzCache.swift in Sources */,
 				IMGCACHE000000000000002 /* ImageCache.swift in Sources */,

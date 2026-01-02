@@ -31,6 +31,10 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
     private let paginationState = Locked(PaginationState())
     private let cache = ListenBrainzCache()
     
+    // Stored credentials (set during authentication)
+    private var username: String?
+    private var token: String?
+    
     var baseURL: URL { URL(string: "https://api.listenbrainz.org/1/")! }
     var authURL: String { "https://listenbrainz.org/settings/" }
     var linkColor: Color { Color(hue: 0.08, saturation: 0.80, brightness: 0.85) }
@@ -94,6 +98,10 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
               let username = json?["user_name"] as? String else {
             throw Error.invalidToken
         }
+        
+        // Store credentials
+        self.username = username
+        self.token = trimmedToken
         
         let profileUrl = "https://listenbrainz.org/user/\(username)/"
         return (username, token, profileUrl, false)
@@ -594,12 +602,45 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         await cache.populatePlayCountCache(username: username)
     }
     
-    func getTrackUserPlaycount(token: String, artist: String, track: String) async throws -> Int? {
-        return nil
+    func getTrackInfo(artist: String, track: String) async throws -> (loved: Bool, playcount: Int?) {
+        guard let username = self.username, self.token != nil else {
+            return (false, nil)
+        }
+        
+        // Get playcount from cache (populated when loading recent tracks)
+        let playcount = cache.getCachedPlayCount(username: username, artist: artist, track: track)
+        
+        // Get loved status from feedback API - requires recording MBID lookup
+        var loved = false
+        if let mbid = try? await lookupRecordingMBID(artist: artist, track: track) {
+            loved = try await getTrackFeedback(recordingMbid: mbid)
+        }
+        
+        return (loved, playcount)
     }
     
-    func getTrackLoved(token: String, artist: String, track: String) async throws -> Bool {
-        return false
+    private func getTrackFeedback(recordingMbid: String) async throws -> Bool {
+        guard let token = self.token else { return false }
+        
+        var components = URLComponents(url: baseURL.appendingPathComponent("feedback/user/me/get-feedback-for-recordings"), resolvingAgainstBaseURL: false)!
+        components.queryItems = [
+            URLQueryItem(name: "recording_mbids", value: recordingMbid)
+        ]
+        
+        var request = URLRequest(url: components.url!)
+        request.httpMethod = "GET"
+        request.setValue("Token \(token)", forHTTPHeaderField: "Authorization")
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            return false
+        }
+        
+        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        let feedback = json?["feedback"] as? [[String: Any]] ?? []
+        
+        // Check if any feedback entry has score = 1 (loved)
+        return feedback.contains { ($0["score"] as? Int) == 1 }
     }
     
     // MARK: - Track Enrichment

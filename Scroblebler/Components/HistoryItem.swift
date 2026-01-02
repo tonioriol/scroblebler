@@ -63,28 +63,25 @@ struct HistoryItem: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
         .onAppear {
-            fetchLovedState()
+            fetchTrackInfo()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TrackLoveStateChanged"))) { _ in
-            fetchLovedState()
+            fetchTrackInfo()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TrackBackfillSucceeded"))) { notification in
             updateSyncStatus(from: notification)
         }
     }
     
-    private func fetchLovedState() {
+    private func fetchTrackInfo() {
         guard let primary = defaults.primaryService,
-              primary.service == .lastfm,
-              let client = serviceManager.client(for: .lastfm) else {
-            return
-        }
+              let client = serviceManager.client(for: primary.service) else { return }
         
         Task {
-            let lovedState = try? await client.getTrackLoved(token: primary.token, artist: track.artist, track: track.name)
-            await MainActor.run {
-                if let lovedState = lovedState {
+            if let (lovedState, count) = try? await client.getTrackInfo(artist: track.artist, track: track.name) {
+                await MainActor.run {
                     loved = lovedState
+                    playcount = count
                 }
             }
         }

@@ -18,8 +18,9 @@ class LastFmClient: ObservableObject, ScrobbleClient {
     var authURL: String { "https://www.last.fm/api/auth/" }
     var linkColor: Color { Color(hue: 0, saturation: 0.70, brightness: 0.75) }
     
-    // Store username for web operations
-    private var authenticatedUsername: String?
+    // Stored credentials (set during authentication)
+    private var username: String?
+    private var sessionKey: String?
     
     // Web client for operations that require web session
     private var webClient: LastFmWebClient?
@@ -66,8 +67,9 @@ class LastFmClient: ObservableObject, ScrobbleClient {
         let userInfoData = try await executeRequest(method: "user.getInfo", args: ["sk": result.session.key])
         let userInfo = try JSONDecoder().decode(UserInfoResponse.self, from: userInfoData)
         
-        // Store username for web operations
-        self.authenticatedUsername = result.session.name
+        // Store credentials
+        self.username = result.session.name
+        self.sessionKey = result.session.key
         
         return (result.session.name, result.session.key, userInfo.user.url, result.session.subscriber == 1)
     }
@@ -161,7 +163,7 @@ class LastFmClient: ObservableObject, ScrobbleClient {
             
             // If API fails and web client is authenticated, try web deletion
             if let webClient = webClient, webClient.isAuthenticated,
-               let username = authenticatedUsername {
+               let username = self.username {
                 Logger.debug("Attempting web deletion for \(identifier.artist) - \(identifier.track)", log: Logger.scrobbling)
                 try await webClient.deleteScrobble(
                     username: username,
@@ -186,7 +188,7 @@ class LastFmClient: ObservableObject, ScrobbleClient {
         let client = LastFmWebClient(username: username)
         try await client.authenticate(username: username, password: password)
         self.webClient = client
-        self.authenticatedUsername = username
+        self.username = username
         Logger.info("Last.fm web client authenticated for user: \(username)", log: Logger.authentication)
     }
     
@@ -220,14 +222,14 @@ class LastFmClient: ObservableObject, ScrobbleClient {
         Logger.debug("Last.fm decoded \(baseTracks.count) tracks", log: Logger.api)
         
         // If we have a token, fetch playcounts in parallel
-        guard let token = token else {
+        guard token != nil else {
             return baseTracks
         }
         
         return try await withThrowingTaskGroup(of: (Int, Int?).self) { group in
             for (index, track) in baseTracks.enumerated() {
                 group.addTask {
-                    let count = try? await self.getTrackUserPlaycount(token: token, artist: track.artist, track: track.name)
+                    let (_, count) = try await self.getTrackInfo(artist: track.artist, track: track.name)
                     return (index, count)
                 }
             }
@@ -321,32 +323,20 @@ class LastFmClient: ObservableObject, ScrobbleClient {
         return response.toptracks.track.map { $0.toDomain() }
     }
     
-    func getTrackUserPlaycount(token: String, artist: String, track: String) async throws -> Int? {
-        do {
-            let data = try await executeRequestWithRetry(method: "track.getInfo", args: [
-                "artist": artist,
-                "track": track,
-                "sk": token
-            ])
-            let response = try JSONDecoder().decode(TrackInfoResponse.self, from: data)
-            return response.track.userplaycount.flatMap { Int($0) }
-        } catch {
-            return nil
+    func getTrackInfo(artist: String, track: String) async throws -> (loved: Bool, playcount: Int?) {
+        guard let sessionKey = self.sessionKey else {
+            return (false, nil)
         }
-    }
-    
-    func getTrackLoved(token: String, artist: String, track: String) async throws -> Bool {
-        do {
-            let data = try await executeRequestWithRetry(method: "track.getInfo", args: [
-                "artist": artist,
-                "track": track,
-                "sk": token
-            ])
-            let response = try JSONDecoder().decode(TrackInfoResponse.self, from: data)
-            return response.track.userloved == "1"
-        } catch {
-            return false
-        }
+        
+        let data = try await executeRequestWithRetry(method: "track.getInfo", args: [
+            "artist": artist,
+            "track": track,
+            "sk": sessionKey
+        ])
+        let response = try JSONDecoder().decode(TrackInfoResponse.self, from: data)
+        let loved = response.track.userloved == "1"
+        let playcount = response.track.userplaycount.flatMap { Int($0) }
+        return (loved, playcount)
     }
     
     func getUserImage(username: String) async throws -> Data? {
