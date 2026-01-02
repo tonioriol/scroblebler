@@ -228,26 +228,22 @@ class ServiceManager: ObservableObject {
         
         var otherServiceTracks: [[RecentTrack]] = []
         
-        // Get timestamp range from primary tracks with buffer
-        // Add 5 minutes (300s) buffer on each side to catch boundary cases and clock skew
+        // Get timestamp range with buffer for clock skew and boundary cases
         let minTs = tracks.compactMap { $0.date }.min()
         let maxTs = tracks.compactMap { $0.date }.max()
-        let timeBuffer = 300 // 5 minutes in seconds
+        let timeBuffer = 300 // 5 minutes buffer to catch boundary cases and clock skew
         
         let oldestTimestamp = minTs.map { $0 - timeBuffer }
         let newestTimestamp = maxTs.map { $0 + timeBuffer }
         
-        Logger.debug("Primary timestamp range: \(minTs ?? 0) to \(maxTs ?? 0) (with buffer: \(oldestTimestamp ?? 0) to \(newestTimestamp ?? 0))", log: Logger.sync)
+        Logger.debug("Primary timestamp range: \(minTs ?? 0) to \(maxTs ?? 0) (buffer: ±\(timeBuffer)s)", log: Logger.sync)
         
+        // Fetch tracks from other services
         await withTaskGroup(of: (Int, [RecentTrack]?).self) { group in
             for (index, credentials) in otherServices.enumerated() {
                 guard let client = self.client(for: credentials.service) else { continue }
                 group.addTask {
                     do {
-                        var allTracks: [RecentTrack] = []
-                        
-                        Logger.debug("Attempting timestamp query for \(credentials.service.displayName) (min: \(oldestTimestamp ?? 0), max: \(newestTimestamp ?? 0))", log: Logger.sync)
-                        
                         // Try timestamp-based query first (Last.fm and ListenBrainz support this)
                         if let timeRangeTracks = try await client.getRecentTracksByTimeRange(
                             username: credentials.username,
@@ -256,22 +252,20 @@ class ServiceManager: ObservableObject {
                             limit: 1000,
                             token: credentials.token
                         ), !timeRangeTracks.isEmpty {
-                            allTracks = timeRangeTracks
-                            Logger.debug("Fetched \(allTracks.count) tracks from \(credentials.service.displayName) using timestamp range", log: Logger.sync)
-                        } else {
-                            Logger.debug("Timestamp query returned nil/empty for \(credentials.service.displayName), falling back to page-based", log: Logger.sync)
-                            // Fallback to page-based (Libre.fm or if timestamp query returns nil/empty)
-                            let fetchLimit = min(limit * 10 * page, 1000)
-                            allTracks = try await client.getRecentTracks(
-                                username: credentials.username,
-                                limit: fetchLimit,
-                                page: 1,
-                                token: credentials.token
-                            )
-                            Logger.debug("Fell back to page-based for \(credentials.service.displayName) (up to \(fetchLimit))", log: Logger.sync)
+                            Logger.debug("Fetched \(timeRangeTracks.count) tracks from \(credentials.service.displayName) (timestamp query)", log: Logger.sync)
+                            return (index, timeRangeTracks)
                         }
                         
-                        return (index, allTracks)
+                        // Fallback to page-based query (Libre.fm or if timestamp query unsupported)
+                        let fetchLimit = min(limit * 10 * page, 1000)
+                        let pageTracks = try await client.getRecentTracks(
+                            username: credentials.username,
+                            limit: fetchLimit,
+                            page: 1,
+                            token: credentials.token
+                        )
+                        Logger.debug("Fetched \(pageTracks.count) tracks from \(credentials.service.displayName) (page query)", log: Logger.sync)
+                        return (index, pageTracks)
                     } catch {
                         Logger.error("Failed to fetch history from \(credentials.service.displayName): \(error)", log: Logger.sync)
                         return (index, nil)
@@ -289,28 +283,20 @@ class ServiceManager: ObservableObject {
             }
         }
         
-        // Match primary tracks with other services and backfill missing
+        // Match primary tracks with other services and queue backfills
         var tracksToBackfill: [(track: RecentTrack, credentials: ServiceCredentials)] = []
         
         for serviceIndex in otherServiceTracks.indices {
             let serviceTracks = otherServiceTracks[serviceIndex]
-            let service = otherServices[serviceIndex].service
             let credentials = otherServices[serviceIndex]
             
-            Logger.debug("Matching primary tracks with \(service.displayName)", log: Logger.sync)
-            
             for primaryIndex in tracks.indices {
-                if let matchedTrack = findBestMatch(for: tracks[primaryIndex], in: serviceTracks, serviceName: service.displayName) {
-                    // Track exists in both - enrich with service info
+                if let matchedTrack = findBestMatch(for: tracks[primaryIndex], in: serviceTracks, serviceName: credentials.service.displayName) {
+                    // Track exists - enrich with service info
                     tracks[primaryIndex].serviceInfo.merge(matchedTrack.serviceInfo) { (_, new) in new }
-                } else {
-                    // Track missing in secondary service - queue for backfill
-                    Logger.debug("Missing in \(service.displayName): '\(tracks[primaryIndex].artist) - \(tracks[primaryIndex].name)'", log: Logger.sync)
-                    
-                    // Check if backfill is allowed
-                    if canBackfill(track: tracks[primaryIndex], to: service) {
-                        tracksToBackfill.append((track: tracks[primaryIndex], credentials: credentials))
-                    }
+                } else if canBackfill(track: tracks[primaryIndex], to: credentials.service) {
+                    // Track missing and eligible for backfill
+                    tracksToBackfill.append((track: tracks[primaryIndex], credentials: credentials))
                 }
             }
         }
