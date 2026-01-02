@@ -54,6 +54,7 @@
 		PLYRCTL0000000000000002 /* PlayerControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = PLYRCTL0000000000000001 /* PlayerControls.swift */; };
 		SYNCBADGE00000000000002 /* SyncStatusBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = SYNCBADGE00000000000001 /* SyncStatusBadge.swift */; };
 		UN0000000000000000000002 /* UndoButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = UN0000000000000000000001 /* UndoButton.swift */; };
+		STRSIM00000000000000002 /* StringSimilarity.swift in Sources */ = {isa = PBXBuildFile; fileRef = STRSIM00000000000000001 /* StringSimilarity.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -119,6 +120,7 @@
 		SYNCBADGE00000000000001 /* SyncStatusBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncStatusBadge.swift; sourceTree = "<group>"; };
 		UN0000000000000000000001 /* UndoButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UndoButton.swift; sourceTree = "<group>"; };
 		NETCL00000000000000001 /* NetworkClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkClient.swift; sourceTree = "<group>"; };
+		STRSIM00000000000000001 /* StringSimilarity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StringSimilarity.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -264,6 +266,7 @@
 			isa = PBXGroup;
 			children = (
 				NETCL00000000000000001 /* NetworkClient.swift */,
+				STRSIM00000000000000001 /* StringSimilarity.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -387,6 +390,7 @@
 				MEDCTL00000000000000002 /* MediaControl.swift in Sources */,
 				PLYRCTL0000000000000002 /* PlayerControls.swift in Sources */,
 				NETCL00000000000000002 /* NetworkClient.swift in Sources */,
+				STRSIM00000000000000002 /* StringSimilarity.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -376,8 +376,46 @@ class ServiceManager: ObservableObject {
     private func findBestMatch(for track: RecentTrack, in candidates: [RecentTrack], serviceName: String) -> RecentTrack? {
         guard let targetTime = track.date else { return nil }
         
-        return candidates.first { candidate in
-            candidate.date == targetTime
+        var bestMatch: RecentTrack?
+        var bestScore: Double = 0
+        
+        for candidate in candidates {
+            // Check timestamp proximity (within 2 minutes)
+            guard let candidateTime = candidate.date,
+                  abs(targetTime - candidateTime) < 120 else {
+                continue
+            }
+            
+            let timestampDelta = abs(targetTime - candidateTime)
+            
+            // Exact timestamp match - return immediately
+            if timestampDelta == 0 {
+                return candidate
+            }
+            
+            // Fuzzy match with string similarity
+            let normalizedTrackArtist = normalize(track.artist)
+            let normalizedTrackName = normalize(track.name)
+            let normalizedCandidateArtist = normalize(candidate.artist)
+            let normalizedCandidateName = normalize(candidate.name)
+            
+            let artistScore = StringSimilarity.similarity(normalizedTrackArtist, normalizedCandidateArtist)
+            let trackScore = StringSimilarity.similarity(normalizedTrackName, normalizedCandidateName)
+            
+            // Combined score (weighted: 50% artist, 50% track)
+            let score = (artistScore + trackScore) / 2.0
+            
+            // Require at least 80% similarity
+            if score >= 0.8 && score > bestScore {
+                bestScore = score
+                bestMatch = candidate
+            }
         }
+        
+        return bestMatch
+    }
+    
+    private func normalize(_ string: String) -> String {
+        string.trimmingCharacters(in: .whitespaces).lowercased()
     }
 }
