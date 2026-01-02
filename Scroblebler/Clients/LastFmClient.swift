@@ -404,19 +404,15 @@ class LastFmClient: ObservableObject, ScrobbleClient {
     }
     
     private func executeRequestWithRetry(method: String, args: [String: String] = [:], maxRetries: Int = 3) async throws -> Data {
-        for attempt in 0..<maxRetries {
-            do {
-                return try await executeRequest(method: method, args: args)
-            } catch Error.apiError(8, _) {
-                let delay = UInt64(pow(2.0, Double(attempt)) * 1_000_000_000)
-                Logger.info("Last.fm API call failed (attempt \(attempt + 1)/\(maxRetries)), retrying", log: Logger.network)
-                try await Task.sleep(nanoseconds: delay)
-                continue
-            } catch {
-                throw error
+        return try await NetworkClient.executeWithRetry(maxRetries: maxRetries, shouldRetry: { error in
+            // Only retry on API error 8 (rate limiting)
+            if case Error.apiError(8, _) = error {
+                return true
             }
+            return false
+        }) {
+            try await self.executeRequest(method: method, args: args)
         }
-        throw Error.apiError(8, "Max retries exceeded")
     }
     
     private func parseJSON<T>(_ data: Data) throws -> T {

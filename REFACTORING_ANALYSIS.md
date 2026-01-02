@@ -100,18 +100,49 @@ await MainActor.run { updateUI(result) }
 
 ---
 
-## Phase 2: Add NetworkClient (TODO)
+## Phase 2: Add NetworkClient ✅ COMPLETED
 
-### Goal
-Create reusable `NetworkClient` utility with exponential backoff retry logic.
+### What Was Done
 
-**Why:** Retry logic is duplicated in `LastFmClient.executeRequestWithRetry` and `ListenBrainzClient.lookupMBIDFromMapper`.
+#### 1. ✅ Created NetworkClient Utility
+- **Created:** `Scroblebler/Utilities/NetworkClient.swift` (38 lines)
+- **Features:** Generic retry logic with exponential backoff
+- **Configurable:** Supports custom retry strategies via `shouldRetry` closure
+- **Clean API:** Simple `executeWithRetry()` function
 
-**Implementation:**
-- Create `Scroblebler/Utilities/NetworkClient.swift` (~40 lines)
-- Update `LastFmClient` to use NetworkClient (-10 lines)
-- Update `ListenBrainzClient` to use NetworkClient (-20 lines)
-- **Net:** +10 lines but much better code reuse
+#### 2. ✅ Updated LastFmClient
+- **Replaced:** 15-line `executeRequestWithRetry()` with 8-line version using NetworkClient
+- **Added:** Specific retry logic for API error 8 (rate limiting)
+- **Lines removed:** 7
+
+#### 3. ✅ Updated ListenBrainzClient
+- **Replaced:** 57-line `lookupMBIDFromMapper()` with 37-line version using NetworkClient
+- **Simplified:** Removed manual retry loop and delay logic
+- **Lines removed:** 20
+
+#### 4. ✅ Updated Xcode Project
+- **Updated:** `Scroblebler.xcodeproj/project.pbxproj` to include NetworkClient in Utilities group
+- **Added:** File references and build phase entries
+
+### Results
+
+**Code Reduction:**
+- ~27 lines removed (from LastFmClient and ListenBrainzClient)
+- +38 lines added (NetworkClient utility)
+- **Net:** +11 lines
+
+**Code Quality:**
+- ✅ DRY principle (Don't Repeat Yourself) - retry logic in one place
+- ✅ Reusable utility for future network operations
+- ✅ Consistent retry behavior across all clients
+- ✅ Better testability (centralized retry logic)
+- ✅ Configurable retry strategy per use case
+
+### Files Modified
+- `Scroblebler/Utilities/NetworkClient.swift` - **CREATED**
+- `Scroblebler/Clients/LastFmClient.swift` - Simplified retry logic
+- `Scroblebler/Clients/ListenBrainzClient.swift` - Simplified retry logic
+- `Scroblebler.xcodeproj/project.pbxproj` - Added NetworkClient references
 
 ---
 
@@ -162,12 +193,17 @@ Simplify `enrichTracksWithOtherServices` (99 lines → ~70 lines)
 - ✅ **Cleaner architecture**
 - ✅ **Better performance**
 
+### Phase 2 (Completed)
+- ✅ **~27 lines removed** (duplicate retry logic)
+- ✅ **+38 lines added** (NetworkClient utility)
+- ✅ **Net: +11 lines**
+- ✅ **Better code reuse and maintainability**
+
 ### Remaining Phases (TODO)
-- Phase 2: +10 lines (NetworkClient utility - better abstraction)
 - Phase 3: -14 lines (remove year, URL fallbacks) + 38 lines (PlayerControls with shuffle/repeat)
 - Phase 4: -30 lines (simplify sync)
 
-### Total Expected
-- **~120 lines removed** (after all phases)
-- **+48 lines added** (NetworkClient + PlayerControls with new features)
-- **Net: ~72 lines reduction + significantly better code quality**
+### Total Expected (After All Phases)
+- **~158 lines removed** (114 + 27 + 44)
+- **+76 lines added** (38 NetworkClient + 38 PlayerControls with new features)
+- **Net: ~82 lines reduction + significantly better code quality**

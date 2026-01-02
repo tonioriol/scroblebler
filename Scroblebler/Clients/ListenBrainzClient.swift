@@ -228,11 +228,8 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         
         guard let url = components.url else { return nil }
         
-        let maxRetries = 3
-        let retryDelay: UInt64 = 1_000_000_000 // 1 second
-        
-        for attempt in 1...maxRetries {
-            do {
+        do {
+            return try await NetworkClient.executeWithRetry(maxRetries: 3) {
                 let (data, response) = try await URLSession.shared.data(from: url)
                 guard let httpResponse = response as? HTTPURLResponse,
                       httpResponse.statusCode == 200 else {
@@ -260,18 +257,11 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
                     recordingMbid: recordingMbid,
                     confidence: confidence
                 )
-            } catch {
-                if attempt < maxRetries {
-                    Logger.info("MBID Mapper: Attempt \(attempt) failed, retrying", log: Logger.network)
-                    try? await Task.sleep(nanoseconds: retryDelay)
-                } else {
-                    Logger.error("MBID Mapper lookup failed: \(error)", log: Logger.network)
-                    return nil
-                }
             }
+        } catch {
+            Logger.error("MBID Mapper lookup failed: \(error)", log: Logger.network)
+            return nil
         }
-        
-        return nil
     }
     
     // MARK: - Profile Data

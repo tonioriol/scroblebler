@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		214BE49AEB926CFA16D44F62 /* LoveButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0F361811AED80EF7ACDCA43 /* LoveButton.swift */; };
+		NETCL00000000000000002 /* NetworkClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = NETCL00000000000000001 /* NetworkClient.swift */; };
 		AA1111111111111111111111 /* AlbumArtwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB1111111111111111111111 /* AlbumArtwork.swift */; };
 		AA2222222222222222222222 /* PlayCountBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB2222222222222222222222 /* PlayCountBadge.swift */; };
 		AA4444444444444444444444 /* TrackInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB4444444444444444444444 /* TrackInfo.swift */; };
@@ -117,6 +118,7 @@
 		PLYCTL00000000000000001 /* PlayControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayControls.swift; sourceTree = "<group>"; };
 		SYNCBADGE00000000000001 /* SyncStatusBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncStatusBadge.swift; sourceTree = "<group>"; };
 		UN0000000000000000000001 /* UndoButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UndoButton.swift; sourceTree = "<group>"; };
+		NETCL00000000000000001 /* NetworkClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkClient.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -203,6 +205,7 @@
 				DA6859CA292FDC9C009143B3 /* Components */,
 				CL9999999999999999999999 /* Clients */,
 				EE8888888888888888888888 /* Protocols */,
+				UTIL0000000000000000001 /* Utilities */,
 				DA6859CF2930242E009143B3 /* Info.plist */,
 				DA8DE13A292FC577004DC22E /* Assets.xcassets */,
 				DA8DE13F292FC577004DC22E /* Scroblebler.entitlements */,
@@ -255,6 +258,14 @@
 				EE4444444444444444444444 /* ScrobbleClient.swift */,
 			);
 			path = Protocols;
+			sourceTree = "<group>";
+		};
+		UTIL0000000000000000001 /* Utilities */ = {
+			isa = PBXGroup;
+			children = (
+				NETCL00000000000000001 /* NetworkClient.swift */,
+			);
+			path = Utilities;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -375,6 +386,7 @@
 				LOGGER00000000000000002 /* Logger.swift in Sources */,
 				MEDCTL00000000000000002 /* MediaControl.swift in Sources */,
 				PLYCTL00000000000000002 /* PlayControls.swift in Sources */,
+				NETCL00000000000000002 /* NetworkClient.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
