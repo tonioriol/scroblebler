@@ -49,12 +49,17 @@ struct NowPlaying: View {
         }
         .padding()
         .onAppear {
+            Logger.debug("NowPlaying onAppear: track artwork size: \(track?.artwork?.count ?? 0) bytes", log: Logger.ui)
             fetchLovedState()
             fetchPlayCount()
         }
         .onChange(of: track?.name) { _ in
+            Logger.debug("NowPlaying track changed: '\(track?.name ?? "nil")', artwork size: \(track?.artwork?.count ?? 0) bytes", log: Logger.ui)
             fetchLovedState()
             fetchPlayCount()
+        }
+        .onChange(of: track?.artwork) { newArtwork in
+            Logger.debug("NowPlaying artwork changed: new size: \(newArtwork?.count ?? 0) bytes", log: Logger.ui)
         }
     }
     

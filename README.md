@@ -103,6 +103,7 @@ on their repository](https://github.com/lastfm/lastfm-desktop/blob/9ae84cf4ab204
 - [ ] Extract and unify the exponential backoff logic
 - [ ] add playcontrols
 - [ ] show multiple playing sources in player
+- [ ] local first approach, store scrobbles locally and sync in background
 
 ## License
 

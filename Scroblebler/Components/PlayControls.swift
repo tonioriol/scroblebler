@@ -6,7 +6,9 @@ struct PlayControls: View {
     var body: some View {
         HStack(spacing: 16) {
             Button(action: {
-                MediaControl.send(.previousTrack)
+                DispatchQueue.global(qos: .userInitiated).async {
+                    MediaControl.send(.previousTrack)
+                }
             }) {
                 Image(systemName: "backward.fill")
                     .font(.system(size: 16))
@@ -15,8 +17,10 @@ struct PlayControls: View {
             .help("Previous Track")
             
             Button(action: {
-                MediaControl.send(.togglePlayPause)
                 isPlaying.toggle()
+                DispatchQueue.global(qos: .userInitiated).async {
+                    MediaControl.send(.togglePlayPause)
+                }
             }) {
                 Image(systemName: isPlaying ? "pause.fill" : "play.fill")
                     .font(.system(size: 18))
@@ -25,7 +29,9 @@ struct PlayControls: View {
             .help(isPlaying ? "Pause" : "Play")
             
             Button(action: {
-                MediaControl.send(.nextTrack)
+                DispatchQueue.global(qos: .userInitiated).async {
+                    MediaControl.send(.nextTrack)
+                }
             }) {
                 Image(systemName: "forward.fill")
                     .font(.system(size: 16))

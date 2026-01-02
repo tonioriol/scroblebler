@@ -38,6 +38,7 @@ class Watcher: ObservableObject {
     private var currentStatus: MediaControlStatus?
     private var positionTimer: Timer?
     private var lastSeekTime: Date?
+    private let processingQueue = DispatchQueue(label: "com.scroblebler.watcher.processing", qos: .userInitiated)
     
     var onTrackChanged: ((Track) -> Void)?
     var onScrobbleWanted: ((Track) -> Void)?
@@ -51,7 +52,10 @@ class Watcher: ObservableObject {
             guard let self = self else { return }
             
             if let trackInfo = trackInfo {
-                self.handleTrackInfo(trackInfo)
+                // Process track info on serial queue to prevent race conditions
+                self.processingQueue.async {
+                    self.handleTrackInfo(trackInfo)
+                }
             } else {
                 // No media playing
                 self.currentStatus = nil
@@ -66,7 +70,7 @@ class Watcher: ObservableObject {
             guard let self = self else { return }
             
             if self.running {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     if self.running {
                         Logger.debug("Restarting MediaController", log: Logger.playback)
                         self.mediaController.startListening()
@@ -132,14 +136,30 @@ class Watcher: ObservableObject {
     private func handleTrackInfo(_ trackInfo: MediaRemoteAdapter.TrackInfo) {
         let payload = trackInfo.payload
         
-        // Convert artwork NSImage to base64 if available
+        Logger.debug("handleTrackInfo called for: \(payload.title ?? "Unknown")", log: Logger.playback)
+        
+        // Convert artwork NSImage to base64 if available (on background thread to avoid blocking)
         var artworkData: String?
         if let artwork = payload.artwork {
-            if let tiffData = artwork.tiffRepresentation,
-               let bitmapImage = NSBitmapImageRep(data: tiffData),
-               let pngData = bitmapImage.representation(using: .png, properties: [:]) {
-                artworkData = pngData.base64EncodedString()
+            Logger.debug("Artwork present, converting to base64...", log: Logger.playback)
+            if let tiffData = artwork.tiffRepresentation {
+                Logger.debug("Got TIFF data: \(tiffData.count) bytes", log: Logger.playback)
+                if let bitmapImage = NSBitmapImageRep(data: tiffData) {
+                    Logger.debug("Created bitmap image representation", log: Logger.playback)
+                    if let pngData = bitmapImage.representation(using: .png, properties: [:]) {
+                        artworkData = pngData.base64EncodedString()
+                        Logger.debug("Converted to PNG and base64: \(pngData.count) bytes", log: Logger.playback)
+                    } else {
+                        Logger.debug("Failed to convert bitmap to PNG", log: Logger.playback)
+                    }
+                } else {
+                    Logger.debug("Failed to create bitmap image from TIFF data", log: Logger.playback)
+                }
+            } else {
+                Logger.debug("Failed to get TIFF representation from artwork", log: Logger.playback)
             }
+        } else {
+            Logger.debug("No artwork in payload", log: Logger.playback)
         }
         
         // Convert microseconds to seconds
@@ -160,6 +180,8 @@ class Watcher: ObservableObject {
             totalTrackCount: nil,
             bundleIdentifier: payload.bundleIdentifier
         )
+        
+        Logger.debug("Status created with artwork: \(artworkData != nil ? "YES" : "NO")", log: Logger.playback)
         
         // Handle missing or incomplete duration - preserve from previous if same track
         var newStatus = status
@@ -204,38 +226,19 @@ class Watcher: ObservableObject {
         }
     }
     
-    private func getLovedStatus() -> Bool {
-        let lovedProperties = ["favorited", "loved"]
-        
-        for propertyName in lovedProperties {
-            let script = """
-                tell application "Music" to get \(propertyName) of the current track
-            """
-            
-            guard let appleScript = NSAppleScript(source: script) else { continue }
-            
-            var error: NSDictionary?
-            let result = appleScript.executeAndReturnError(&error)
-            
-            if error == nil {
-                return result.booleanValue
-            }
-        }
-        
-        return false
-    }
-    
     private func getPlayerTrack(from status: MediaControlStatus) throws -> Track {
         let artwork = status.artworkData
             .flatMap { Data(base64Encoded: $0) } ?? Data()
         
+        Logger.debug("getPlayerTrack: status has artworkData: \(status.artworkData != nil), decoded artwork size: \(artwork.count) bytes", log: Logger.playback)
+        
         let elapsedTime = status.elapsedTime ?? 0
         let startedAt = Int32(Date().timeIntervalSince1970 - elapsedTime)
         
-        // Only fetch loved status for Apple Music
-        let loved = (status.bundleIdentifier ?? "") == "com.apple.Music" ? getLovedStatus() : false
+        // Skip loved status - it's slow and blocks UI
+        let loved = false
         
-        return Track(
+        let track = Track(
             artist: status.artist ?? "",
             album: status.album ?? "",
             name: status.title ?? "",
@@ -245,6 +248,10 @@ class Watcher: ObservableObject {
             loved: loved,
             startedAt: startedAt
         )
+        
+        Logger.debug("getPlayerTrack: created track with artwork size: \(track.artwork?.count ?? 0) bytes", log: Logger.playback)
+        
+        return track
     }
     
     private func isMusicRunning() -> Bool {
@@ -332,13 +339,25 @@ class Watcher: ObservableObject {
             currentTrackID = trackID
             
             let track = try getPlayerTrack(from: status)
+            Logger.debug("processStatus: Setting currentTrack with artwork size: \(track.artwork?.count ?? 0) bytes", log: Logger.playback)
             currentTrack = track
             
             if let fn = onTrackChanged {
                 DispatchQueue.main.async { fn(track) }
             }
         } else {
-            // Same track - update position if changed significantly
+            // Same track - check if artwork arrived late
+            let hasArtwork = status.artworkData != nil
+            let currentHasArtwork = (currentTrack?.artwork?.count ?? 0) > 0
+            
+            if hasArtwork && !currentHasArtwork {
+                Logger.debug("Artwork arrived late for same track, updating...", log: Logger.playback)
+                let track = try getPlayerTrack(from: status)
+                Logger.debug("processStatus: Updating currentTrack with artwork size: \(track.artwork?.count ?? 0) bytes", log: Logger.playback)
+                currentTrack = track
+            }
+            
+            // Update position if changed significantly
             let snapshotPos = status.elapsedTime ?? 0
             
             // Check if we got a fresh snapshot (position changed significantly)
