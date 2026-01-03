@@ -146,10 +146,10 @@ struct ProfileView: View {
         isLoading = true
         Task {
             do {
-                async let stats = client.getUserStats(username: primary.username)
-                async let artists = client.getTopArtists(username: primary.username, period: selectedPeriod, limit: 10)
-                async let albums = client.getTopAlbums(username: primary.username, period: selectedPeriod, limit: 10)
-                async let tracks = client.getTopTracks(username: primary.username, period: selectedPeriod, limit: 10)
+                async let stats = client.getUserStats()
+                async let artists = client.getTopArtists(period: selectedPeriod, limit: 10)
+                async let albums = client.getTopAlbums(period: selectedPeriod, limit: 10)
+                async let tracks = client.getTopTracks(period: selectedPeriod, limit: 10)
                 
                 let (fetchedStats, fetchedArtists, fetchedAlbums, fetchedTracks) = try await (stats, artists, albums, tracks)
                 
@@ -177,9 +177,9 @@ struct ProfileView: View {
         
         Task {
             do {
-                async let artists = client.getTopArtists(username: primary.username, period: selectedPeriod, limit: 10)
-                async let albums = client.getTopAlbums(username: primary.username, period: selectedPeriod, limit: 10)
-                async let tracks = client.getTopTracks(username: primary.username, period: selectedPeriod, limit: 10)
+                async let artists = client.getTopArtists(period: selectedPeriod, limit: 10)
+                async let albums = client.getTopAlbums(period: selectedPeriod, limit: 10)
+                async let tracks = client.getTopTracks(period: selectedPeriod, limit: 10)
                 
                 let (fetchedArtists, fetchedAlbums, fetchedTracks) = try await (artists, albums, tracks)
                 

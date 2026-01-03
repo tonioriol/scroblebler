@@ -62,11 +62,9 @@ class CrossServiceSync {
                 group.addTask {
                     // Try time-range query first (faster, more accurate)
                     if let tracks = try? await client.getRecentTracksByTimeRange(
-                        username: creds.username,
                         minTs: timeRange.min,
                         maxTs: timeRange.max,
-                        limit: 1000,
-                        token: creds.token
+                        limit: 1000
                     ), !tracks.isEmpty {
                         Logger.debug("Fetched \(tracks.count) tracks from \(creds.service.displayName) (timestamp query)", log: Logger.sync)
                         return (creds, tracks)
@@ -75,10 +73,8 @@ class CrossServiceSync {
                     // Fallback to page-based fetch
                     let fetchLimit = min(limit * 10 * page, 1000)
                     let tracks = try? await client.getRecentTracks(
-                        username: creds.username,
                         limit: fetchLimit,
-                        page: 1,
-                        token: creds.token
+                        page: 1
                     )
                     Logger.debug("Fetched \(tracks?.count ?? 0) tracks from \(creds.service.displayName) (page query)", log: Logger.sync)
                     return (creds, tracks)

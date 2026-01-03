@@ -107,9 +107,20 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         return (username, token, profileUrl, false)
     }
     
+    // Restore credentials (called when app restarts)
+    func setCredentials(username: String, sessionKey: String) {
+        self.username = username
+        self.token = sessionKey
+        Logger.info("✅ ListenBrainz credentials set: username=\(username)", log: Logger.authentication)
+    }
+    
     // MARK: - Scrobbling
     
-    func updateNowPlaying(sessionKey: String, track: Track) async throws {
+    func updateNowPlaying(track: Track) async throws {
+        guard let token = self.token else {
+            throw Error.invalidToken
+        }
+        
         let payload: [String: Any] = [
             "listen_type": "playing_now",
             "payload": [[
@@ -120,10 +131,14 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
                 ]
             ]]
         ]
-        try await sendRequest(endpoint: "submit-listens", token: sessionKey, payload: payload)
+        try await sendRequest(endpoint: "submit-listens", token: token, payload: payload)
     }
     
-    func scrobble(sessionKey: String, track: Track) async throws {
+    func scrobble(track: Track) async throws {
+        guard let token = self.token else {
+            throw Error.invalidToken
+        }
+        
         let payload: [String: Any] = [
             "listen_type": "single",
             "payload": [[
@@ -135,10 +150,14 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
                 ]
             ]]
         ]
-        try await sendRequest(endpoint: "submit-listens", token: sessionKey, payload: payload)
+        try await sendRequest(endpoint: "submit-listens", token: token, payload: payload)
     }
     
-    func updateLove(sessionKey: String, artist: String, track: String, loved: Bool) async throws {
+    func updateLove(artist: String, track: String, loved: Bool) async throws {
+        guard let token = self.token else {
+            throw Error.invalidToken
+        }
+        
         guard let mbid = try await lookupRecordingMBID(artist: artist, track: track) else {
             Logger.info("Could not find MusicBrainz ID for track, skipping love update on ListenBrainz", log: Logger.scrobbling)
             return
@@ -150,7 +169,7 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         ]
         
         do {
-            try await sendRequest(endpoint: "feedback/recording-feedback", token: sessionKey, payload: payload)
+            try await sendRequest(endpoint: "feedback/recording-feedback", token: token, payload: payload)
             Logger.info("ListenBrainz love status updated: \(loved ? "loved" : "unloved")", log: Logger.scrobbling)
         } catch {
             Logger.error("Failed to update love status on ListenBrainz: \(error)", log: Logger.scrobbling)
@@ -158,7 +177,11 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         }
     }
     
-    func deleteScrobble(sessionKey: String, identifier: ScrobbleIdentifier) async throws {
+    func deleteScrobble(identifier: ScrobbleIdentifier) async throws {
+        guard let token = self.token else {
+            throw Error.invalidToken
+        }
+        
         guard let timestamp = identifier.timestamp, let msid = identifier.serviceId else {
             Logger.info("ListenBrainz delete skipped - requires timestamp AND recording_msid", log: Logger.scrobbling)
             return
@@ -170,7 +193,7 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         ]
         
         do {
-            try await sendRequest(endpoint: "delete-listen", token: sessionKey, payload: payload)
+            try await sendRequest(endpoint: "delete-listen", token: token, payload: payload)
             Logger.info("ListenBrainz delete request sent", log: Logger.scrobbling)
         } catch {
             Logger.error("ListenBrainz delete failed: \(error)", log: Logger.scrobbling)
@@ -266,8 +289,13 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
     
     // MARK: - Profile Data
     
-    func getRecentTracks(username: String, limit: Int, page: Int, token: String?) async throws -> [RecentTrack] {
-        Logger.debug("ListenBrainz getRecentTracks - page: \(page), limit: \(limit)", log: Logger.api)
+    func getRecentTracks(limit: Int, page: Int) async throws -> [RecentTrack] {
+        guard let username = self.username else {
+            Logger.error("❌ ListenBrainz getRecentTracks - NO USERNAME (not authenticated)", log: Logger.api)
+            throw Error.invalidToken
+        }
+        
+        Logger.info("📄 ListenBrainz getRecentTracks - user: \(username), page: \(page), limit: \(limit)", log: Logger.api)
         
         // Populate cache first (only on first page)
         if page == 1 {
@@ -289,10 +317,11 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
                 state.paginationState[username]
             }
             if let maxTs = maxTs {
-                Logger.debug("ListenBrainz page \(page) - using max_ts: \(maxTs)", log: Logger.api)
+                Logger.info("✅ ListenBrainz page \(page) - using max_ts: \(maxTs) for user: \(username)", log: Logger.api)
                 queryItems.append(URLQueryItem(name: "max_ts", value: "\(maxTs)"))
             } else {
-                Logger.error("ListenBrainz page \(page) - NO max_ts found in pagination state", log: Logger.api)
+                Logger.error("❌ ListenBrainz page \(page) - NO max_ts found in pagination state for user: \(username)", log: Logger.api)
+                Logger.error("❌ Pagination will fail - page 1 must be called first to set pagination state", log: Logger.api)
             }
         }
         
@@ -306,14 +335,20 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         Logger.debug("ListenBrainz received \(listens.count) listens for page \(page)", log: Logger.api)
         
         // Store the last timestamp for next page
-        if let lastListen = listens.last,
-           let lastTimestamp = lastListen["listened_at"] as? Int {
-            paginationState.withLock { state in
-                state.paginationState[username] = lastTimestamp
+        if !listens.isEmpty {
+            if let lastListen = listens.last,
+               let lastTimestamp = lastListen["listened_at"] as? Int {
+                paginationState.withLock { state in
+                    state.paginationState[username] = lastTimestamp
+                }
+                Logger.info("✅ ListenBrainz stored pagination timestamp: \(lastTimestamp) for user: \(username)", log: Logger.api)
+            } else {
+                // Has tracks but missing timestamp - this is an actual error
+                Logger.error("❌ ListenBrainz tracks missing timestamp for user: \(username)", log: Logger.api)
             }
-            Logger.debug("ListenBrainz stored pagination timestamp: \(lastTimestamp)", log: Logger.api)
         } else {
-            Logger.error("ListenBrainz no timestamp found in last listen - pagination may fail", log: Logger.api)
+            // No tracks returned - reached end of history (normal)
+            Logger.debug("ListenBrainz page \(page) returned 0 tracks - end of history reached", log: Logger.api)
         }
         
         // First pass: extract data from ListenBrainz response
@@ -416,7 +451,11 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         return result.compactMap { $0.1 }
     }
     
-    func getRecentTracksByTimeRange(username: String, minTs: Int?, maxTs: Int?, limit: Int, token: String?) async throws -> [RecentTrack]? {
+    func getRecentTracksByTimeRange(minTs: Int?, maxTs: Int?, limit: Int) async throws -> [RecentTrack]? {
+        guard let username = self.username else {
+            throw Error.invalidToken
+        }
+        
         Logger.debug("ListenBrainz getRecentTracksByTimeRange - minTs: \(minTs ?? 0), maxTs: \(maxTs ?? 0), limit: \(limit)", log: Logger.api)
         
         let encodedUsername = username.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? username
@@ -475,7 +514,11 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         return tracks
     }
     
-    func getUserStats(username: String) async throws -> UserStats? {
+    func getUserStats() async throws -> UserStats? {
+        guard let username = self.username else {
+            throw Error.invalidToken
+        }
+        
         let encodedUsername = username.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? username
         let url = baseURL.appendingPathComponent("user/\(encodedUsername)/listen-count")
         let (data, _) = try await URLSession.shared.data(from: url)
@@ -498,7 +541,11 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         )
     }
     
-    func getTopArtists(username: String, period: String, limit: Int) async throws -> [TopArtist] {
+    func getTopArtists(period: String, limit: Int) async throws -> [TopArtist] {
+        guard let username = self.username else {
+            throw Error.invalidToken
+        }
+        
         let range = convertPeriodToRange(period)
         let encodedUsername = username.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? username
         var components = URLComponents(url: baseURL.appendingPathComponent("stats/user/\(encodedUsername)/artists"), resolvingAgainstBaseURL: false)!
@@ -524,7 +571,11 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         }
     }
     
-    func getTopAlbums(username: String, period: String, limit: Int) async throws -> [TopAlbum] {
+    func getTopAlbums(period: String, limit: Int) async throws -> [TopAlbum] {
+        guard let username = self.username else {
+            throw Error.invalidToken
+        }
+        
         let range = convertPeriodToRange(period)
         let encodedUsername = username.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? username
         var components = URLComponents(url: baseURL.appendingPathComponent("stats/user/\(encodedUsername)/releases"), resolvingAgainstBaseURL: false)!
@@ -551,11 +602,15 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         }
     }
     
-    func getTopTracks(username: String, period: String, limit: Int) async throws -> [TopTrack] {
-        return try await getTopTracksWithOffset(username: username, period: period, limit: limit, offset: 0)
+    func getTopTracks(period: String, limit: Int) async throws -> [TopTrack] {
+        return try await getTopTracksWithOffset(period: period, limit: limit, offset: 0)
     }
     
-    private func getTopTracksWithOffset(username: String, period: String, limit: Int, offset: Int) async throws -> [TopTrack] {
+    private func getTopTracksWithOffset(period: String, limit: Int, offset: Int) async throws -> [TopTrack] {
+        guard let username = self.username else {
+            throw Error.invalidToken
+        }
+        
         let range = convertPeriodToRange(period)
         let encodedUsername = username.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? username
         var components = URLComponents(url: baseURL.appendingPathComponent("stats/user/\(encodedUsername)/recordings"), resolvingAgainstBaseURL: false)!

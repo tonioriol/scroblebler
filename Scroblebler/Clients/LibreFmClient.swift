@@ -21,8 +21,8 @@ class LibreFmClient: LastFmClient {
         Color(hue: 0.94, saturation: 0.60, brightness: 0.90)
     }
     
-    override func getRecentTracks(username: String, limit: Int, page: Int, token: String?) async throws -> [RecentTrack] {
-        let tracks = try await super.getRecentTracks(username: username, limit: limit, page: page, token: token)
+    override func getRecentTracks(limit: Int, page: Int) async throws -> [RecentTrack] {
+        let tracks = try await super.getRecentTracks(limit: limit, page: page)
         // Replace URLs with Libre.fm specific ones
         return tracks.map { track in
             let encodedArtist = track.artist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
@@ -49,11 +49,11 @@ class LibreFmClient: LastFmClient {
         }
     }
     
-    override func getRecentTracksByTimeRange(username: String, minTs: Int?, maxTs: Int?, limit: Int, token: String?) async throws -> [RecentTrack]? {
+    override func getRecentTracksByTimeRange(minTs: Int?, maxTs: Int?, limit: Int) async throws -> [RecentTrack]? {
         Logger.debug("Libre.fm getRecentTracksByTimeRange - minTs: \(minTs ?? 0), maxTs: \(maxTs ?? 0), limit: \(limit)", log: Logger.api)
         
         // Call parent implementation and update URLs for Libre.fm
-        guard let tracks = try await super.getRecentTracksByTimeRange(username: username, minTs: minTs, maxTs: maxTs, limit: limit, token: token) else {
+        guard let tracks = try await super.getRecentTracksByTimeRange(minTs: minTs, maxTs: maxTs, limit: limit) else {
             return nil
         }
         

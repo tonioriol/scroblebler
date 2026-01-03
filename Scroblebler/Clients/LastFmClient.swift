@@ -74,9 +74,20 @@ class LastFmClient: ObservableObject, ScrobbleClient {
         return (result.session.name, result.session.key, userInfo.user.url, result.session.subscriber == 1)
     }
     
+    // Restore credentials (called when app restarts)
+    func setCredentials(username: String, sessionKey: String) {
+        self.username = username
+        self.sessionKey = sessionKey
+        Logger.info("✅ Last.fm credentials set: username=\(username)", log: Logger.authentication)
+    }
+    
     // MARK: - Scrobbling
     
-    func updateNowPlaying(sessionKey: String, track: Track) async throws {
+    func updateNowPlaying(track: Track) async throws {
+        guard let sessionKey = self.sessionKey else {
+            throw Error.apiError(9, "Not authenticated")
+        }
+        
         _ = try await executeRequest(method: "track.updateNowPlaying", args: [
             "artist": track.artist,
             "track": track.name,
@@ -86,7 +97,11 @@ class LastFmClient: ObservableObject, ScrobbleClient {
         ])
     }
     
-    func scrobble(sessionKey: String, track: Track) async throws {
+    func scrobble(track: Track) async throws {
+        guard let sessionKey = self.sessionKey else {
+            throw Error.apiError(9, "Not authenticated")
+        }
+        
         // Build args - only include duration if > 0 (Last.fm rejects 0 duration)
         var args: [String: String] = [
             "artist": track.artist,
@@ -129,7 +144,11 @@ class LastFmClient: ObservableObject, ScrobbleClient {
         }
     }
     
-    func updateLove(sessionKey: String, artist: String, track: String, loved: Bool) async throws {
+    func updateLove(artist: String, track: String, loved: Bool) async throws {
+        guard let sessionKey = self.sessionKey else {
+            throw Error.apiError(9, "Not authenticated")
+        }
+        
         let method = loved ? "track.love" : "track.unlove"
         do {
             _ = try await executeRequest(method: method, args: [
@@ -144,7 +163,11 @@ class LastFmClient: ObservableObject, ScrobbleClient {
         }
     }
     
-    func deleteScrobble(sessionKey: String, identifier: ScrobbleIdentifier) async throws {
+    func deleteScrobble(identifier: ScrobbleIdentifier) async throws {
+        guard let sessionKey = self.sessionKey else {
+            throw Error.apiError(9, "Not authenticated")
+        }
+        
         guard let timestamp = identifier.timestamp else {
             throw Error.apiError(6, "Missing timestamp for scrobble deletion")
         }
@@ -202,8 +225,13 @@ class LastFmClient: ObservableObject, ScrobbleClient {
     
     // MARK: - Profile Data
     
-    func getRecentTracks(username: String, limit: Int, page: Int, token: String?) async throws -> [RecentTrack] {
-        Logger.debug("Last.fm getRecentTracks - user: \(username), limit: \(limit), page: \(page)", log: Logger.api)
+    func getRecentTracks(limit: Int, page: Int) async throws -> [RecentTrack] {
+        guard let username = self.username else {
+            Logger.error("❌ Last.fm getRecentTracks - NO USERNAME (not authenticated)", log: Logger.api)
+            throw Error.apiError(9, "Not authenticated")
+        }
+        
+        Logger.info("📄 Last.fm getRecentTracks - user: \(username), limit: \(limit), page: \(page)", log: Logger.api)
         
         let data = try await executeRequestWithRetry(method: "user.getRecentTracks", args: [
             "user": username,
@@ -211,18 +239,30 @@ class LastFmClient: ObservableObject, ScrobbleClient {
             "page": String(page)
         ])
         
+        // Log raw response for debugging
+        if let jsonString = String(data: data, encoding: .utf8) {
+            Logger.debug("Last.fm raw response (first 500 chars): \(String(jsonString.prefix(500)))", log: Logger.api)
+        }
+        
         // Check for API error response before decoding
         if let errorResponse = try? JSONDecoder().decode(APIErrorResponse.self, from: data) {
             Logger.error("Last.fm API error: [\(errorResponse.error)] \(errorResponse.message)", log: Logger.api)
             throw Error.apiError(errorResponse.error, errorResponse.message)
         }
         
-        let response = try JSONDecoder().decode(RecentTracksResponse.self, from: data)
+        let response: RecentTracksResponse
+        do {
+            response = try JSONDecoder().decode(RecentTracksResponse.self, from: data)
+        } catch {
+            Logger.error("❌ Last.fm JSON decoding failed: \(error)", log: Logger.api)
+            Logger.error("❌ This usually means the API returned an unexpected structure", log: Logger.api)
+            throw error
+        }
         let baseTracks = response.recenttracks.track.filter { $0.attr?.nowplaying != "true" }.map { $0.toDomain(client: self) }
         Logger.debug("Last.fm decoded \(baseTracks.count) tracks", log: Logger.api)
         
-        // If we have a token, fetch playcounts in parallel
-        guard token != nil else {
+        // If we have a session key, fetch playcounts in parallel
+        guard self.sessionKey != nil else {
             return baseTracks
         }
         
@@ -256,7 +296,11 @@ class LastFmClient: ObservableObject, ScrobbleClient {
         }
     }
     
-    func getRecentTracksByTimeRange(username: String, minTs: Int?, maxTs: Int?, limit: Int, token: String?) async throws -> [RecentTrack]? {
+    func getRecentTracksByTimeRange(minTs: Int?, maxTs: Int?, limit: Int) async throws -> [RecentTrack]? {
+        guard let username = self.username else {
+            throw Error.apiError(9, "Not authenticated")
+        }
+        
         Logger.debug("Last.fm getRecentTracksByTimeRange - minTs: \(minTs ?? 0), maxTs: \(maxTs ?? 0), limit: \(limit)", log: Logger.api)
         
         // Last.fm supports 'from' and 'to' timestamp parameters
@@ -287,13 +331,21 @@ class LastFmClient: ObservableObject, ScrobbleClient {
         }
     }
     
-    func getUserStats(username: String) async throws -> UserStats? {
+    func getUserStats() async throws -> UserStats? {
+        guard let username = self.username else {
+            throw Error.apiError(9, "Not authenticated")
+        }
+        
         let data = try await executeRequest(method: "user.getInfo", args: ["user": username])
         let response = try JSONDecoder().decode(UserInfoResponse.self, from: data)
         return response.user.toDomain()
     }
     
-    func getTopArtists(username: String, period: String, limit: Int) async throws -> [TopArtist] {
+    func getTopArtists(period: String, limit: Int) async throws -> [TopArtist] {
+        guard let username = self.username else {
+            throw Error.apiError(9, "Not authenticated")
+        }
+        
         let data = try await executeRequest(method: "user.getTopArtists", args: [
             "user": username,
             "period": period,
@@ -303,7 +355,11 @@ class LastFmClient: ObservableObject, ScrobbleClient {
         return response.topartists.artist.map { $0.toDomain() }
     }
     
-    func getTopAlbums(username: String, period: String, limit: Int) async throws -> [TopAlbum] {
+    func getTopAlbums(period: String, limit: Int) async throws -> [TopAlbum] {
+        guard let username = self.username else {
+            throw Error.apiError(9, "Not authenticated")
+        }
+        
         let data = try await executeRequest(method: "user.getTopAlbums", args: [
             "user": username,
             "period": period,
@@ -313,7 +369,11 @@ class LastFmClient: ObservableObject, ScrobbleClient {
         return response.topalbums.album.map { $0.toDomain() }
     }
     
-    func getTopTracks(username: String, period: String, limit: Int) async throws -> [TopTrack] {
+    func getTopTracks(period: String, limit: Int) async throws -> [TopTrack] {
+        guard let username = self.username else {
+            throw Error.apiError(9, "Not authenticated")
+        }
+        
         let data = try await executeRequest(method: "user.getTopTracks", args: [
             "user": username,
             "period": period,
@@ -333,10 +393,23 @@ class LastFmClient: ObservableObject, ScrobbleClient {
             "track": track,
             "sk": sessionKey
         ])
-        let response = try JSONDecoder().decode(TrackInfoResponse.self, from: data)
-        let loved = response.track.userloved == "1"
-        let playcount = response.track.userplaycount.flatMap { Int($0) }
-        return (loved, playcount)
+        
+        // Check for API error response first
+        if let errorResponse = try? JSONDecoder().decode(APIErrorResponse.self, from: data) {
+            Logger.debug("track.getInfo error [\(errorResponse.error)]: \(errorResponse.message) for '\(artist) - \(track)'", log: Logger.api)
+            // Return default values instead of throwing - track might not exist
+            return (false, nil)
+        }
+        
+        do {
+            let response = try JSONDecoder().decode(TrackInfoResponse.self, from: data)
+            let loved = response.track.userloved == "1"
+            let playcount = response.track.userplaycount.flatMap { Int($0) }
+            return (loved, playcount)
+        } catch {
+            Logger.debug("Failed to decode track.getInfo for '\(artist) - \(track)': \(error)", log: Logger.api)
+            return (false, nil)
+        }
     }
     
     func getUserImage(username: String) async throws -> Data? {
@@ -381,8 +454,11 @@ class LastFmClient: ObservableObject, ScrobbleClient {
         request.setValue("appleMusicScroblebler/1.0", forHTTPHeaderField: "User-Agent")
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         
+        let preparedArgs = prepareCall(method: method, args: args)
+        Logger.debug("Last.fm API call: method=\(method), args=\(args)", log: Logger.network)
+        
         var formComponents = URLComponents()
-        formComponents.queryItems = prepareCall(method: method, args: args).map {
+        formComponents.queryItems = preparedArgs.map {
             URLQueryItem(name: $0, value: Self.escape($1))
         }
         request.httpBody = formComponents.query?.data(using: .utf8)

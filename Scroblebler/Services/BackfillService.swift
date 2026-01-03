@@ -33,14 +33,13 @@ class BackfillService {
             do {
                 guard let client = clients[credentials.service] else { continue }
                 
-                try await client.scrobble(sessionKey: credentials.token, track: track)
+                try await client.scrobble(track: track)
                 let age = (recentTrack.date.map { Date().timeIntervalSince1970 - TimeInterval($0) } ?? 0) / 86400
                 Logger.info("Synced to \(credentials.service.displayName): '\(track.name)' (\(Int(age))d old)", log: Logger.sync)
                 succeeded += 1
                 
                 // Sync love state
                 try? await client.updateLove(
-                    sessionKey: credentials.token,
                     artist: recentTrack.artist,
                     track: recentTrack.name,
                     loved: recentTrack.loved

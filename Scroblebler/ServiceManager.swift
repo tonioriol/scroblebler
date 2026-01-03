@@ -25,6 +25,21 @@ class ServiceManager: ObservableObject {
     init() {
         self.crossServiceSync = CrossServiceSync(clients: clients)
         self.backfillService = BackfillService(clients: clients)
+        
+        // Restore stored credentials to clients
+        restoreCredentials()
+    }
+    
+    private func restoreCredentials() {
+        for service in ScrobbleService.allCases {
+            if let credentials = Defaults.shared.credentials(for: service),
+               let client = clients[service] {
+                client.setCredentials(username: credentials.username, sessionKey: credentials.token)
+                Logger.info("✅ Restored credentials for \(service.displayName): \(credentials.username)", log: Logger.authentication)
+            } else {
+                Logger.debug("No credentials to restore for \(service.displayName)", log: Logger.authentication)
+            }
+        }
     }
     
     func client(for service: ScrobbleService) -> ScrobbleClient? {
@@ -92,7 +107,7 @@ class ServiceManager: ObservableObject {
     
     func updateNowPlaying(credentials: ServiceCredentials, track: Track) async throws {
         guard let client = clients[credentials.service] else { return }
-        try await client.updateNowPlaying(sessionKey: credentials.token, track: track)
+        try await client.updateNowPlaying(track: track)
     }
     
     func scrobble(credentials: ServiceCredentials, track: Track) async throws {
@@ -101,7 +116,7 @@ class ServiceManager: ObservableObject {
             return
         }
         Logger.debug("Scrobbling to \(credentials.service.displayName): '\(track.artist) - \(track.name)' (timestamp: \(track.startedAt))", log: Logger.scrobbling)
-        try await client.scrobble(sessionKey: credentials.token, track: track)
+        try await client.scrobble(track: track)
         Logger.info("Successfully scrobbled to \(credentials.service.displayName)", log: Logger.scrobbling)
     }
     
@@ -165,7 +180,7 @@ class ServiceManager: ObservableObject {
     
     func deleteScrobble(credentials: ServiceCredentials, identifier: ScrobbleIdentifier) async throws {
         guard let client = clients[credentials.service] else { return }
-        try await client.deleteScrobble(sessionKey: credentials.token, identifier: identifier)
+        try await client.deleteScrobble(identifier: identifier)
     }
     
     func deleteScrobbleAll(artist: String, track: String, serviceInfo: [String: ServiceTrackData]) async {
@@ -209,10 +224,8 @@ class ServiceManager: ObservableObject {
         var primaryTracks: [RecentTrack]
         do {
             primaryTracks = try await client.getRecentTracks(
-                username: primaryService.username,
                 limit: limit,
-                page: page,
-                token: primaryService.token
+                page: page
             )
         } catch {
             Logger.error("Failed to fetch history from primary service \(primaryService.service.displayName): \(error)", log: Logger.sync)

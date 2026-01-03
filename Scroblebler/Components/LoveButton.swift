@@ -53,7 +53,7 @@ struct LoveButton: View {
                 }
                 
                 do {
-                    try await client.updateLove(sessionKey: credentials.token, artist: artist, track: trackName, loved: loved)
+                    try await client.updateLove(artist: artist, track: trackName, loved: loved)
                 } catch {
                     Logger.error("Failed to update love on \(service.displayName): \(error)", log: Logger.scrobbling)
                     allSucceeded = false

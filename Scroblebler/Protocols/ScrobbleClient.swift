@@ -8,32 +8,36 @@ protocol ScrobbleClient {
     
     func authenticate() async throws -> (token: String, authURL: URL)
     func completeAuthentication(token: String) async throws -> (username: String, sessionKey: String, profileUrl: String?, isSubscriber: Bool)
-    func updateNowPlaying(sessionKey: String, track: Track) async throws
-    func scrobble(sessionKey: String, track: Track) async throws
-    func updateLove(sessionKey: String, artist: String, track: String, loved: Bool) async throws
+    
+    // Credential restoration (for app restart)
+    func setCredentials(username: String, sessionKey: String)
+    
+    func updateNowPlaying(track: Track) async throws
+    func scrobble(track: Track) async throws
+    func updateLove(artist: String, track: String, loved: Bool) async throws
     
     // Profile methods
-    func getRecentTracks(username: String, limit: Int, page: Int, token: String?) async throws -> [RecentTrack]
-    func getRecentTracksByTimeRange(username: String, minTs: Int?, maxTs: Int?, limit: Int, token: String?) async throws -> [RecentTrack]?
-    func getUserStats(username: String) async throws -> UserStats?
-    func getTopArtists(username: String, period: String, limit: Int) async throws -> [TopArtist]
-    func getTopAlbums(username: String, period: String, limit: Int) async throws -> [TopAlbum]
-    func getTopTracks(username: String, period: String, limit: Int) async throws -> [TopTrack]
+    func getRecentTracks(limit: Int, page: Int) async throws -> [RecentTrack]
+    func getRecentTracksByTimeRange(minTs: Int?, maxTs: Int?, limit: Int) async throws -> [RecentTrack]?
+    func getUserStats() async throws -> UserStats?
+    func getTopArtists(period: String, limit: Int) async throws -> [TopArtist]
+    func getTopAlbums(period: String, limit: Int) async throws -> [TopAlbum]
+    func getTopTracks(period: String, limit: Int) async throws -> [TopTrack]
     func getTrackInfo(artist: String, track: String) async throws -> (loved: Bool, playcount: Int?)
-    func deleteScrobble(sessionKey: String, identifier: ScrobbleIdentifier) async throws
+    func deleteScrobble(identifier: ScrobbleIdentifier) async throws
 }
 
 // Optional features with default implementations
 extension ScrobbleClient {
-    func updateLove(sessionKey: String, artist: String, track: String, loved: Bool) async throws {
+    func updateLove(artist: String, track: String, loved: Bool) async throws {
         // Optional - not all services support this
     }
     
-    func deleteScrobble(sessionKey: String, identifier: ScrobbleIdentifier) async throws {
+    func deleteScrobble(identifier: ScrobbleIdentifier) async throws {
         // Optional - not all services support this
     }
     
-    func getRecentTracksByTimeRange(username: String, minTs: Int?, maxTs: Int?, limit: Int, token: String?) async throws -> [RecentTrack]? {
+    func getRecentTracksByTimeRange(minTs: Int?, maxTs: Int?, limit: Int) async throws -> [RecentTrack]? {
         // Optional - only services that support timestamp-based queries implement this
         return nil
     }
