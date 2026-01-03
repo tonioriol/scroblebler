@@ -19,6 +19,14 @@ class ServiceManager: ObservableObject {
         .listenbrainz: ListenBrainzClient()
     ]
     
+    private let crossServiceSync: CrossServiceSync
+    private let backfillService: BackfillService
+    
+    init() {
+        self.crossServiceSync = CrossServiceSync(clients: clients)
+        self.backfillService = BackfillService(clients: clients)
+    }
+    
     func client(for service: ScrobbleService) -> ScrobbleClient? {
         clients[service]
     }
@@ -224,179 +232,25 @@ class ServiceManager: ObservableObject {
     }
     
     private func enrichTracksWithOtherServices(tracks: inout [RecentTrack], otherServices: [ServiceCredentials], limit: Int, page: Int) async {
-        guard Defaults.shared.primaryService != nil else { return }
+        // Use CrossServiceSync to reconcile tracks
+        let backfillTasks = await crossServiceSync.reconcile(
+            primaryTracks: &tracks,
+            secondaryServices: otherServices,
+            limit: limit,
+            page: page
+        )
         
-        var otherServiceTracks: [[RecentTrack]] = []
-        
-        // Get timestamp range with buffer for clock skew and boundary cases
-        let minTs = tracks.compactMap { $0.date }.min()
-        let maxTs = tracks.compactMap { $0.date }.max()
-        let timeBuffer = 300 // 5 minutes buffer to catch boundary cases and clock skew
-        
-        let oldestTimestamp = minTs.map { $0 - timeBuffer }
-        let newestTimestamp = maxTs.map { $0 + timeBuffer }
-        
-        Logger.debug("Primary timestamp range: \(minTs ?? 0) to \(maxTs ?? 0) (buffer: ±\(timeBuffer)s)", log: Logger.sync)
-        
-        // Fetch tracks from other services
-        await withTaskGroup(of: (Int, [RecentTrack]?).self) { group in
-            for (index, credentials) in otherServices.enumerated() {
-                guard let client = self.client(for: credentials.service) else { continue }
-                group.addTask {
-                    do {
-                        // Try timestamp-based query first (Last.fm and ListenBrainz support this)
-                        if let timeRangeTracks = try await client.getRecentTracksByTimeRange(
-                            username: credentials.username,
-                            minTs: oldestTimestamp,
-                            maxTs: newestTimestamp,
-                            limit: 1000,
-                            token: credentials.token
-                        ), !timeRangeTracks.isEmpty {
-                            Logger.debug("Fetched \(timeRangeTracks.count) tracks from \(credentials.service.displayName) (timestamp query)", log: Logger.sync)
-                            return (index, timeRangeTracks)
-                        }
-                        
-                        // Fallback to page-based query (Libre.fm or if timestamp query unsupported)
-                        let fetchLimit = min(limit * 10 * page, 1000)
-                        let pageTracks = try await client.getRecentTracks(
-                            username: credentials.username,
-                            limit: fetchLimit,
-                            page: 1,
-                            token: credentials.token
-                        )
-                        Logger.debug("Fetched \(pageTracks.count) tracks from \(credentials.service.displayName) (page query)", log: Logger.sync)
-                        return (index, pageTracks)
-                    } catch {
-                        Logger.error("Failed to fetch history from \(credentials.service.displayName): \(error)", log: Logger.sync)
-                        return (index, nil)
+        // Execute backfills asynchronously
+        if !backfillTasks.isEmpty {
+            Task {
+                let events = await backfillService.execute(tasks: backfillTasks)
+                // Publish the last backfill event
+                if let lastEvent = events.last {
+                    await MainActor.run {
+                        self.lastBackfilledTrack = lastEvent
                     }
                 }
             }
-            
-            for await (index, fetchedTracks) in group {
-                while otherServiceTracks.count <= index {
-                    otherServiceTracks.append([])
-                }
-                if let fetchedTracks = fetchedTracks {
-                    otherServiceTracks[index] = fetchedTracks
-                }
-            }
         }
-        
-        // Match primary tracks with other services and queue backfills
-        var tracksToBackfill: [(track: RecentTrack, credentials: ServiceCredentials)] = []
-        
-        for serviceIndex in otherServiceTracks.indices {
-            let serviceTracks = otherServiceTracks[serviceIndex]
-            let credentials = otherServices[serviceIndex]
-            
-            for primaryIndex in tracks.indices {
-                if let matchedTrack = findBestMatch(for: tracks[primaryIndex], in: serviceTracks, serviceName: credentials.service.displayName) {
-                    // Track exists - enrich with service info
-                    tracks[primaryIndex].serviceInfo.merge(matchedTrack.serviceInfo) { (_, new) in new }
-                } else if canBackfill(track: tracks[primaryIndex], to: credentials.service) {
-                    // Track missing and eligible for backfill
-                    tracksToBackfill.append((track: tracks[primaryIndex], credentials: credentials))
-                }
-            }
-        }
-        
-        // Backfill missing tracks asynchronously
-        if !tracksToBackfill.isEmpty {
-            Task {
-                await backfillMissingTracks(tracksToBackfill)
-            }
-        }
-    }
-    
-    private func canBackfill(track: RecentTrack, to service: ScrobbleService) -> Bool {
-        guard let timestamp = track.date else { return false }
-        let age = Date().timeIntervalSince1970 - TimeInterval(timestamp)
-        let daysOld = age / 86400
-        
-        switch service {
-        case .lastfm, .librefm:
-            return daysOld < 14
-        case .listenbrainz:
-            return true
-        }
-    }
-    
-    private func backfillMissingTracks(_ tasks: [(track: RecentTrack, credentials: ServiceCredentials)]) async {
-        Logger.info("Backfilling \(tasks.count) missing tracks", log: Logger.sync)
-        
-        var succeeded = 0
-        var failed = 0
-        
-        for (index, (recentTrack, credentials)) in tasks.enumerated() {
-            Logger.debug("Backfill task \(index + 1)/\(tasks.count): '\(recentTrack.artist) - \(recentTrack.name)' to \(credentials.service.displayName)", log: Logger.sync)
-            
-            let track = Track(
-                artist: recentTrack.artist,
-                album: recentTrack.album,
-                name: recentTrack.name,
-                length: 0,
-                artwork: nil,
-                loved: recentTrack.loved,
-                startedAt: Int32(recentTrack.date ?? 0)
-            )
-            
-            do {
-                try await scrobble(credentials: credentials, track: track)
-                let age = (recentTrack.date.map { Date().timeIntervalSince1970 - TimeInterval($0) } ?? 0) / 86400
-                Logger.info("Synced to \(credentials.service.displayName): '\(track.name)' (\(Int(age))d old)", log: Logger.sync)
-                succeeded += 1
-                
-                // Sync love state from primary service to secondary service
-                if let client = clients[credentials.service] {
-                    try? await client.updateLove(sessionKey: credentials.token, artist: recentTrack.artist, track: recentTrack.name, loved: recentTrack.loved)
-                }
-                
-                // Publish backfill event
-                await MainActor.run {
-                    self.lastBackfilledTrack = BackfillEvent(
-                        artist: recentTrack.artist,
-                        track: recentTrack.name,
-                        timestamp: recentTrack.date ?? 0,
-                        service: credentials.service
-                    )
-                }
-                
-                // Rate limiting
-                try await Task.sleep(nanoseconds: 500_000_000)
-            } catch {
-                Logger.error("Failed \(credentials.service.displayName): '\(track.name)' - \(error)", log: Logger.sync)
-                failed += 1
-            }
-        }
-        
-        Logger.info("Backfill complete: \(succeeded) succeeded, \(failed) failed", log: Logger.sync)
-    }
-    
-    private func findBestMatch(for track: RecentTrack, in candidates: [RecentTrack], serviceName: String) -> RecentTrack? {
-        Logger.info("[MATCH] Matching '\(track.artist) - \(track.name)' (TS: \(track.date ?? 0)) in \(serviceName)", log: Logger.sync)
-        
-        // Simple strategy: find exact timestamp match within 2-minute window
-        for candidate in candidates {
-            // Must be within 2-minute window
-            guard timestampsMatch(track.date, candidate.date) else { continue }
-            
-            let delta = abs((track.date ?? 0) - (candidate.date ?? 0))
-            
-            // Exact timestamp match (within 5 seconds)
-            if delta <= 5 {
-                Logger.info("[MATCH] ✅ Matched '\(candidate.artist) - \(candidate.name)' (Δ: \(delta)s)", log: Logger.sync)
-                return candidate
-            }
-        }
-        
-        Logger.info("[MATCH] ❌ No match for '\(track.artist) - \(track.name)'", log: Logger.sync)
-        return nil
-    }
-    
-    private func timestampsMatch(_ d1: Int?, _ d2: Int?) -> Bool {
-        if d1 == nil && d2 == nil { return true }
-        guard let d1 = d1, let d2 = d2 else { return false }
-        return abs(d1 - d2) < 120  // Within 2 minutes
     }
 }

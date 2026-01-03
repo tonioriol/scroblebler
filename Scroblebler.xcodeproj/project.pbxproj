@@ -55,6 +55,9 @@
 		SYNCBADGE00000000000002 /* SyncStatusBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = SYNCBADGE00000000000001 /* SyncStatusBadge.swift */; };
 		UN0000000000000000000002 /* UndoButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = UN0000000000000000000001 /* UndoButton.swift */; };
 		STRSIM00000000000000002 /* StringSimilarity.swift in Sources */ = {isa = PBXBuildFile; fileRef = STRSIM00000000000000001 /* StringSimilarity.swift */; };
+		TRKMAT00000000000000002 /* TrackMatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = TRKMAT00000000000000001 /* TrackMatcher.swift */; };
+		XSYNC000000000000000002 /* CrossServiceSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = XSYNC000000000000000001 /* CrossServiceSync.swift */; };
+		BKFILL00000000000000002 /* BackfillService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BKFILL00000000000000001 /* BackfillService.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -121,6 +124,9 @@
 		UN0000000000000000000001 /* UndoButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UndoButton.swift; sourceTree = "<group>"; };
 		NETCL00000000000000001 /* NetworkClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkClient.swift; sourceTree = "<group>"; };
 		STRSIM00000000000000001 /* StringSimilarity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StringSimilarity.swift; sourceTree = "<group>"; };
+		TRKMAT00000000000000001 /* TrackMatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackMatcher.swift; sourceTree = "<group>"; };
+		XSYNC000000000000000001 /* CrossServiceSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrossServiceSync.swift; sourceTree = "<group>"; };
+		BKFILL00000000000000001 /* BackfillService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackfillService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -206,6 +212,7 @@
 				DA8F7295293126ED007920D3 /* Views */,
 				DA6859CA292FDC9C009143B3 /* Components */,
 				CL9999999999999999999999 /* Clients */,
+				SVC00000000000000000001 /* Services */,
 				EE8888888888888888888888 /* Protocols */,
 				UTIL0000000000000000001 /* Utilities */,
 				DA6859CF2930242E009143B3 /* Info.plist */,
@@ -267,8 +274,18 @@
 			children = (
 				NETCL00000000000000001 /* NetworkClient.swift */,
 				STRSIM00000000000000001 /* StringSimilarity.swift */,
+				TRKMAT00000000000000001 /* TrackMatcher.swift */,
 			);
 			path = Utilities;
+			sourceTree = "<group>";
+		};
+		SVC00000000000000000001 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				XSYNC000000000000000001 /* CrossServiceSync.swift */,
+				BKFILL00000000000000001 /* BackfillService.swift */,
+			);
+			path = Services;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -391,6 +408,9 @@
 				PLYRCTL0000000000000002 /* PlayerControls.swift in Sources */,
 				NETCL00000000000000002 /* NetworkClient.swift in Sources */,
 				STRSIM00000000000000002 /* StringSimilarity.swift in Sources */,
+				TRKMAT00000000000000002 /* TrackMatcher.swift in Sources */,
+				XSYNC000000000000000002 /* CrossServiceSync.swift in Sources */,
+				BKFILL00000000000000002 /* BackfillService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
