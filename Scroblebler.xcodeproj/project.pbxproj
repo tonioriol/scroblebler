@@ -56,6 +56,7 @@
 		UN0000000000000000000002 /* UndoButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = UN0000000000000000000001 /* UndoButton.swift */; };
 		STRSIM00000000000000002 /* StringSimilarity.swift in Sources */ = {isa = PBXBuildFile; fileRef = STRSIM00000000000000001 /* StringSimilarity.swift */; };
 		TRKMAT00000000000000002 /* TrackMatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = TRKMAT00000000000000001 /* TrackMatcher.swift */; };
+		LBRLIM00000000000000002 /* ListenBrainzRateLimiter.swift in Sources */ = {isa = PBXBuildFile; fileRef = LBRLIM00000000000000001 /* ListenBrainzRateLimiter.swift */; };
 		XSYNC000000000000000002 /* CrossServiceSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = XSYNC000000000000000001 /* CrossServiceSync.swift */; };
 		BKFILL00000000000000002 /* BackfillService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BKFILL00000000000000001 /* BackfillService.swift */; };
 		LDBAS000000000000000002 /* LocalDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = LDBAS000000000000000001 /* LocalDatabase.swift */; };
@@ -130,6 +131,7 @@
 		NETCL00000000000000001 /* NetworkClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkClient.swift; sourceTree = "<group>"; };
 		STRSIM00000000000000001 /* StringSimilarity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StringSimilarity.swift; sourceTree = "<group>"; };
 		TRKMAT00000000000000001 /* TrackMatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackMatcher.swift; sourceTree = "<group>"; };
+		LBRLIM00000000000000001 /* ListenBrainzRateLimiter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListenBrainzRateLimiter.swift; sourceTree = "<group>"; };
 		XSYNC000000000000000001 /* CrossServiceSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrossServiceSync.swift; sourceTree = "<group>"; };
 		BKFILL00000000000000001 /* BackfillService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackfillService.swift; sourceTree = "<group>"; };
 		LDBAS000000000000000001 /* LocalDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalDatabase.swift; sourceTree = "<group>"; };
@@ -287,6 +289,7 @@
 				NETCL00000000000000001 /* NetworkClient.swift */,
 				STRSIM00000000000000001 /* StringSimilarity.swift */,
 				TRKMAT00000000000000001 /* TrackMatcher.swift */,
+				LBRLIM00000000000000001 /* ListenBrainzRateLimiter.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -443,6 +446,7 @@
 				NETCL00000000000000002 /* NetworkClient.swift in Sources */,
 				STRSIM00000000000000002 /* StringSimilarity.swift in Sources */,
 				TRKMAT00000000000000002 /* TrackMatcher.swift in Sources */,
+				LBRLIM00000000000000002 /* ListenBrainzRateLimiter.swift in Sources */,
 				XSYNC000000000000000002 /* CrossServiceSync.swift in Sources */,
 				BKFILL00000000000000002 /* BackfillService.swift in Sources */,
 				LDBAS000000000000000002 /* LocalDatabase.swift in Sources */,

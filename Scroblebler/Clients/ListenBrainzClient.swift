@@ -30,6 +30,7 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
     
     private let paginationState = Locked(PaginationState())
     private let cache = ListenBrainzCache()
+    private let rateLimiter = ListenBrainzRateLimiter()
     
     // Stored credentials (set during authentication)
     private var username: String?
@@ -403,7 +404,7 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
                     }
                     
                     let imageUrl = self.extractCoverArtUrl(from: track.metadata)
-                    let playcount = self.cache.getCachedPlayCount(username: username, artist: track.artist, track: track.name)
+                    let playcount = await self.cache.getCachedPlayCount(username: username, artist: track.artist, track: track.name)
                     
                     let recentTrack = RecentTrack(
                         name: track.name,
@@ -639,7 +640,7 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
     }
     
     func getTrackPlaycount(username: String, artist: String, track: String, recordingMbid: String?) async throws -> Int? {
-        return cache.getCachedPlayCount(username: username, artist: artist, track: track)
+        return await cache.getCachedPlayCount(username: username, artist: artist, track: track)
     }
     
     func invalidateAndRebuildCache(username: String) async {
@@ -653,7 +654,7 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         }
         
         // Get playcount from cache (populated when loading recent tracks)
-        let playcount = cache.getCachedPlayCount(username: username, artist: artist, track: track)
+        let playcount = await cache.getCachedPlayCount(username: username, artist: artist, track: track)
         
         // Get loved status from feedback API - requires recording MBID lookup
         var loved = false
@@ -721,6 +722,9 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
     // MARK: - Helpers
     
     private func sendRequest(endpoint: String, token: String, payload: [String: Any]) async throws {
+        // Wait for rate limiter
+        await rateLimiter.waitIfNeeded()
+        
         var request = URLRequest(url: baseURL.appendingPathComponent(endpoint))
         request.httpMethod = "POST"
         request.setValue("Token \(token)", forHTTPHeaderField: "Authorization")
@@ -730,6 +734,17 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw Error.serverError("Invalid response")
+        }
+        
+        // Update rate limiter from response headers
+        await rateLimiter.updateFromHeaders(httpResponse)
+        
+        // Handle rate limit exceeded
+        if httpResponse.statusCode == 429 {
+            Logger.error("Rate limit exceeded (429) on \(endpoint), backing off", log: Logger.network)
+            await rateLimiter.handle429Response(httpResponse)
+            // Retry once after backoff
+            return try await sendRequest(endpoint: endpoint, token: token, payload: payload)
         }
         
         guard httpResponse.statusCode == 200 else {

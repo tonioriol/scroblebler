@@ -1,67 +1,65 @@
 import Foundation
+import GRDB
 
-/// Manages playcount caching for ListenBrainz with background fetching and disk persistence
+/// Manages playcount caching for ListenBrainz with background fetching and SQLite persistence
 final class ListenBrainzCache {
     // MARK: - State
     
-    private struct CacheState {
-        var playCountCache: [String: [String: Int]] = [:] // username -> [artist|track -> count]
-        var cacheExpiry: [String: Date] = [:]
-    }
-    
-    private let cacheState = Locked(CacheState())
-    private let cacheValidityDuration: TimeInterval = 3600 // 1 hour
+    private let db = LocalDatabase.shared
     private var backgroundFetchTasks: [String: Task<Void, Never>] = [:]
-    
     private let baseURL = URL(string: "https://api.listenbrainz.org/1/")!
+    private let rateLimiter = ListenBrainzRateLimiter()
     
     // MARK: - Public API
     
-    func getCachedPlayCount(username: String, artist: String, track: String) -> Int? {
+    func getCachedPlayCount(username: String, artist: String, track: String) async -> Int? {
         let normalizedArtist = normalizeForCache(artist)
         let normalizedTrack = normalizeForCache(track)
-        let key = "\(normalizedArtist)|\(normalizedTrack)"
-        return cacheState.withLock { state in
-            state.playCountCache[username]?[key]
+        
+        return try? await db.asyncRead { db in
+            try ListenBrainzCacheEntry
+                .filter(ListenBrainzCacheEntry.Columns.username == username)
+                .filter(ListenBrainzCacheEntry.Columns.artist == normalizedArtist)
+                .filter(ListenBrainzCacheEntry.Columns.track == normalizedTrack)
+                .fetchOne(db)?
+                .playcount
         }
     }
     
     func populatePlayCountCache(username: String) async {
         Logger.debug("ListenBrainz populatePlayCountCache for \(username)", log: Logger.cache)
         
-        // Load from disk if available
-        if let (cachedCounts, continueFromTs, completedAt) = loadCacheFromDisk(username: username) {
-            cacheState.withLock { state in
-                state.playCountCache[username] = cachedCounts
-                state.cacheExpiry[username] = Date().addingTimeInterval(cacheValidityDuration)
+        // Check if we need to resume an incomplete fetch
+        if let meta = try? await db.asyncRead({ db in
+            try ListenBrainzCacheMeta
+                .filter(ListenBrainzCacheMeta.Columns.username == username)
+                .fetchOne(db)
+        }) {
+            let count = try? await db.asyncRead { db in
+                try ListenBrainzCacheEntry
+                    .filter(ListenBrainzCacheEntry.Columns.username == username)
+                    .fetchCount(db)
             }
-            Logger.info("Loaded \(cachedCounts.count) tracks from disk", log: Logger.cache)
+            Logger.info("Loaded \(count ?? 0) tracks from database", log: Logger.cache)
             
-            if let continueFrom = continueFromTs {
+            if let continueFrom = meta.continueFromTs {
                 Logger.info("Incomplete fetch - resuming from timestamp \(continueFrom)", log: Logger.cache)
                 startBackgroundCacheFetch(username: username, continueFrom: continueFrom)
-            } else if let completedAt = completedAt {
-                let age = Date().timeIntervalSince1970 - completedAt
-                if age > 300 { // 5 minutes
-                    let minTs = Int(completedAt) + 1
-                    Logger.info("Cache is \(Int(age/60))min old - triggering incremental update", log: Logger.cache)
-                    startIncrementalUpdate(username: username, since: minTs)
+            } else if let completedAt = meta.completedAt {
+                // Check if we need an incremental update
+                let formatter = ISO8601DateFormatter()
+                formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                if let date = formatter.date(from: completedAt) {
+                    let age = Date().timeIntervalSince(date)
+                    if age > 300 { // 5 minutes
+                        let minTs = Int(date.timeIntervalSince1970) + 1
+                        Logger.info("Cache is \(Int(age/60))min old - triggering incremental update", log: Logger.cache)
+                        startIncrementalUpdate(username: username, since: minTs)
+                    }
                 }
             }
             return
         }
-        
-        // Check if in-memory cache is still valid
-        let isCacheValid = cacheState.withLock { state in
-            if let expiry = state.cacheExpiry[username], Date() < expiry {
-                let count = state.playCountCache[username]?.count ?? 0
-                Logger.debug("Cache still valid, skipping fetch. Entries: \(count)", log: Logger.cache)
-                return true
-            }
-            return false
-        }
-        
-        if isCacheValid { return }
         
         // Start fresh background fetch
         Logger.debug("Starting fresh cache fetch from beginning", log: Logger.cache)
@@ -75,19 +73,18 @@ final class ListenBrainzCache {
         backgroundFetchTasks[username]?.cancel()
         backgroundFetchTasks.removeValue(forKey: username)
         
-        // Clear in-memory cache
-        cacheState.withLock { state in
-            state.playCountCache.removeValue(forKey: username)
-            state.cacheExpiry.removeValue(forKey: username)
+        // Clear database entries
+        Task {
+            try? await db.asyncWrite { db in
+                try ListenBrainzCacheEntry
+                    .filter(ListenBrainzCacheEntry.Columns.username == username)
+                    .deleteAll(db)
+                try ListenBrainzCacheMeta
+                    .filter(ListenBrainzCacheMeta.Columns.username == username)
+                    .deleteAll(db)
+            }
+            Logger.info("Cache invalidated for \(username)", log: Logger.cache)
         }
-        
-        // Delete disk cache
-        if let filePath = getCacheFilePath(username: username) {
-            try? FileManager.default.removeItem(at: filePath)
-            Logger.info("Deleted cache file for \(username)", log: Logger.cache)
-        }
-        
-        Logger.info("Cache invalidated for \(username)", log: Logger.cache)
     }
     
     // MARK: - Background Fetching
@@ -125,20 +122,78 @@ final class ListenBrainzCache {
     private func fetchNewListens(username: String, since: Int) async {
         Logger.info("Incremental update started", log: Logger.cache)
         
-        var playcounts: [String: Int] = cacheState.withLock { state in
-            state.playCountCache[username] ?? [:]
-        }
-        
         do {
             let listens = try await fetchListensPage(username: username, minTs: since, count: 1000)
-            let newCount = addListensToCounts(listens: listens, playcounts: &playcounts)
-            Logger.info("Added \(newCount) new listens, total: \(playcounts.count)", log: Logger.cache)
             
-            cacheState.withLock { state in
-                state.playCountCache[username] = playcounts
+            // Batch insert into database
+            let now = Date.nowISO8601()
+            let newCount = try await db.asyncWrite { [self] db in
+                var count = 0
+                for listen in listens {
+                    guard let metadata = listen["track_metadata"] as? [String: Any],
+                          let artist = metadata["artist_name"] as? String,
+                          let name = metadata["track_name"] as? String else { continue }
+                    
+                    let normalizedArtist = self.normalizeForCache(artist)
+                    let normalizedTrack = self.normalizeForCache(name)
+                    
+                    // Upsert playcount
+                    if var existing = try ListenBrainzCacheEntry
+                        .filter(ListenBrainzCacheEntry.Columns.username == username)
+                        .filter(ListenBrainzCacheEntry.Columns.artist == normalizedArtist)
+                        .filter(ListenBrainzCacheEntry.Columns.track == normalizedTrack)
+                        .fetchOne(db) {
+                        existing.playcount += 1
+                        existing.updatedAt = now
+                        try existing.update(db)
+                    } else {
+                        let newEntry = ListenBrainzCacheEntry(
+                            id: nil,
+                            username: username,
+                            artist: normalizedArtist,
+                            track: normalizedTrack,
+                            playcount: 1,
+                            createdAt: now,
+                            updatedAt: now
+                        )
+                        try newEntry.insert(db)
+                    }
+                    count += 1
+                }
+                return count
             }
             
-            saveCacheToDisk(username: username, cache: playcounts, continueFromTs: nil, completedAt: Date().timeIntervalSince1970)
+            let totalCount = try? await db.asyncRead { db in
+                try ListenBrainzCacheEntry
+                    .filter(ListenBrainzCacheEntry.Columns.username == username)
+                    .fetchCount(db)
+            }
+            
+            Logger.info("Added \(newCount) new listens, total: \(totalCount ?? 0) tracks", log: Logger.cache)
+            
+            // Update metadata - mark as complete
+            try await db.asyncWrite { db in
+                if var existing = try ListenBrainzCacheMeta
+                    .filter(ListenBrainzCacheMeta.Columns.username == username)
+                    .fetchOne(db) {
+                    existing.completedAt = now
+                    existing.totalTracks = totalCount
+                    existing.updatedAt = now
+                    try existing.update(db)
+                } else {
+                    let meta = ListenBrainzCacheMeta(
+                        id: nil,
+                        username: username,
+                        continueFromTs: nil,
+                        completedAt: now,
+                        totalTracks: totalCount,
+                        createdAt: now,
+                        updatedAt: now
+                    )
+                    try meta.insert(db)
+                }
+            }
+            
             Logger.info("Incremental update complete", log: Logger.cache)
         } catch {
             Logger.error("Incremental update error: \(error)", log: Logger.cache)
@@ -149,18 +204,6 @@ final class ListenBrainzCache {
     
     private func fetchAllPagesInBackground(username: String, continueFrom: Int?) async {
         Logger.info("Background fetch started", log: Logger.cache)
-        
-        // Start fresh if no continueFrom, otherwise resume from existing cache
-        var playcounts: [String: Int]
-        if continueFrom == nil {
-            playcounts = [:]
-            Logger.debug("Starting fresh playcount cache", log: Logger.cache)
-        } else {
-            playcounts = cacheState.withLock { state in
-                state.playCountCache[username] ?? [:]
-            }
-            Logger.debug("Resuming with \(playcounts.count) existing entries", log: Logger.cache)
-        }
         
         var maxTs: Int? = continueFrom
         var totalListens = 0
@@ -173,24 +216,87 @@ final class ListenBrainzCache {
                 let listens = try await fetchListensPage(username: username, maxTs: maxTs, count: 1000)
                 if listens.isEmpty { break }
                 
-                totalListens += addListensToCounts(listens: listens, playcounts: &playcounts)
-                maxTs = (listens.last?["listened_at"] as? Int)
-                
-                cacheState.withLock { state in
-                    state.playCountCache[username] = playcounts
+                // Batch insert into database
+                let now = Date.nowISO8601()
+                let pageCount = try await db.asyncWrite { [self] db in
+                    var count = 0
+                    for listen in listens {
+                        guard let metadata = listen["track_metadata"] as? [String: Any],
+                              let artist = metadata["artist_name"] as? String,
+                              let name = metadata["track_name"] as? String else { continue }
+                        
+                        let normalizedArtist = self.normalizeForCache(artist)
+                        let normalizedTrack = self.normalizeForCache(name)
+                        
+                        // Upsert playcount
+                        if var existing = try ListenBrainzCacheEntry
+                            .filter(ListenBrainzCacheEntry.Columns.username == username)
+                            .filter(ListenBrainzCacheEntry.Columns.artist == normalizedArtist)
+                            .filter(ListenBrainzCacheEntry.Columns.track == normalizedTrack)
+                            .fetchOne(db) {
+                            existing.playcount += 1
+                            existing.updatedAt = now
+                            try existing.update(db)
+                        } else {
+                            let newEntry = ListenBrainzCacheEntry(
+                                id: nil,
+                                username: username,
+                                artist: normalizedArtist,
+                                track: normalizedTrack,
+                                playcount: 1,
+                                createdAt: now,
+                                updatedAt: now
+                            )
+                            try newEntry.insert(db)
+                        }
+                        count += 1
+                    }
+                    return count
                 }
                 
-                // Log progress every page
-                Logger.debug("Page \(page): \(listens.count) listens, \(playcounts.count) unique tracks", log: Logger.cache)
+                totalListens += pageCount
+                maxTs = (listens.last?["listened_at"] as? Int)
                 
+                // Log progress
+                Logger.debug("Page \(page): \(listens.count) listens processed", log: Logger.cache)
+                
+                // Update metadata every 5 pages
                 if page % 5 == 0 {
-                    saveCacheToDisk(username: username, cache: playcounts, continueFromTs: maxTs, completedAt: nil)
-                    Logger.info("Progress: \(page) pages, \(totalListens) listens, \(playcounts.count) tracks", log: Logger.cache)
+                    let count = try? await db.asyncRead { db in
+                        try ListenBrainzCacheEntry
+                            .filter(ListenBrainzCacheEntry.Columns.username == username)
+                            .fetchCount(db)
+                    }
+                    
+                    // Save progress to metadata
+                    let currentMaxTs = maxTs
+                    try? await db.asyncWrite { db in
+                        if var existing = try ListenBrainzCacheMeta
+                            .filter(ListenBrainzCacheMeta.Columns.username == username)
+                            .fetchOne(db) {
+                            existing.continueFromTs = currentMaxTs
+                            existing.totalTracks = count
+                            existing.updatedAt = Date.nowISO8601()
+                            try existing.update(db)
+                        } else {
+                            let meta = ListenBrainzCacheMeta(
+                                id: nil,
+                                username: username,
+                                continueFromTs: currentMaxTs,
+                                completedAt: nil,
+                                totalTracks: count,
+                                createdAt: Date.nowISO8601(),
+                                updatedAt: Date.nowISO8601()
+                            )
+                            try meta.insert(db)
+                        }
+                    }
+                    
+                    Logger.info("Progress: \(page) pages, \(totalListens) listens, \(count ?? 0) tracks", log: Logger.cache)
                 }
                 
                 try? await Task.sleep(nanoseconds: 200_000_000)
             } catch {
-                // Don't log cancellation errors - they're expected when rebuilding cache
                 if (error as NSError).code != NSURLErrorCancelled {
                     Logger.error("Error fetching page \(page): \(error)", log: Logger.cache)
                 }
@@ -198,27 +304,52 @@ final class ListenBrainzCache {
             }
         }
         
-        // Early exit if cancelled
         guard !Task.isCancelled else {
             Logger.debug("Background fetch cancelled for \(username)", log: Logger.cache)
             backgroundFetchTasks.removeValue(forKey: username)
             return
         }
         
-        cacheState.withLock { state in
-            state.playCountCache[username] = playcounts
-            state.cacheExpiry[username] = Date().addingTimeInterval(cacheValidityDuration)
+        // Mark as complete
+        let now = Date.nowISO8601()
+        try? await db.asyncWrite { db in
+            let totalTracks = try ListenBrainzCacheEntry
+                .filter(ListenBrainzCacheEntry.Columns.username == username)
+                .fetchCount(db)
+            
+            // Upsert metadata
+            if var existing = try ListenBrainzCacheMeta
+                .filter(ListenBrainzCacheMeta.Columns.username == username)
+                .fetchOne(db) {
+                existing.continueFromTs = nil
+                existing.completedAt = now
+                existing.totalTracks = totalTracks
+                existing.updatedAt = now
+                try existing.update(db)
+            } else {
+                let meta = ListenBrainzCacheMeta(
+                    id: nil,
+                    username: username,
+                    continueFromTs: nil,
+                    completedAt: now,
+                    totalTracks: totalTracks,
+                    createdAt: now,
+                    updatedAt: now
+                )
+                try meta.insert(db)
+            }
         }
         
-        saveCacheToDisk(username: username, cache: playcounts, continueFromTs: nil, completedAt: Date().timeIntervalSince1970)
-        Logger.info("Background fetch complete: \(page) pages, \(totalListens) listens, \(playcounts.count) tracks", log: Logger.cache)
-        
+        Logger.info("Background fetch complete: \(page) pages, \(totalListens) listens", log: Logger.cache)
         backgroundFetchTasks.removeValue(forKey: username)
     }
     
     // MARK: - API Fetching
     
     private func fetchListensPage(username: String, maxTs: Int? = nil, minTs: Int? = nil, count: Int) async throws -> [[String: Any]] {
+        // Wait for rate limiter
+        await rateLimiter.waitIfNeeded()
+        
         let encodedUsername = username.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? username
         var components = URLComponents(url: baseURL.appendingPathComponent("user/\(encodedUsername)/listens"), resolvingAgainstBaseURL: false)!
         
@@ -227,71 +358,24 @@ final class ListenBrainzCache {
         if let minTs = minTs { queryItems.append(URLQueryItem(name: "min_ts", value: "\(minTs)")) }
         components.queryItems = queryItems
         
-        let (data, _) = try await URLSession.shared.data(from: components.url!)
+        let (data, response) = try await URLSession.shared.data(from: components.url!)
+        
+        // Update rate limiter from response headers
+        if let httpResponse = response as? HTTPURLResponse {
+            await rateLimiter.updateFromHeaders(httpResponse)
+            
+            // Handle rate limit exceeded
+            if httpResponse.statusCode == 429 {
+                Logger.error("Rate limit exceeded (429), backing off", log: Logger.network)
+                await rateLimiter.handle429Response(httpResponse)
+                // Retry once after backoff
+                return try await fetchListensPage(username: username, maxTs: maxTs, minTs: minTs, count: count)
+            }
+        }
+        
         let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         let payload = json?["payload"] as? [String: Any]
         return payload?["listens"] as? [[String: Any]] ?? []
-    }
-    
-    private func addListensToCounts(listens: [[String: Any]], playcounts: inout [String: Int]) -> Int {
-        var count = 0
-        for listen in listens {
-            guard let metadata = listen["track_metadata"] as? [String: Any],
-                  let artist = metadata["artist_name"] as? String,
-                  let name = metadata["track_name"] as? String else { continue }
-            
-            let key = "\(normalizeForCache(artist))|\(normalizeForCache(name))"
-            playcounts[key, default: 0] += 1
-            count += 1
-        }
-        return count
-    }
-    
-    // MARK: - Disk Persistence
-    
-    private func getCacheFilePath(username: String) -> URL? {
-        guard let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else { return nil }
-        let dir = appSupport.appendingPathComponent("Scroblebler", isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir.appendingPathComponent("listenbrainz_cache_\(username).json")
-    }
-    
-    private func saveCacheToDisk(username: String, cache: [String: Int], continueFromTs: Int?, completedAt: TimeInterval?) {
-        guard let filePath = getCacheFilePath(username: username) else { return }
-        
-        var cacheData: [String: Any] = [
-            "username": username,
-            "save_timestamp": Date().timeIntervalSince1970,
-            "continue_from_ts": continueFromTs as Any,
-            "data": cache
-        ]
-        if let completedAt = completedAt { cacheData["completed_at"] = completedAt }
-        
-        do {
-            let data = try JSONSerialization.data(withJSONObject: cacheData, options: [.prettyPrinted])
-            try data.write(to: filePath)
-        } catch {
-            Logger.error("Failed to save cache: \(error)", log: Logger.cache)
-        }
-    }
-    
-    private func loadCacheFromDisk(username: String) -> ([String: Int], Int?, TimeInterval?)? {
-        guard let filePath = getCacheFilePath(username: username),
-              FileManager.default.fileExists(atPath: filePath.path),
-              let data = try? Data(contentsOf: filePath),
-              let cacheData = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let saveTimestamp = cacheData["save_timestamp"] as? TimeInterval,
-              let cache = cacheData["data"] as? [String: Int] else { return nil }
-        
-        let age = Date().timeIntervalSince1970 - saveTimestamp
-        if age > 604800 { // 7 days
-            try? FileManager.default.removeItem(at: filePath)
-            return nil
-        }
-        
-        let continueFromTs = cacheData["continue_from_ts"] as? Int
-        let completedAt = cacheData["completed_at"] as? TimeInterval
-        return (cache, continueFromTs, completedAt)
     }
     
     // MARK: - Helpers
@@ -304,22 +388,5 @@ final class ListenBrainzCache {
             .replacingOccurrences(of: "\u{200F}", with: "")
             .replacingOccurrences(of: "\u{00A0}", with: " ")
             .trimmingCharacters(in: .whitespaces)
-    }
-}
-
-// MARK: - Thread-Safe Lock Helper
-
-fileprivate final class Locked<State>: @unchecked Sendable {
-    private let lock = NSLock()
-    private var state: State
-
-    init(_ state: State) {
-        self.state = state
-    }
-
-    func withLock<R>(_ body: (inout State) throws -> R) rethrows -> R {
-        lock.lock()
-        defer { lock.unlock() }
-        return try body(&state)
     }
 }
