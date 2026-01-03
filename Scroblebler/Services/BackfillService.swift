@@ -15,10 +15,18 @@ class BackfillService {
         
         var succeeded = 0
         var failed = 0
+        var skipped = 0
         var events: [BackfillEvent] = []
         
         for (index, (recentTrack, credentials)) in tasks.enumerated() {
             Logger.debug("Backfill task \(index + 1)/\(tasks.count): '\(recentTrack.artist) - \(recentTrack.name)' to \(credentials.service.displayName)", log: Logger.sync)
+            
+            // Check blacklist before backfilling
+            if await LocalBlacklist.shared.contains(artist: recentTrack.artist, track: recentTrack.name) {
+                Logger.info("Backfill skipped (blacklisted): '\(recentTrack.artist) - \(recentTrack.name)' to \(credentials.service.displayName)", log: Logger.sync)
+                skipped += 1
+                continue
+            }
             
             let track = Track(
                 artist: recentTrack.artist,
@@ -62,7 +70,7 @@ class BackfillService {
             }
         }
         
-        Logger.info("Backfill complete: \(succeeded) succeeded, \(failed) failed", log: Logger.sync)
+        Logger.info("Backfill complete: \(succeeded) succeeded, \(failed) failed, \(skipped) skipped (blacklisted)", log: Logger.sync)
         return events
     }
     
