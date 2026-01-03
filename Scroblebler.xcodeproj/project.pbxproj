@@ -64,6 +64,7 @@
 		LBCMET00000000000000002 /* ListenBrainzCacheMeta.swift in Sources */ = {isa = PBXBuildFile; fileRef = LBCMET00000000000000001 /* ListenBrainzCacheMeta.swift */; };
 		BLENT000000000000000002 /* BlacklistEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = BLENT000000000000000001 /* BlacklistEntry.swift */; };
 		QOPER000000000000000002 /* QueuedOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = QOPER000000000000000001 /* QueuedOperation.swift */; };
+		LBLIST00000000000000002 /* LocalBlacklist.swift in Sources */ = {isa = PBXBuildFile; fileRef = LBLIST00000000000000001 /* LocalBlacklist.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -139,6 +140,7 @@
 		LBCMET00000000000000001 /* ListenBrainzCacheMeta.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListenBrainzCacheMeta.swift; sourceTree = "<group>"; };
 		BLENT000000000000000001 /* BlacklistEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlacklistEntry.swift; sourceTree = "<group>"; };
 		QOPER000000000000000001 /* QueuedOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueuedOperation.swift; sourceTree = "<group>"; };
+		LBLIST00000000000000001 /* LocalBlacklist.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalBlacklist.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -307,6 +309,7 @@
 			isa = PBXGroup;
 			children = (
 				LDBAS000000000000000001 /* LocalDatabase.swift */,
+				LBLIST00000000000000001 /* LocalBlacklist.swift */,
 				STORMODL000000000000001 /* Models */,
 			);
 			path = Storage;
@@ -454,6 +457,7 @@
 				LBCMET00000000000000002 /* ListenBrainzCacheMeta.swift in Sources */,
 				BLENT000000000000000002 /* BlacklistEntry.swift in Sources */,
 				QOPER000000000000000002 /* QueuedOperation.swift in Sources */,
+				LBLIST00000000000000002 /* LocalBlacklist.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -76,24 +76,29 @@ struct UndoButton: View {
     
     private func redoScrobble() {
         guard !isProcessing else { return }
-        
-        // Check if track is blacklisted
-        if defaults.isBlacklisted(artist: artist, track: track) {
-            errorMessage = "Cannot redo: track is blacklisted"
-            showError = true
-            return
-        }
-        
-        // Check if there are enabled services
-        if defaults.enabledServices.isEmpty {
-            errorMessage = "Cannot redo: no services enabled"
-            showError = true
-            return
-        }
-        
         isProcessing = true
         
         Task {
+            // Check if track is blacklisted
+            if await LocalBlacklist.shared.contains(artist: artist, track: track) {
+                await MainActor.run {
+                    errorMessage = "Cannot redo: track is blacklisted"
+                    showError = true
+                    isProcessing = false
+                }
+                return
+            }
+            
+            // Check if there are enabled services
+            if defaults.enabledServices.isEmpty {
+                await MainActor.run {
+                    errorMessage = "Cannot redo: no services enabled"
+                    showError = true
+                    isProcessing = false
+                }
+                return
+            }
+            
             // Get the timestamp from serviceInfo, preferring Last.fm timestamp
             // Use the original timestamp to maintain scrobble history order
             let timestamp: Int32

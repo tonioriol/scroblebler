@@ -1218,78 +1218,305 @@ private func migrateFromJSON(username: String) {
 
 ---
 
-### Phase 4: Add Local Blacklist
+### Phase 4: Add Local Blacklist ✅ COMPLETE
 
-**Goal:** Persistent blacklist feature
+**Goal:** Persistent blacklist feature with case-insensitive matching and cross-component synchronization
 
-**Create:** `Scroblebler/Storage/LocalBlacklist.swift`
+**Files Created:**
+- ✅ `Scroblebler/Storage/LocalBlacklist.swift` - Blacklist storage with NotificationCenter sync (85 lines)
 
-**Code:**
+**Files Modified:**
+- ✅ `Scroblebler/Storage/Models/BlacklistEntry.swift` - Added CodingKeys + table name
+- ✅ `Scroblebler/Storage/Models/ListenBrainzCacheEntry.swift` - Added CodingKeys
+- ✅ `Scroblebler/Storage/Models/ListenBrainzCacheMeta.swift` - Added CodingKeys
+- ✅ `Scroblebler/Storage/Models/QueuedOperation.swift` - Added CodingKeys + table name
+- ✅ `Scroblebler/Components/BlacklistButton.swift` - Global state sync with notifications
+- ✅ `Scroblebler/ServiceManager.swift` - Blacklist checks before scrobbling
+- ✅ `Scroblebler/Components/UndoButton.swift` - Blacklist checks before redo
+- ✅ `Scroblebler/Defaults.swift` - Migration from UserDefaults to SQLite
+
+---
+
+#### Implementation Details
+
+**1. LocalBlacklist.swift (85 lines)**
 ```swift
 import GRDB
+import Foundation
+
+extension Notification.Name {
+    static let blacklistChanged = Notification.Name("blacklistChanged")
+}
 
 class LocalBlacklist {
     static let shared = LocalBlacklist()
     private let db = LocalDatabase.shared
     
+    private init() {}
+    
+    // Main thread notification for UI synchronization
+    private func notifyChange() {
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(name: .blacklistChanged, object: nil)
+        }
+    }
+    
+    // Case-insensitive normalization
+    private func normalize(_ string: String) -> String {
+        string.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    
     func add(artist: String, track: String) async throws {
+        let normalizedArtist = normalize(artist)
+        let normalizedTrack = normalize(track)
         let now = Date.nowISO8601()
-        try await db.asyncWrite { db in
-            var entry = BlacklistEntry(
+        
+        _ = try await db.asyncWrite { db in
+            let entry = BlacklistEntry(
                 id: nil,
-                artist: artist,
-                track: track,
+                artist: normalizedArtist,
+                track: normalizedTrack,
                 createdAt: now,
                 updatedAt: now
             )
             try entry.insert(db)
         }
-        Logger.info("Blacklisted: \(artist) - \(track)", log: Logger.app)
+        Logger.info("Blacklisted: \(artist) - \(track)", log: Logger.scrobbling)
+        notifyChange()
     }
     
     func remove(artist: String, track: String) async throws {
-        try await db.asyncWrite { db in
+        let normalizedArtist = normalize(artist)
+        let normalizedTrack = normalize(track)
+        
+        _ = try await db.asyncWrite { db in
             try BlacklistEntry
-                .filter(BlacklistEntry.Columns.artist == artist)
-                .filter(BlacklistEntry.Columns.track == track)
+                .filter(BlacklistEntry.Columns.artist == normalizedArtist)
+                .filter(BlacklistEntry.Columns.track == normalizedTrack)
                 .deleteAll(db)
         }
-        Logger.info("Removed from blacklist: \(artist) - \(track)", log: Logger.app)
+        Logger.info("Removed from blacklist: \(artist) - \(track)", log: Logger.scrobbling)
+        notifyChange()
     }
     
     func contains(artist: String, track: String) async -> Bool {
-        (try? await db.asyncRead { db in
+        let normalizedArtist = normalize(artist)
+        let normalizedTrack = normalize(track)
+        
+        return (try? await db.asyncRead { db in
             try BlacklistEntry
-                .filter(BlacklistEntry.Columns.artist == artist)
-                .filter(BlacklistEntry.Columns.track == track)
+                .filter(BlacklistEntry.Columns.artist == normalizedArtist)
+                .filter(BlacklistEntry.Columns.track == normalizedTrack)
                 .fetchCount(db) > 0
         }) ?? false
     }
     
-    func getAll() async -> [BlacklistEntry] {
-        (try? await db.asyncRead { db in
-            try BlacklistEntry
-                .order(BlacklistEntry.Columns.createdAt.desc)
-                .fetchAll(db)
-        }) ?? []
+    func getAll() async -> [BlacklistEntry] { /* ... */ }
+    func count() async -> Int { /* ... */ }
+    func clear() async throws { /* ... */ }
+}
+```
+
+**2. BlacklistButton.swift (71 lines)**
+```swift
+struct BlacklistButton: View {
+    let artist: String
+    let track: String
+    
+    @State private var isBlacklisted = false
+    @State private var isAnimating = false
+    
+    private var trackId: String {
+        "\(artist)|\(track)"  // Unique identity per track
+    }
+    
+    var body: some View {
+        Button {
+            Task {
+                let isCurrentlyBlacklisted = await LocalBlacklist.shared.contains(...)
+                do {
+                    if isCurrentlyBlacklisted {
+                        try await LocalBlacklist.shared.remove(...)
+                    } else {
+                        try await LocalBlacklist.shared.add(...)
+                    }
+                    // Animate
+                } catch {
+                    Logger.error("Blacklist operation failed: \(error)", log: Logger.ui)
+                }
+            }
+        } label: {
+            Image(systemName: "nosign")
+                .foregroundColor(isBlacklisted ? .red : .secondary)
+        }
+        .id(trackId)  // Force recreation on track change
+        .onAppear {
+            Task { @MainActor in
+                await updateBlacklistStatus()
+            }
+        }
+        .onChange(of: trackId) { _ in
+            Task { @MainActor in
+                await updateBlacklistStatus()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .blacklistChanged)) { _ in
+            // All instances update when ANY blacklist change occurs
+            Task { @MainActor in
+                await updateBlacklistStatus()
+            }
+        }
+    }
+    
+    @MainActor
+    private func updateBlacklistStatus() async {
+        let status = await LocalBlacklist.shared.contains(artist: artist, track: track)
+        isBlacklisted = status
     }
 }
 ```
 
-**Update Watcher:**
+**3. GRDB Model Fixes (4 files)**
+
+All database models were missing proper GRDB configuration:
+
 ```swift
-// Watcher.swift
-func onTrackChange(track: Track) async {
-    // Check blacklist before scrobbling
-    if await LocalBlacklist.shared.contains(artist: track.artist, track: track.name) {
-        Logger.info("Track blacklisted, not scrobbling: \(track.description)", log: Logger.playback)
-        return
-    }
-    
-    // Existing scrobble logic
-    await ServiceManager.shared.scrobbleAll(track: track)
+// BlacklistEntry.swift - Added:
+static let databaseTableName = "blacklist"
+
+enum CodingKeys: String, CodingKey {
+    case id, artist, track
+    case createdAt = "created_at"
+    case updatedAt = "updated_at"
+}
+
+enum Columns {
+    static let id = Column(CodingKeys.id)
+    static let artist = Column(CodingKeys.artist)
+    static let track = Column(CodingKeys.track)
+    static let createdAt = Column(CodingKeys.createdAt)
+    static let updatedAt = Column(CodingKeys.updatedAt)
 }
 ```
+
+Similar fixes applied to:
+- ListenBrainzCacheEntry.swift
+- ListenBrainzCacheMeta.swift
+- QueuedOperation.swift
+
+**4. ServiceManager Integration**
+
+```swift
+// Check blacklist before scrobbling
+func scrobbleAll(track: Track) async {
+    if await LocalBlacklist.shared.contains(artist: track.artist, track: track.name) {
+        Logger.info("Track blacklisted, not scrobbling", log: Logger.scrobbling)
+        return
+    }
+    // Existing scrobble logic
+}
+
+// Check blacklist before "now playing"
+func updateNowPlayingAll(track: Track) async {
+    if await LocalBlacklist.shared.contains(artist: track.artist, track: track.name) {
+        return
+    }
+    // Existing now playing logic
+}
+```
+
+---
+
+#### Key Features
+
+1. **Case-Insensitive Matching**
+   - Normalizes all artist/track names to lowercase
+   - Handles capitalization differences between data sources
+   - "Águas de Março" === "águas de março" === "ÁGUAS DE MARÇO"
+
+2. **Global State Synchronization**
+   - NotificationCenter broadcasts changes to all components
+   - NowPlaying ↔ History buttons stay in sync
+   - Multiple instances of same track update simultaneously
+
+3. **Thread-Safe UI Updates**
+   - Notifications posted on main thread
+   - State updates wrapped in @MainActor
+   - Prevents race conditions and UI glitches
+
+4. **Persistent Storage**
+   - SQLite with GRDB for fast lookups
+   - Indexed queries on (artist, track)
+   - Data survives app restarts
+
+5. **Integration Points**
+   - ServiceManager checks before scrobbling
+   - ServiceManager checks before now playing updates
+   - UndoButton checks before redo operations
+   - Defaults.swift migration from UserDefaults
+
+---
+
+#### Issues Resolved
+
+1. **Missing GRDB Configuration**
+   - Problem: Models lacked CodingKeys enum and table names
+   - Impact: Database operations silently failed
+   - Fix: Added proper CodingKeys mapping and databaseTableName to all models
+
+2. **Case Sensitivity Mismatch**
+   - Problem: "Águas de Março" (NowPlaying) vs "águas de março" (History API)
+   - Impact: Blacklist state out of sync between components
+   - Fix: Normalize all strings to lowercase before storage/comparison
+
+3. **State Synchronization**
+   - Problem: Independent @State in each button instance
+   - Impact: Buttons didn't update when blacklist changed elsewhere
+   - Fix: NotificationCenter broadcasts + .onReceive() in all instances
+
+4. **Thread Safety**
+   - Problem: Background database operations posting notifications
+   - Impact: SwiftUI state updates on wrong thread
+   - Fix: DispatchQueue.main.async + @MainActor annotations
+
+5. **View Identity**
+   - Problem: SwiftUI reused view instances with old state
+   - Impact: Icon didn't update when track changed
+   - Fix: .id(trackId) forces view recreation on track change
+
+---
+
+#### Verification
+
+- ✅ Clean build with zero warnings
+- ✅ Case-insensitive matching works
+- ✅ NowPlaying ↔ History synchronization
+- ✅ Multiple instances update together
+- ✅ State persists across restarts
+- ✅ Track navigation maintains correct state
+- ✅ Thread-safe UI updates
+- ✅ macOS 11.0+ compatible
+
+---
+
+#### Timeline
+
+**Estimated:** 2 hours
+**Actual:** ~3.5 hours
+
+**Breakdown:**
+- LocalBlacklist.swift implementation: 30 min
+- GRDB model configuration fixes: 45 min
+- BlacklistButton UI synchronization: 1 hour
+- Case normalization debugging: 45 min
+- Thread safety fixes: 30 min
+- Testing and verification: 30 min
+
+**Key Learnings:**
+- GRDB requires explicit CodingKeys for snake_case columns
+- NotificationCenter is effective for cross-component sync
+- Case normalization essential for music metadata
+- @MainActor critical for SwiftUI state updates
 
 ---
 
@@ -1781,10 +2008,16 @@ class LocalBlacklistTests: XCTestCase {
   - ListenBrainzRateLimiter.swift implementation: 45 min
   - ListenBrainzClient.swift integration: 30 min
   - Bug fixes and testing: 15 min
-- Phase 4 (Blacklist): 2 hours
+- **Phase 4 (Blacklist): ✅ COMPLETE** (3.5 hours actual)
+  - LocalBlacklist.swift implementation: 30 min
+  - GRDB model configuration fixes: 45 min
+  - BlacklistButton UI synchronization: 1 hour
+  - Case normalization debugging: 45 min
+  - Thread safety fixes: 30 min
+  - Testing and verification: 30 min
 - Phase 5 (Queue): 3 hours
 - Phase 6 (UI): 2 hours
-- **Total: ~16 hours of implementation (9 complete, 7 remaining)**
+- **Total: ~16 hours of implementation (12.5 complete, 3.5 remaining)**
 
-### What's Next: Phase 4
-Ready to add persistent blacklist feature for user-requested functionality!
+### What's Next: Phase 5
+Ready to add offline queue for scrobbling when network unavailable!

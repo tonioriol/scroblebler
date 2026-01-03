@@ -121,7 +121,7 @@ class ServiceManager: ObservableObject {
     }
     
     func scrobbleAll(track: Track) async {
-        if Defaults.shared.isBlacklisted(artist: track.artist, track: track.name) {
+        if await LocalBlacklist.shared.contains(artist: track.artist, track: track.name) {
             Logger.info("Scrobble skipped (blacklisted): \(track.description)", log: Logger.scrobbling)
             return
         }
@@ -147,7 +147,7 @@ class ServiceManager: ObservableObject {
     }
     
     func updateNowPlayingAll(track: Track) async -> Track {
-        if Defaults.shared.isBlacklisted(artist: track.artist, track: track.name) {
+        if await LocalBlacklist.shared.contains(artist: track.artist, track: track.name) {
             Logger.info("Update now playing skipped (blacklisted): \(track.description)", log: Logger.playback)
             return track
         }

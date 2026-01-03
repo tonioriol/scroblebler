@@ -32,16 +32,9 @@ class Defaults: ObservableObject {
         }
     }
     
-    @Published var blacklistedTracks: [String] = [] {
-        didSet {
-            defaults.set(blacklistedTracks, forKey: "blacklistedTracks")
-        }
-    }
-    
     init() {
         firstRun = defaults.string(forKey: "firstRun") == nil
         picture = defaults.data(forKey: "picture")
-        blacklistedTracks = defaults.stringArray(forKey: "blacklistedTracks") ?? []
         
         if let serviceRaw = defaults.string(forKey: "mainServicePreference"),
            let service = ScrobbleService(rawValue: serviceRaw) {
@@ -57,6 +50,40 @@ class Defaults: ObservableObject {
             serviceCredentials = []
             migrateLegacyCredentials()
         }
+        
+        // Migrate blacklist from UserDefaults to SQLite
+        Task {
+            await migrateBlacklistToSQLite()
+        }
+    }
+    
+    private func migrateBlacklistToSQLite() async {
+        // Check if migration already done
+        guard defaults.bool(forKey: "blacklistMigratedToSQLite") == false else { return }
+        
+        // Get old blacklist data
+        guard let oldBlacklist = defaults.stringArray(forKey: "blacklistedTracks"), !oldBlacklist.isEmpty else {
+            defaults.set(true, forKey: "blacklistMigratedToSQLite")
+            return
+        }
+        
+        Logger.info("Migrating \(oldBlacklist.count) blacklist entries from UserDefaults to SQLite", log: Logger.scrobbling)
+        
+        for entry in oldBlacklist {
+            let components = entry.components(separatedBy: "|||")
+            guard components.count == 2 else { continue }
+            
+            let artist = components[0]
+            let track = components[1]
+            
+            try? await LocalBlacklist.shared.add(artist: artist, track: track)
+        }
+        
+        // Mark migration complete and clean up old data
+        defaults.set(true, forKey: "blacklistMigratedToSQLite")
+        defaults.removeObject(forKey: "blacklistedTracks")
+        
+        Logger.info("Blacklist migration complete", log: Logger.scrobbling)
     }
     
     private func migrateLegacyCredentials() {
@@ -178,23 +205,16 @@ class Defaults: ObservableObject {
     
     // MARK: - Blacklist
     
-    private let blacklistKeySeparator = "|||"
-    
-    private func blacklistKey(artist: String, track: String) -> String {
-        "\(artist)\(blacklistKeySeparator)\(track)"
-    }
-    
-    func toggleBlacklist(artist: String, track: String) {
-        let key = blacklistKey(artist: artist, track: track)
-        if blacklistedTracks.contains(key) {
-            blacklistedTracks.removeAll { $0 == key }
+    func toggleBlacklist(artist: String, track: String) async {
+        let isCurrentlyBlacklisted = await LocalBlacklist.shared.contains(artist: artist, track: track)
+        if isCurrentlyBlacklisted {
+            try? await LocalBlacklist.shared.remove(artist: artist, track: track)
         } else {
-            blacklistedTracks.append(key)
+            try? await LocalBlacklist.shared.add(artist: artist, track: track)
         }
     }
     
-    func isBlacklisted(artist: String, track: String) -> Bool {
-        let key = blacklistKey(artist: artist, track: track)
-        return blacklistedTracks.contains(key)
+    func isBlacklisted(artist: String, track: String) async -> Bool {
+        await LocalBlacklist.shared.contains(artist: artist, track: track)
     }
 }
