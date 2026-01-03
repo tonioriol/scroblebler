@@ -113,7 +113,7 @@ struct TopTrack: Codable {
 
 // MARK: - Track (currently playing)
 
-struct Track {
+struct Track: Codable {
     let artist: String
     let album: String
     let name: String

@@ -82,6 +82,9 @@ struct MainView: View {
             
             Divider()
             
+            // Pending operations indicator
+            PendingOperationsView()
+            
             // History section
             if !recentTracks.isEmpty {
                 VStack(alignment: .leading, spacing: 0) {

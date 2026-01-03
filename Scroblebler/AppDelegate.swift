@@ -72,6 +72,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             await ServiceManager.shared.autoAuthenticateLastFmWebClient()
         }
         
+        // Initialize network reachability monitoring
+        _ = Reachability.shared
+        
         NSApp.activate(ignoringOtherApps: true)
     }
 

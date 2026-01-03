@@ -42,36 +42,15 @@ struct LoveButton: View {
         }
         
         Task {
-            var allSucceeded = true
+            // Use centralized ServiceManager method (handles online/offline)
+            await serviceManager.updateLoveAll(artist: artist, track: trackName, loved: loved)
             
-            // Update love state on all enabled services
-            for service in ScrobbleService.allCases {
-                guard let credentials = defaults.credentials(for: service),
-                      credentials.isEnabled,
-                      let client = serviceManager.client(for: service) else {
-                    continue
-                }
-                
-                do {
-                    try await client.updateLove(artist: artist, track: trackName, loved: loved)
-                } catch {
-                    Logger.error("Failed to update love on \(service.displayName): \(error)", log: Logger.scrobbling)
-                    allSucceeded = false
-                }
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                isAnimating = false
             }
             
-            if allSucceeded {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                    isAnimating = false
-                }
-                // Notify that love state changed so history can refresh
-                NotificationCenter.default.post(name: NSNotification.Name("TrackLoveStateChanged"), object: nil)
-            } else {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                    loved.toggle()
-                    isAnimating = false
-                }
-            }
+            // Notify that love state changed so history can refresh
+            NotificationCenter.default.post(name: NSNotification.Name("TrackLoveStateChanged"), object: nil)
         }
     }
 }

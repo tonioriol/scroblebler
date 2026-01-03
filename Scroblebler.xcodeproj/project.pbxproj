@@ -65,6 +65,9 @@
 		BLENT000000000000000002 /* BlacklistEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = BLENT000000000000000001 /* BlacklistEntry.swift */; };
 		QOPER000000000000000002 /* QueuedOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = QOPER000000000000000001 /* QueuedOperation.swift */; };
 		LBLIST00000000000000002 /* LocalBlacklist.swift in Sources */ = {isa = PBXBuildFile; fileRef = LBLIST00000000000000001 /* LocalBlacklist.swift */; };
+		OFFQUE00000000000000002 /* OfflineQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = OFFQUE00000000000000001 /* OfflineQueue.swift */; };
+		REACH000000000000000002 /* Reachability.swift in Sources */ = {isa = PBXBuildFile; fileRef = REACH000000000000000001 /* Reachability.swift */; };
+		PENDOP00000000000000002 /* PendingOperationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = PENDOP00000000000000001 /* PendingOperationsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -141,6 +144,9 @@
 		BLENT000000000000000001 /* BlacklistEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlacklistEntry.swift; sourceTree = "<group>"; };
 		QOPER000000000000000001 /* QueuedOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueuedOperation.swift; sourceTree = "<group>"; };
 		LBLIST00000000000000001 /* LocalBlacklist.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalBlacklist.swift; sourceTree = "<group>"; };
+		OFFQUE00000000000000001 /* OfflineQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineQueue.swift; sourceTree = "<group>"; };
+		REACH000000000000000001 /* Reachability.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Reachability.swift; sourceTree = "<group>"; };
+		PENDOP00000000000000001 /* PendingOperationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingOperationsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -191,6 +197,7 @@
 				EE8888888888888888888889 /* PasswordInputSheet.swift */,
 				EE9999999999999999999999 /* PasteableTextFields.swift */,
 				PLYRCTL0000000000000001 /* PlayerControls.swift */,
+				PENDOP00000000000000001 /* PendingOperationsView.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -292,6 +299,7 @@
 				STRSIM00000000000000001 /* StringSimilarity.swift */,
 				TRKMAT00000000000000001 /* TrackMatcher.swift */,
 				LBRLIM00000000000000001 /* ListenBrainzRateLimiter.swift */,
+				REACH000000000000000001 /* Reachability.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -310,6 +318,7 @@
 			children = (
 				LDBAS000000000000000001 /* LocalDatabase.swift */,
 				LBLIST00000000000000001 /* LocalBlacklist.swift */,
+				OFFQUE00000000000000001 /* OfflineQueue.swift */,
 				STORMODL000000000000001 /* Models */,
 			);
 			path = Storage;
@@ -458,6 +467,9 @@
 				BLENT000000000000000002 /* BlacklistEntry.swift in Sources */,
 				QOPER000000000000000002 /* QueuedOperation.swift in Sources */,
 				LBLIST00000000000000002 /* LocalBlacklist.swift in Sources */,
+				OFFQUE00000000000000002 /* OfflineQueue.swift in Sources */,
+				REACH000000000000000002 /* Reachability.swift in Sources */,
+				PENDOP00000000000000002 /* PendingOperationsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
