@@ -3,17 +3,22 @@ import SwiftUI
 struct HistoryItem: View {
     @EnvironmentObject var serviceManager: ServiceManager
     @EnvironmentObject var defaults: Defaults
+    @ObservedObject private var stateManager = TrackStateManager.shared
     
     let track: RecentTrack
-    @State private var loved: Bool
-    @State private var playcount: Int?
     @State private var serviceInfo: [String: ServiceTrackData]
     
     init(track: RecentTrack) {
         self.track = track
-        self._loved = State(initialValue: track.loved)
-        self._playcount = State(initialValue: track.playcount)
         self._serviceInfo = State(initialValue: track.serviceInfo)
+    }
+    
+    private var loved: Bool {
+        stateManager.state(artist: track.artist, track: track.name)?.loved ?? track.loved
+    }
+    
+    private var playcount: Int? {
+        stateManager.state(artist: track.artist, track: track.name)?.playcount ?? track.playcount
     }
     
     private var syncStatus: SyncStatus {
@@ -28,10 +33,10 @@ struct HistoryItem: View {
             trackName: track.name,
             artist: track.artist,
             album: track.album,
-            loved: $loved,
+            loved: .constant(loved),
             artworkImageUrl: track.imageUrl,
             timestamp: track.date,
-            playCount: $playcount,
+            playCount: .constant(playcount),
             artistURL: track.artistURL,
             albumURL: track.albumURL,
             trackURL: track.trackURL,
@@ -48,8 +53,7 @@ struct HistoryItem: View {
                         artist: track.artist,
                         track: track.name,
                         album: track.album,
-                        serviceInfo: serviceInfo,
-                        playcount: $playcount
+                        serviceInfo: serviceInfo
                     )
                     .id("\(track.artist)-\(track.name)-\(track.date ?? 0)")
                     
@@ -63,9 +67,16 @@ struct HistoryItem: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
         .onAppear {
-            fetchTrackInfo()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TrackLoveStateChanged"))) { _ in
+            // Initialize state manager asynchronously
+            Task { @MainActor in
+                stateManager.updateState(
+                    artist: track.artist,
+                    track: track.name,
+                    loved: track.loved,
+                    playcount: track.playcount,
+                    timestamp: track.date
+                )
+            }
             fetchTrackInfo()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TrackBackfillSucceeded"))) { notification in
@@ -80,8 +91,12 @@ struct HistoryItem: View {
         Task {
             if let (lovedState, count) = try? await client.getTrackInfo(artist: track.artist, track: track.name) {
                 await MainActor.run {
-                    loved = lovedState
-                    playcount = count
+                    stateManager.updateState(
+                        artist: track.artist,
+                        track: track.name,
+                        loved: lovedState,
+                        playcount: count
+                    )
                 }
             }
         }

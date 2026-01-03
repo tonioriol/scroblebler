@@ -68,6 +68,7 @@
 		OFFQUE00000000000000002 /* OfflineQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = OFFQUE00000000000000001 /* OfflineQueue.swift */; };
 		REACH000000000000000002 /* Reachability.swift in Sources */ = {isa = PBXBuildFile; fileRef = REACH000000000000000001 /* Reachability.swift */; };
 		PENDOP00000000000000002 /* PendingOperationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = PENDOP00000000000000001 /* PendingOperationsView.swift */; };
+		TRKST000000000000000002 /* TrackStateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = TRKST000000000000000001 /* TrackStateManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -147,6 +148,7 @@
 		OFFQUE00000000000000001 /* OfflineQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineQueue.swift; sourceTree = "<group>"; };
 		REACH000000000000000001 /* Reachability.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Reachability.swift; sourceTree = "<group>"; };
 		PENDOP00000000000000001 /* PendingOperationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingOperationsView.swift; sourceTree = "<group>"; };
+		TRKST000000000000000001 /* TrackStateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackStateManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -300,6 +302,7 @@
 				TRKMAT00000000000000001 /* TrackMatcher.swift */,
 				LBRLIM00000000000000001 /* ListenBrainzRateLimiter.swift */,
 				REACH000000000000000001 /* Reachability.swift */,
+				TRKST000000000000000001 /* TrackStateManager.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -470,6 +473,7 @@
 				OFFQUE00000000000000002 /* OfflineQueue.swift in Sources */,
 				REACH000000000000000002 /* Reachability.swift in Sources */,
 				PENDOP00000000000000002 /* PendingOperationsView.swift in Sources */,
+				TRKST000000000000000002 /* TrackStateManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -1,10 +1,6 @@
 import Foundation
 import Network
 
-extension Notification.Name {
-    static let queueProcessingComplete = Notification.Name("queueProcessingComplete")
-}
-
 /// Monitors network connectivity status
 class Reachability: ObservableObject {
     static let shared = Reachability()
@@ -76,13 +72,6 @@ class Reachability: ObservableObject {
         }
         
         Logger.info("Queue processing complete: \(succeeded) succeeded, \(failed) failed", log: Logger.sync)
-        
-        // Notify UI to refresh if any operations were processed
-        if succeeded > 0 || failed > 0 {
-            DispatchQueue.main.async {
-                NotificationCenter.default.post(name: .queueProcessingComplete, object: nil)
-            }
-        }
     }
     
     /// Execute a queued operation

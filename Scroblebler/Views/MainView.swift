@@ -10,6 +10,7 @@ struct MainView: View {
     @State private var passwordInput = ""
     @State private var showPasswordSheet = false
     @State private var pendingLastFmUsername: String?
+    @State private var showWebClientPasswordSheet = false
     @State private var recentTracks: [RecentTrack] = []
     @State private var currentPage = 1
     @State private var isLoadingMore = false
@@ -55,6 +56,48 @@ struct MainView: View {
         .background(Color(NSColor.windowBackgroundColor))
         .clipped()
         .animation(.spring(response: 0.5, dampingFraction: 0.75), value: showProfileView)
+        .sheet(isPresented: Binding(
+            get: { loginService != nil && loginService != .listenbrainz },
+            set: { if !$0 { loginService = nil } }
+        )) {
+            WaitingLogin(status: $loginState, onCancel: { loginService = nil })
+        }
+        .sheet(isPresented: Binding(
+            get: { loginService == .listenbrainz },
+            set: { if !$0 { loginService = nil; tokenInput = "" } }
+        )) {
+            TokenInputSheet(
+                token: $tokenInput,
+                onSubmit: { Task { await submitListenBrainzToken() } },
+                onCancel: { loginService = nil; tokenInput = "" }
+            )
+        }
+        .sheet(isPresented: $showPasswordSheet) {
+            if let username = pendingLastFmUsername {
+                PasswordInputSheet(
+                    password: $passwordInput,
+                    username: username,
+                    onSubmit: { Task { await submitPassword() } },
+                    onSkip: {
+                        showPasswordSheet = false
+                        pendingLastFmUsername = nil
+                        passwordInput = ""
+                    }
+                )
+            }
+        }
+        .sheet(isPresented: $showWebClientPasswordSheet) {
+            PasswordInputSheet(
+                password: $passwordInput,
+                username: pendingLastFmUsername ?? "",
+                onSubmit: { Task { await submitWebClientPassword() } },
+                onSkip: {
+                    showWebClientPasswordSheet = false
+                    pendingLastFmUsername = nil
+                    passwordInput = ""
+                }
+            )
+        }
     }
     
     var mainContent: some View {
@@ -162,43 +205,17 @@ struct MainView: View {
                         },
                         onSetMain: {
                             defaults.mainServicePreference = service
-                        }
+                        },
+                        onSetupWebClient: service == .lastfm ? {
+                            pendingLastFmUsername = defaults.credentials(for: .lastfm)?.username
+                            showWebClientPasswordSheet = true
+                        } : nil
                     )
                 }
             }
             .padding(.horizontal)
             .padding(.top)
             .padding(.bottom)
-            .sheet(isPresented: Binding(
-                get: { loginService != nil && loginService != .listenbrainz },
-                set: { if !$0 { loginService = nil } }
-            )) {
-                WaitingLogin(status: $loginState, onCancel: { loginService = nil })
-            }
-            .sheet(isPresented: Binding(
-                get: { loginService == .listenbrainz },
-                set: { if !$0 { loginService = nil; tokenInput = "" } }
-            )) {
-                TokenInputSheet(
-                    token: $tokenInput,
-                    onSubmit: { Task { await submitListenBrainzToken() } },
-                    onCancel: { loginService = nil; tokenInput = "" }
-                )
-            }
-            .sheet(isPresented: $showPasswordSheet) {
-                if let username = pendingLastFmUsername {
-                    PasswordInputSheet(
-                        password: $passwordInput,
-                        username: username,
-                        onSubmit: { Task { await submitPassword() } },
-                        onSkip: {
-                            showPasswordSheet = false
-                            pendingLastFmUsername = nil
-                            passwordInput = ""
-                        }
-                    )
-                }
-            }
         }
         .onAppear {
             loadRecentTracks()
@@ -227,6 +244,16 @@ struct MainView: View {
                 let tracks = try await serviceManager.getAllRecentTracks(limit: 20, page: 1)
                 await MainActor.run {
                     recentTracks = tracks
+                    // Sync tracks to state manager
+                    for track in tracks {
+                        TrackStateManager.shared.updateState(
+                            artist: track.artist,
+                            track: track.name,
+                            loved: track.loved,
+                            playcount: track.playcount,
+                            timestamp: track.date
+                        )
+                    }
                     // Don't stop pagination based on count - merging can reduce it
                     // Keep trying until we get an empty result
                     hasMoreTracks = !tracks.isEmpty
@@ -255,6 +282,16 @@ struct MainView: View {
                 await MainActor.run {
                     if !tracks.isEmpty {
                         recentTracks.append(contentsOf: tracks)
+                        // Sync tracks to state manager
+                        for track in tracks {
+                            TrackStateManager.shared.updateState(
+                                artist: track.artist,
+                                track: track.name,
+                                loved: track.loved,
+                                playcount: track.playcount,
+                                timestamp: track.date
+                            )
+                        }
                         currentPage = nextPage
                         hasMoreTracks = tracks.count >= 20
                     } else {
@@ -455,6 +492,39 @@ struct MainView: View {
         }
     }
     
+    private func submitWebClientPassword() async {
+        let password = passwordInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !password.isEmpty, let username = pendingLastFmUsername else {
+            await MainActor.run {
+                showWebClientPasswordSheet = false
+                pendingLastFmUsername = nil
+                passwordInput = ""
+            }
+            return
+        }
+        
+        do {
+            try await serviceManager.setupLastFmWebClient(password: password)
+            
+            // Store password in Keychain for future use
+            try KeychainHelper.shared.savePassword(username: username, password: password)
+            Logger.info("Last.fm web client setup successful - undo functionality enabled", log: Logger.authentication)
+            
+            await MainActor.run {
+                showWebClientPasswordSheet = false
+                pendingLastFmUsername = nil
+                passwordInput = ""
+            }
+        } catch {
+            Logger.error("Failed to setup Last.fm web client: \(error)", log: Logger.authentication)
+            await MainActor.run {
+                showWebClientPasswordSheet = false
+                pendingLastFmUsername = nil
+                passwordInput = ""
+            }
+        }
+    }
+    
     private func invalidateCache() {
         guard let primary = defaults.primaryService,
               primary.service == .listenbrainz,
@@ -477,6 +547,7 @@ struct ServiceRow: View {
     let onLogout: () -> Void
     let onToggle: (Bool) -> Void
     let onSetMain: () -> Void
+    let onSetupWebClient: (() -> Void)?
     
     var body: some View {
         HStack {
@@ -508,6 +579,17 @@ struct ServiceRow: View {
                 Text(credentials.username)
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
+                
+                // Show web client setup button for Last.fm
+                if let setupAction = onSetupWebClient {
+                    Button(action: setupAction) {
+                        Image(systemName: "key.fill")
+                            .font(.system(size: 10))
+                    }
+                    .buttonStyle(.plain)
+                    .help("Setup password for undo functionality")
+                }
+                
                 Button("Logout") { onLogout() }
                     .buttonStyle(.link)
             } else {

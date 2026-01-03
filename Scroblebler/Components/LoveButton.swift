@@ -3,13 +3,17 @@ import SwiftUI
 struct LoveButton: View {
     @EnvironmentObject var serviceManager: ServiceManager
     @EnvironmentObject var defaults: Defaults
+    @ObservedObject private var stateManager = TrackStateManager.shared
     
-    @Binding var loved: Bool
     let artist: String
     let trackName: String
     let fontSize: CGFloat
     
     @State private var isAnimating: Bool = false
+    
+    private var loved: Bool {
+        stateManager.state(artist: artist, track: trackName)?.loved ?? false
+    }
     
     private var hasEnabledServices: Bool {
         !defaults.enabledServices.isEmpty
@@ -36,21 +40,22 @@ struct LoveButton: View {
             return
         }
         
+        // Toggle in state manager first
+        let newLovedState = stateManager.toggleLove(artist: artist, track: trackName)
+        
         withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-            loved.toggle()
             isAnimating = true
         }
         
         Task {
             // Use centralized ServiceManager method (handles online/offline)
-            await serviceManager.updateLoveAll(artist: artist, track: trackName, loved: loved)
+            await serviceManager.updateLoveAll(artist: artist, track: trackName, loved: newLovedState)
             
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                isAnimating = false
+            await MainActor.run {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    isAnimating = false
+                }
             }
-            
-            // Notify that love state changed so history can refresh
-            NotificationCenter.default.post(name: NSNotification.Name("TrackLoveStateChanged"), object: nil)
         }
     }
 }

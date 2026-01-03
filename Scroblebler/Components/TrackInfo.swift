@@ -193,7 +193,7 @@ struct TrackInfo<ActionButtons: View>: View {
                                     .font(.system(size: loveFontSize - 1))
                                     .foregroundColor(.secondary)
                             }
-                            LoveButton(loved: $loved, artist: artist, trackName: trackName, fontSize: loveFontSize)
+                            LoveButton(artist: artist, trackName: trackName, fontSize: loveFontSize)
                         }
                         if let actionButtons = actionButtons {
                             actionButtons

@@ -3,18 +3,22 @@ import SwiftUI
 struct UndoButton: View {
     @EnvironmentObject var serviceManager: ServiceManager
     @EnvironmentObject var defaults: Defaults
+    @ObservedObject private var stateManager = TrackStateManager.shared
     
     let artist: String
     let track: String
     let album: String
     let serviceInfo: [String: ServiceTrackData]
-    @Binding var playcount: Int?
     
     @State private var isProcessing = false
     @State private var isUndone = false
     @State private var isAnimating = false
     @State private var showError = false
     @State private var errorMessage = ""
+    
+    private var playcount: Int? {
+        stateManager.state(artist: artist, track: track)?.playcount
+    }
     
     var body: some View {
         Button {
@@ -49,14 +53,12 @@ struct UndoButton: View {
         isProcessing = true
         
         Task {
+            // Update state manager
+            stateManager.decrementPlaycount(artist: artist, track: track)
+            
             await serviceManager.deleteScrobbleAll(artist: artist, track: track, serviceInfo: serviceInfo)
             
             await MainActor.run {
-                // Update playcount immediately in UI
-                if let currentCount = playcount, currentCount > 0 {
-                    playcount = currentCount - 1
-                }
-                
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
                     isUndone = true
                     isAnimating = true
@@ -126,12 +128,12 @@ struct UndoButton: View {
             )
             
             // Scrobble to all enabled services
+            // Update state manager
+            stateManager.incrementPlaycount(artist: artist, track: track)
+            
             await serviceManager.scrobbleAll(track: trackToScrobble)
             
             await MainActor.run {
-                // Update playcount immediately in UI
-                playcount = (playcount ?? 0) + 1
-                
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
                     isUndone = false
                     isAnimating = true
@@ -155,8 +157,7 @@ struct UndoButton: View {
         artist: "Test Artist",
         track: "Test Track",
         album: "Test Album",
-        serviceInfo: [:],
-        playcount: .constant(5)
+        serviceInfo: [:]
     )
     .environmentObject(ServiceManager.shared)
     .environmentObject(Defaults.shared)
