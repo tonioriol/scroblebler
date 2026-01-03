@@ -101,10 +101,11 @@ on their repository](https://github.com/lastfm/lastfm-desktop/blob/9ae84cf4ab204
 - [ ] Auto-update
 - [ ] Testing
 - [ ] Extract and unify the exponential backoff logic
-- [ ] add playcontrols
-- [ ] show multiple playing sources in player
-- [ ] local first approach, store scrobbles locally and sync in background
-- [ ] stop the constant reloading of images on scroll in history view
+- [ ] Add playcontrols
+- [ ] Show multiple playing sources in player
+- [ ] Local first approach, store scrobbles locally and sync in background
+- [ ] Stop the constant reloading of images on scroll in history view
+- [ ] Add macOS notification center alerts for API failures
 
 ## License
 

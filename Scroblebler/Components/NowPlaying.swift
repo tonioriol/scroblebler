@@ -87,6 +87,6 @@ struct NowPlaying: View {
 
 struct NowPlaying_Previews: PreviewProvider {
     static var previews: some View {
-        NowPlaying(track: .constant(.init(artist: "Alexisonfire", album: "Watch Out!", name: "It Was Fear Of Myself That Made Me Odd", length: 123.10293, artwork: nil, loved: true, startedAt: 0)), currentPosition: .constant(61.5), isPlaying: .constant(true))
+        NowPlaying(track: .constant(Track(id: UUID(), artist: "Alexisonfire", album: "Watch Out!", name: "It Was Fear Of Myself That Made Me Odd", timestamp: 0, duration: 123.10293, sourceService: .lastfm, artwork: nil, artistURL: nil, albumURL: nil, trackURL: nil, imageUrl: nil)), currentPosition: .constant(61.5), isPlaying: .constant(true))
     }
 }

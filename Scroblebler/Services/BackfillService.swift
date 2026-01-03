@@ -29,13 +29,23 @@ class BackfillService {
             }
             
             let track = Track(
+                id: UUID(),
                 artist: recentTrack.artist,
                 album: recentTrack.album,
                 name: recentTrack.name,
-                length: 0,
-                artwork: nil,
+                timestamp: recentTrack.date ?? 0,
+                duration: 0,
+                sourceService: recentTrack.sourceService ?? .lastfm,
                 loved: recentTrack.loved,
-                startedAt: Int32(recentTrack.date ?? 0)
+                playcount: recentTrack.playcount ?? 1,
+                scrobbled: false,
+                blacklisted: false,
+                serviceInfo: [:],
+                artwork: nil,
+                artistURL: recentTrack.artistURL,
+                albumURL: recentTrack.albumURL,
+                trackURL: recentTrack.trackURL,
+                imageUrl: recentTrack.imageUrl
             )
             
             do {

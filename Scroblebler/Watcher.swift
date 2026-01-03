@@ -248,13 +248,23 @@ class Watcher: ObservableObject {
         let loved = false
         
         let track = Track(
+            id: UUID(),
             artist: status.artist ?? "",
             album: status.album ?? "",
             name: status.title ?? "",
-            length: status.duration ?? 0,
-            artwork: artwork,
+            timestamp: Int(startedAt),
+            duration: status.duration ?? 0,
+            sourceService: .lastfm,
             loved: loved,
-            startedAt: startedAt
+            playcount: 1,
+            scrobbled: false,
+            blacklisted: false,
+            serviceInfo: [:],
+            artwork: artwork,
+            artistURL: nil,
+            albumURL: nil,
+            trackURL: nil,
+            imageUrl: nil
         )
         
         Logger.debug("getPlayerTrack: created track with artwork size: \(track.artwork?.count ?? 0) bytes", log: Logger.playback)

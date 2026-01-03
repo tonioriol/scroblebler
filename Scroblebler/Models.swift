@@ -111,28 +111,6 @@ struct TopTrack: Codable {
     let imageUrl: String?
 }
 
-// MARK: - Track (currently playing)
-
-struct Track: Codable {
-    let artist: String
-    let album: String
-    let name: String
-    let length: Double
-    let artwork: Data?
-    var loved: Bool
-    let startedAt: Int32
-    var scrobbled: Bool = false
-    
-    // URLs for linking (enriched by services)
-    var artistURL: URL?
-    var albumURL: URL?
-    var trackURL: URL?
-    
-    var description: String {
-        "\(name) - \(artist) on \(album)"
-    }
-}
-
 // MARK: - Service Configuration
 
 enum ScrobbleService: String, CaseIterable, Codable, Identifiable {

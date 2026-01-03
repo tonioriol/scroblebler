@@ -117,14 +117,23 @@ struct UndoButton: View {
             
             // Create a Track for re-scrobbling with original metadata
             let trackToScrobble = Track(
+                id: UUID(),
                 artist: artist,
                 album: album,
                 name: track,
-                length: 0,
-                artwork: nil,
+                timestamp: Int(timestamp),
+                duration: 0,
+                sourceService: .lastfm,
                 loved: false,
-                startedAt: timestamp,
-                scrobbled: false
+                playcount: 1,
+                scrobbled: false,
+                blacklisted: false,
+                serviceInfo: [:],
+                artwork: nil,
+                artistURL: nil,
+                albumURL: nil,
+                trackURL: nil,
+                imageUrl: nil
             )
             
             // Scrobble to all enabled services

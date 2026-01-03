@@ -69,6 +69,9 @@
 		REACH000000000000000002 /* Reachability.swift in Sources */ = {isa = PBXBuildFile; fileRef = REACH000000000000000001 /* Reachability.swift */; };
 		PENDOP00000000000000002 /* PendingOperationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = PENDOP00000000000000001 /* PendingOperationsView.swift */; };
 		TRKST000000000000000002 /* TrackStateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = TRKST000000000000000001 /* TrackStateManager.swift */; };
+		UNTRACK0000000000000002 /* Track.swift in Sources */ = {isa = PBXBuildFile; fileRef = UNTRACK0000000000000001 /* Track.swift */; };
+		TRKID000000000000000002 /* TrackIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = TRKID000000000000000001 /* TrackIdentity.swift */; };
+		TRKREP00000000000000002 /* TrackRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = TRKREP00000000000000001 /* TrackRepository.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -149,6 +152,9 @@
 		REACH000000000000000001 /* Reachability.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Reachability.swift; sourceTree = "<group>"; };
 		PENDOP00000000000000001 /* PendingOperationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingOperationsView.swift; sourceTree = "<group>"; };
 		TRKST000000000000000001 /* TrackStateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackStateManager.swift; sourceTree = "<group>"; };
+		UNTRACK0000000000000001 /* Track.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Track.swift; sourceTree = "<group>"; };
+		TRKID000000000000000001 /* TrackIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackIdentity.swift; sourceTree = "<group>"; };
+		TRKREP00000000000000001 /* TrackRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackRepository.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -238,6 +244,7 @@
 				CL9999999999999999999999 /* Clients */,
 				SVC00000000000000000001 /* Services */,
 				EE8888888888888888888888 /* Protocols */,
+				MODL0000000000000000001 /* Models */,
 				UTIL0000000000000000001 /* Utilities */,
 				STOR0000000000000000001 /* Storage */,
 				DA6859CF2930242E009143B3 /* Info.plist */,
@@ -303,6 +310,7 @@
 				LBRLIM00000000000000001 /* ListenBrainzRateLimiter.swift */,
 				REACH000000000000000001 /* Reachability.swift */,
 				TRKST000000000000000001 /* TrackStateManager.swift */,
+				TRKID000000000000000001 /* TrackIdentity.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -312,8 +320,17 @@
 			children = (
 				XSYNC000000000000000001 /* CrossServiceSync.swift */,
 				BKFILL00000000000000001 /* BackfillService.swift */,
+				TRKREP00000000000000001 /* TrackRepository.swift */,
 			);
 			path = Services;
+			sourceTree = "<group>";
+		};
+		MODL0000000000000000001 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				UNTRACK0000000000000001 /* Track.swift */,
+			);
+			path = Models;
 			sourceTree = "<group>";
 		};
 		STOR0000000000000000001 /* Storage */ = {
@@ -474,6 +491,9 @@
 				REACH000000000000000002 /* Reachability.swift in Sources */,
 				PENDOP00000000000000002 /* PendingOperationsView.swift in Sources */,
 				TRKST000000000000000002 /* TrackStateManager.swift in Sources */,
+				UNTRACK0000000000000002 /* Track.swift in Sources */,
+				TRKID000000000000000002 /* TrackIdentity.swift in Sources */,
+				TRKREP00000000000000002 /* TrackRepository.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
