@@ -374,62 +374,24 @@ class ServiceManager: ObservableObject {
     }
     
     private func findBestMatch(for track: RecentTrack, in candidates: [RecentTrack], serviceName: String) -> RecentTrack? {
-        var bestMatch: RecentTrack?
-        var bestScore: Double = 0
-        var candidatesChecked = 0
-        var candidatesSkippedTimestamp = 0
-        var candidatesSkippedSimilarity = 0
+        Logger.info("[MATCH] Matching '\(track.artist) - \(track.name)' (TS: \(track.date ?? 0)) in \(serviceName)", log: Logger.sync)
         
-        Logger.debug("Trying to match: '\(track.artist) - \(track.name)' (timestamp: \(track.date ?? 0))", log: Logger.sync)
-        
+        // Simple strategy: find exact timestamp match within 2-minute window
         for candidate in candidates {
-            candidatesChecked += 1
+            // Must be within 2-minute window
+            guard timestampsMatch(track.date, candidate.date) else { continue }
             
-            // First check timestamp proximity
-            guard timestampsMatch(track.date, candidate.date) else {
-                candidatesSkippedTimestamp += 1
-                continue
-            }
+            let delta = abs((track.date ?? 0) - (candidate.date ?? 0))
             
-            let timestampDelta = abs((track.date ?? 0) - (candidate.date ?? 0))
-            
-            // Exact or near-exact timestamp match (within 5s) - accept immediately
-            if timestampDelta <= 5 {
-                Logger.debug("Exact match found: '\(candidate.artist) - \(candidate.name)' (TS Δ: \(timestampDelta)s)", log: Logger.sync)
-                bestMatch = candidate
-                bestScore = 1.0
-                break  // No need to check more candidates
-            }
-            
-            // Normalize strings for fuzzy matching
-            let normalizedTrackArtist = normalize(track.artist)
-            let normalizedTrackName = normalize(track.name)
-            let normalizedCandidateArtist = normalize(candidate.artist)
-            let normalizedCandidateName = normalize(candidate.name)
-            
-            // Calculate similarity score using Levenshtein distance
-            let artistScore = StringSimilarity.similarity(normalizedTrackArtist, normalizedCandidateArtist)
-            let trackScore = StringSimilarity.similarity(normalizedTrackName, normalizedCandidateName)
-            
-            // Combined score (weighted average)
-            let score = (artistScore * 0.5 + trackScore * 0.5)
-            
-            // Require at least 80% similarity
-            if score >= 0.8 {
-                if score > bestScore {
-                    bestScore = score
-                    bestMatch = candidate
-                }
-            } else {
-                candidatesSkippedSimilarity += 1
+            // Exact timestamp match (within 5 seconds)
+            if delta <= 5 {
+                Logger.info("[MATCH] ✅ Matched '\(candidate.artist) - \(candidate.name)' (Δ: \(delta)s)", log: Logger.sync)
+                return candidate
             }
         }
         
-        return bestMatch
-    }
-    
-    private func normalize(_ string: String) -> String {
-        string.trimmingCharacters(in: .whitespaces).lowercased()
+        Logger.info("[MATCH] ❌ No match for '\(track.artist) - \(track.name)'", log: Logger.sync)
+        return nil
     }
     
     private func timestampsMatch(_ d1: Int?, _ d2: Int?) -> Bool {
