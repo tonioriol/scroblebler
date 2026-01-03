@@ -58,6 +58,11 @@
 		TRKMAT00000000000000002 /* TrackMatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = TRKMAT00000000000000001 /* TrackMatcher.swift */; };
 		XSYNC000000000000000002 /* CrossServiceSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = XSYNC000000000000000001 /* CrossServiceSync.swift */; };
 		BKFILL00000000000000002 /* BackfillService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BKFILL00000000000000001 /* BackfillService.swift */; };
+		LDBAS000000000000000002 /* LocalDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = LDBAS000000000000000001 /* LocalDatabase.swift */; };
+		LBCENT00000000000000002 /* ListenBrainzCacheEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = LBCENT00000000000000001 /* ListenBrainzCacheEntry.swift */; };
+		LBCMET00000000000000002 /* ListenBrainzCacheMeta.swift in Sources */ = {isa = PBXBuildFile; fileRef = LBCMET00000000000000001 /* ListenBrainzCacheMeta.swift */; };
+		BLENT000000000000000002 /* BlacklistEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = BLENT000000000000000001 /* BlacklistEntry.swift */; };
+		QOPER000000000000000002 /* QueuedOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = QOPER000000000000000001 /* QueuedOperation.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -127,6 +132,11 @@
 		TRKMAT00000000000000001 /* TrackMatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackMatcher.swift; sourceTree = "<group>"; };
 		XSYNC000000000000000001 /* CrossServiceSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrossServiceSync.swift; sourceTree = "<group>"; };
 		BKFILL00000000000000001 /* BackfillService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackfillService.swift; sourceTree = "<group>"; };
+		LDBAS000000000000000001 /* LocalDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalDatabase.swift; sourceTree = "<group>"; };
+		LBCENT00000000000000001 /* ListenBrainzCacheEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListenBrainzCacheEntry.swift; sourceTree = "<group>"; };
+		LBCMET00000000000000001 /* ListenBrainzCacheMeta.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListenBrainzCacheMeta.swift; sourceTree = "<group>"; };
+		BLENT000000000000000001 /* BlacklistEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlacklistEntry.swift; sourceTree = "<group>"; };
+		QOPER000000000000000001 /* QueuedOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueuedOperation.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -136,6 +146,7 @@
 			files = (
 				DA7B0AA5297B392100B522D6 /* OSAKit.framework in Frameworks */,
 				MRAPKG00000000000000001 /* MediaRemoteAdapter in Frameworks */,
+				GRDBPKG0000000000000001 /* GRDB in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -215,6 +226,7 @@
 				SVC00000000000000000001 /* Services */,
 				EE8888888888888888888888 /* Protocols */,
 				UTIL0000000000000000001 /* Utilities */,
+				STOR0000000000000000001 /* Storage */,
 				DA6859CF2930242E009143B3 /* Info.plist */,
 				DA8DE13A292FC577004DC22E /* Assets.xcassets */,
 				DA8DE13F292FC577004DC22E /* Scroblebler.entitlements */,
@@ -288,6 +300,26 @@
 			path = Services;
 			sourceTree = "<group>";
 		};
+		STOR0000000000000000001 /* Storage */ = {
+			isa = PBXGroup;
+			children = (
+				LDBAS000000000000000001 /* LocalDatabase.swift */,
+				STORMODL000000000000001 /* Models */,
+			);
+			path = Storage;
+			sourceTree = "<group>";
+		};
+		STORMODL000000000000001 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				LBCENT00000000000000001 /* ListenBrainzCacheEntry.swift */,
+				LBCMET00000000000000001 /* ListenBrainzCacheMeta.swift */,
+				BLENT000000000000000001 /* BlacklistEntry.swift */,
+				QOPER000000000000000001 /* QueuedOperation.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -307,6 +339,7 @@
 			name = Scroblebler;
 			packageProductDependencies = (
 				MRAPKG00000000000000000 /* MediaRemoteAdapter */,
+				GRDBPKG0000000000000000 /* GRDB */,
 			);
 			productName = Scroblebler;
 			productReference = DA8DE133292FC575004DC22E /* Scroblebler.app */;
@@ -338,6 +371,7 @@
 			mainGroup = DA8DE12A292FC575004DC22E;
 			packageReferences = (
 				MRAPKGREF000000000000001 /* XCRemoteSwiftPackageReference "mediaremote-adapter" */,
+				GRDBPKGREF00000000000001 /* XCRemoteSwiftPackageReference "GRDB.swift" */,
 			);
 			productRefGroup = DA8DE134292FC575004DC22E /* Products */;
 			projectDirPath = "";
@@ -411,6 +445,11 @@
 				TRKMAT00000000000000002 /* TrackMatcher.swift in Sources */,
 				XSYNC000000000000000002 /* CrossServiceSync.swift in Sources */,
 				BKFILL00000000000000002 /* BackfillService.swift in Sources */,
+				LDBAS000000000000000002 /* LocalDatabase.swift in Sources */,
+				LBCENT00000000000000002 /* ListenBrainzCacheEntry.swift in Sources */,
+				LBCMET00000000000000002 /* ListenBrainzCacheMeta.swift in Sources */,
+				BLENT000000000000000002 /* BlacklistEntry.swift in Sources */,
+				QOPER000000000000000002 /* QueuedOperation.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -672,6 +711,14 @@
 				kind = branch;
 			};
 		};
+		GRDBPKGREF00000000000001 /* XCRemoteSwiftPackageReference "GRDB.swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/groue/GRDB.swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 6.0.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -679,6 +726,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = MRAPKGREF000000000000001 /* XCRemoteSwiftPackageReference "mediaremote-adapter" */;
 			productName = MediaRemoteAdapter;
+		};
+		GRDBPKG0000000000000000 /* GRDB */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = GRDBPKGREF00000000000001 /* XCRemoteSwiftPackageReference "GRDB.swift" */;
+			productName = GRDB;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -104,6 +104,7 @@ on their repository](https://github.com/lastfm/lastfm-desktop/blob/9ae84cf4ab204
 - [ ] add playcontrols
 - [ ] show multiple playing sources in player
 - [ ] local first approach, store scrobbles locally and sync in background
+- [ ] stop the constant reloading of images on scroll in history view
 
 ## License
 

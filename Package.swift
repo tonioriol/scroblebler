@@ -8,13 +8,15 @@ let package = Package(
         .executable(name: "Scroblebler", targets: ["Scroblebler"])
     ],
     dependencies: [
-        .package(url: "https://github.com/ejbills/mediaremote-adapter.git", branch: "master")
+        .package(url: "https://github.com/ejbills/mediaremote-adapter.git", branch: "master"),
+        .package(url: "https://github.com/groue/GRDB.swift", from: "6.0.0")
     ],
     targets: [
         .executableTarget(
             name: "Scroblebler",
             dependencies: [
-                .product(name: "MediaRemoteAdapter", package: "mediaremote-adapter")
+                .product(name: "MediaRemoteAdapter", package: "mediaremote-adapter"),
+                .product(name: "GRDB", package: "GRDB.swift")
             ],
             path: "Scroblebler",
             exclude: [

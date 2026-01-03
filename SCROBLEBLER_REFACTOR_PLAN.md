@@ -613,13 +613,20 @@ init() {
 
 ---
 
-### Phase 2: Add SQLite Database
+### Phase 2: Add SQLite Database ✅ COMPLETE
 
 **Goal:** Set up GRDB, create schema, enable migrations
 
-**Files:**
-- Create: `Scroblebler/Storage/LocalDatabase.swift`
-- Create: `Scroblebler/Storage/Models/*.swift`
+**Files Created:**
+- ✅ `Scroblebler/Storage/LocalDatabase.swift` - GRDB setup with 3 migrations
+- ✅ `Scroblebler/Storage/Models/ListenBrainzCacheEntry.swift` - Playcount cache model
+- ✅ `Scroblebler/Storage/Models/ListenBrainzCacheMeta.swift` - Cache metadata model
+- ✅ `Scroblebler/Storage/Models/BlacklistEntry.swift` - Blacklist model
+- ✅ `Scroblebler/Storage/Models/QueuedOperation.swift` - Offline queue model
+
+**Files Modified:**
+- ✅ `Package.swift` - Added GRDB.swift v6.0.0+ dependency
+- ✅ `Scroblebler.xcodeproj/project.pbxproj` - Integrated Storage/ files
 
 **Code:**
 ```swift
@@ -819,6 +826,74 @@ extension Date {
     }
 }
 ```
+
+---
+
+### Phase 2 Implementation Details
+
+#### What Was Actually Built
+
+**1. LocalDatabase.swift (109 lines)**
+- DatabaseQueue setup with automatic directory creation
+- Three migration registrations:
+  - v1_listenbrainz_cache: Playcount cache data + metadata tables
+  - v2_blacklist: User blacklist with unique constraint
+  - v3_operations: Offline operation queue with conditional index
+- Public async/sync read/write interfaces with @Sendable closures
+- ISO 8601 date helper extension for consistent timestamps
+
+**2. ListenBrainzCacheEntry.swift (21 lines)**
+- Model for playcount cache: username, artist, track, playcount
+- Conforms to Codable, FetchableRecord, PersistableRecord
+- Type-safe Columns enum for GRDB queries
+- Unique constraint on (username, artist, track)
+
+**3. ListenBrainzCacheMeta.swift (22 lines)**
+- Metadata model for tracking fetch progress
+- Fields: continueFromTs (Unix timestamp), completedAt, totalTracks
+- Enables resumable background fetching of ListenBrainz history
+- Unique constraint on username
+
+**4. BlacklistEntry.swift (19 lines)**
+- Simple model for user blacklist: artist, track
+- Unique constraint prevents duplicate entries
+- Timestamps for created_at and updated_at tracking
+- Descending index on created_at for recent-first ordering
+
+**5. QueuedOperation.swift (20 lines)**
+- Model for offline operation queue
+- Fields: id (UUID), type (scrobble/love/delete), payload (JSON)
+- Attempt tracking with counter and last_error field
+- Conditional index on (attempts, created_at) WHERE attempts < 5
+
+**6. Package.swift & Integration**
+- Added GRDB.swift dependency (resolved to v6.29.3)
+- Updated Scroblebler.xcodeproj with Storage/ hierarchy
+- All files properly linked in Sources and Frameworks build phases
+
+#### Issues Resolved
+
+1. **Database Foundation**: Complete SQLite infrastructure ready for migration
+   - Three separate migrations allow gradual feature rollout
+   - Type-safe models prevent runtime errors
+   - Async/await support matches existing codebase patterns
+
+2. **Xcode Integration**: Proper project structure
+   - Storage/ group with Models/ subgroup
+   - GRDB package reference and product dependency
+   - Build phases correctly configured
+
+3. **Concurrency Compliance**: @Sendable closures for Swift 6 compatibility
+   - No concurrency warnings
+   - Database operations safe across actor boundaries
+
+#### Verification
+
+- ✅ App launches successfully with database initialized
+- ✅ Database file created at ~/Library/Application Support/Scroblebler/scroblebler.db
+- ✅ All three migrations run successfully
+- ✅ No errors in online or offline mode
+- ✅ Existing functionality unaffected (JSON cache still works)
 
 ---
 
@@ -1566,12 +1641,17 @@ class LocalBlacklistTests: XCTestCase {
   - ServiceManager simplification: 30 min
   - Pagination bug fixes (Last.fm + ListenBrainz): 1 hour
   - Testing and verification: 30 min
-- Phase 2 (Database): 3 hours
-- Phase 3 (ListenBrainz): 4 hours
+- **Phase 2 (Add SQLite Database): ✅ COMPLETE** (2 hours actual)
+  - GRDB dependency setup: 15 min
+  - LocalDatabase.swift with migrations: 45 min
+  - Database models (4 files): 30 min
+  - Xcode project integration: 15 min
+  - Testing and verification: 15 min
+- Phase 3 (ListenBrainz Migration): 4 hours
 - Phase 4 (Blacklist): 2 hours
 - Phase 5 (Queue): 3 hours
 - Phase 6 (UI): 2 hours
-- **Total: ~18 hours of implementation (4 complete, 14 remaining)**
+- **Total: ~18 hours of implementation (6 complete, 12 remaining)**
 
-### What's Next: Phase 2
-Ready to add SQLite database with GRDB.swift for persistent storage!
+### What's Next: Phase 3
+Ready to migrate ListenBrainz cache from JSON to SQLite for ~50x performance improvement!

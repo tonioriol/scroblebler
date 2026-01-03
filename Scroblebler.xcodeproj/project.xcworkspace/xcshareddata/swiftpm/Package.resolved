@@ -1,6 +1,15 @@
 {
-  "originHash" : "e2bc9a25486db2f7c3daa93c7abf2a3035f1d3242958d2405517498ee6b880fc",
+  "originHash" : "b64a3704ae5a670fa7c6dde8b247da18c9c2a7d9c273c22c2543732d2bd8583e",
   "pins" : [
+    {
+      "identity" : "grdb.swift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/groue/GRDB.swift",
+      "state" : {
+        "revision" : "2cf6c756e1e5ef6901ebae16576a7e4e4b834622",
+        "version" : "6.29.3"
+      }
+    },
     {
       "identity" : "mediaremote-adapter",
       "kind" : "remoteSourceControl",
