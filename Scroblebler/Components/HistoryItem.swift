@@ -48,7 +48,7 @@ struct HistoryItem: View {
                         artist: track.artist,
                         track: track.name,
                         album: track.album,
-                        serviceInfo: track.serviceInfo,
+                        serviceInfo: serviceInfo,
                         playcount: $playcount
                     )
                     .id("\(track.artist)-\(track.name)-\(track.date ?? 0)")

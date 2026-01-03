@@ -101,7 +101,10 @@ class CrossServiceSync {
                 if let match = TrackMatcher.findMatch(for: primary[index], in: result.tracks) {
                     // Track exists - merge service info
                     Logger.info("[MATCH] ✅ Matched '\(primary[index].artist) - \(primary[index].name)' in \(result.credentials.service.displayName)", log: Logger.sync)
+                    Logger.debug("  Before merge - serviceInfo keys: \(primary[index].serviceInfo.keys.joined(separator: ", "))", log: Logger.sync)
+                    Logger.debug("  Merging from \(result.credentials.service.displayName) - keys: \(match.serviceInfo.keys.joined(separator: ", "))", log: Logger.sync)
                     primary[index].serviceInfo.merge(match.serviceInfo) { (_, new) in new }
+                    Logger.debug("  After merge - serviceInfo keys: \(primary[index].serviceInfo.keys.joined(separator: ", "))", log: Logger.sync)
                 } else if BackfillService.canBackfill(track: primary[index], to: result.credentials.service) {
                     // Track missing and eligible for backfill
                     Logger.info("[MATCH] ❌ No match for '\(primary[index].artist) - \(primary[index].name)' in \(result.credentials.service.displayName)", log: Logger.sync)

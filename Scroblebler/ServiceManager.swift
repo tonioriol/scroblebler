@@ -186,9 +186,19 @@ class ServiceManager: ObservableObject {
     func deleteScrobbleAll(artist: String, track: String, serviceInfo: [String: ServiceTrackData]) async {
         let enabledServices = Defaults.shared.enabledServices
         
+        Logger.info("🗑️ Deleting scrobble '\(artist) - \(track)' from \(enabledServices.count) enabled services", log: Logger.scrobbling)
+        Logger.debug("Available serviceInfo keys: \(serviceInfo.keys.joined(separator: ", "))", log: Logger.scrobbling)
+        
         await withTaskGroup(of: Void.self) { group in
             for credentials in enabledServices {
                 let info = serviceInfo[credentials.service.id]
+                
+                if info == nil {
+                    Logger.error("⚠️ No serviceInfo for \(credentials.service.displayName) - track may not be in this service", log: Logger.scrobbling)
+                } else {
+                    Logger.debug("✅ Found serviceInfo for \(credentials.service.displayName): timestamp=\(info?.timestamp ?? 0), id=\(info?.id ?? "none")", log: Logger.scrobbling)
+                }
+                
                 let identifier = ScrobbleIdentifier(
                     artist: artist,
                     track: track,
@@ -199,9 +209,9 @@ class ServiceManager: ObservableObject {
                 group.addTask {
                     do {
                         try await self.deleteScrobble(credentials: credentials, identifier: identifier)
-                        Logger.info("Deleted scrobble from \(credentials.service.displayName): \(artist) - \(track)", log: Logger.scrobbling)
+                        Logger.info("✅ Deleted scrobble from \(credentials.service.displayName): \(artist) - \(track)", log: Logger.scrobbling)
                     } catch {
-                        Logger.error("Failed to delete scrobble from \(credentials.service.displayName): \(error)", log: Logger.scrobbling)
+                        Logger.error("❌ Failed to delete scrobble from \(credentials.service.displayName): \(error)", log: Logger.scrobbling)
                     }
                 }
             }
