@@ -1,9 +1,8 @@
 import SwiftUI
 
 struct LoveButton: View {
-    @EnvironmentObject var serviceManager: ServiceManager
     @EnvironmentObject var defaults: Defaults
-    @ObservedObject private var stateManager = TrackStateManager.shared
+    @StateObject private var trackRepo = TrackRepository.shared
     
     let artist: String
     let trackName: String
@@ -12,7 +11,7 @@ struct LoveButton: View {
     @State private var isAnimating: Bool = false
     
     private var loved: Bool {
-        stateManager.state(artist: artist, track: trackName)?.loved ?? false
+        trackRepo.isLoved(artist: artist, track: trackName)
     }
     
     private var hasEnabledServices: Bool {
@@ -40,16 +39,13 @@ struct LoveButton: View {
             return
         }
         
-        // Toggle in state manager first
-        let newLovedState = stateManager.toggleLove(artist: artist, track: trackName)
-        
         withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
             isAnimating = true
         }
         
         Task {
-            // Use centralized ServiceManager method (handles online/offline)
-            await serviceManager.updateLoveAll(artist: artist, track: trackName, loved: newLovedState)
+            // Use TrackRepository which handles online/offline and state updates
+            _ = await trackRepo.toggleLove(artist: artist, track: trackName)
             
             await MainActor.run {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {

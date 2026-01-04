@@ -4,38 +4,57 @@ struct NowPlaying: View {
     @EnvironmentObject var serviceManager: ServiceManager
     @EnvironmentObject var defaults: Defaults
     @EnvironmentObject var watcher: Watcher
+    @StateObject private var trackRepo = TrackRepository.shared
     @Binding var track: Track?
     @Binding var currentPosition: Double?
     @Binding var isPlaying: Bool
     
-    @State private var lovedState: Bool = false
-    @State private var playCount: Int? = nil
+    // Computed properties that will refresh when trackRepo publishes changes
+    private var lovedState: Bool {
+        guard let track = track else { return false }
+        return trackRepo.isLoved(artist: track.artist, track: track.name)
+    }
+    
+    private var playCount: Int? {
+        guard let track = track else { return nil }
+        return trackRepo.playcount(artist: track.artist, track: track.name)
+    }
 
     var body: some View {
         VStack(spacing: 12) {
-            TrackInfo(
-                trackName: track!.name,
-                artist: track!.artist,
-                album: track!.album,
-                loved: $lovedState,
-                artworkSize: 92,
-                artworkImageData: track?.artwork,
-                titleFontSize: 18,
-                detailFontSize: 13,
-                loveFontSize: 12,
-                playCount: $playCount,
-                artistURL: track?.artistURL,
-                albumURL: track?.albumURL,
-                trackURL: track?.trackURL,
-                actionButtons: {
-                    if let track = track {
+            if let currentTrack = track {
+                TrackInfo(
+                    trackName: currentTrack.name,
+                    artist: currentTrack.artist,
+                    album: currentTrack.album,
+                    loved: Binding(
+                        get: {
+                            trackRepo.isLoved(artist: currentTrack.artist, track: currentTrack.name)
+                        },
+                        set: { _ in }
+                    ),
+                    artworkSize: 92,
+                    artworkImageData: currentTrack.artwork,
+                    titleFontSize: 18,
+                    detailFontSize: 13,
+                    loveFontSize: 12,
+                    playCount: Binding(
+                        get: {
+                            trackRepo.playcount(artist: currentTrack.artist, track: currentTrack.name)
+                        },
+                        set: { _ in }
+                    ),
+                    artistURL: currentTrack.artistURL,
+                    albumURL: currentTrack.albumURL,
+                    trackURL: currentTrack.trackURL,
+                    actionButtons: {
                         BlacklistButton(
-                            artist: track.artist,
-                            track: track.name
+                            artist: currentTrack.artist,
+                            track: currentTrack.name
                         )
                     }
-                }
-            )
+                )
+            }
             
             PlayerControls(
                 isPlaying: $isPlaying,
@@ -66,20 +85,21 @@ struct NowPlaying: View {
         guard let currentTrack = track,
               let primary = defaults.primaryService,
               let client = serviceManager.client(for: primary.service) else {
-            lovedState = track?.loved ?? false
-            playCount = nil
             return
         }
         
         Task {
-            let (loved, count) = (try? await client.getTrackInfo(
+            if let (loved, count) = try? await client.getTrackInfo(
                 artist: currentTrack.artist,
                 track: currentTrack.name
-            )) ?? (currentTrack.loved, nil)
-            
-            await MainActor.run {
-                lovedState = loved
-                playCount = count
+            ) {
+                // Update repository with fetched metadata
+                trackRepo.update(artist: currentTrack.artist, track: currentTrack.name) { track in
+                    track.loved = loved
+                    if let count = count {
+                        track.playcount = count
+                    }
+                }
             }
         }
     }

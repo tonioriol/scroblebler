@@ -11,6 +11,7 @@ struct ContentView: View {
     @StateObject var watcher = Watcher()
     @StateObject var serviceManager = ServiceManager.shared
     @StateObject var defaults = Defaults.shared
+    @StateObject var trackRepo = TrackRepository.shared
 
     var body: some View {
         VStack {
@@ -24,6 +25,8 @@ struct ContentView: View {
                     let enrichedTrack = await serviceManager.updateNowPlayingAll(track: track)
                     await MainActor.run {
                         watcher.currentTrack = enrichedTrack
+                        // Add to repository so love/blacklist state can be tracked
+                        trackRepo.add(enrichedTrack)
                     }
                 }
             }

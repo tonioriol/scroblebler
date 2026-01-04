@@ -46,7 +46,10 @@ class TrackRepository: ObservableObject {
         guard let index = tracks.firstIndex(where: { $0.id == id }) else {
             return
         }
-        mutation(&tracks[index])
+        objectWillChange.send()
+        var updatedTrack = tracks[index]
+        mutation(&updatedTrack)
+        tracks[index] = updatedTrack
         Logger.debug("Updated track: \(tracks[index].description)", log: Logger.ui)
     }
     
@@ -58,7 +61,10 @@ class TrackRepository: ObservableObject {
         }) else {
             return
         }
-        mutation(&tracks[index])
+        objectWillChange.send()
+        var updatedTrack = tracks[index]
+        mutation(&updatedTrack)
+        tracks[index] = updatedTrack
     }
     
     /// Remove track
@@ -110,22 +116,15 @@ class TrackRepository: ObservableObject {
             )
         }
         
-        // Merge with existing tracks
-        for apiTrack in convertedTracks {
-            if let existing = TrackIdentity.find(
-                artist: apiTrack.artist,
-                track: apiTrack.name,
-                in: tracks
-            ) {
-                // Update existing track
-                update(id: existing.id) { track in
-                    track.loved = apiTrack.loved
-                    track.playcount = apiTrack.playcount
-                    track.serviceInfo.merge(apiTrack.serviceInfo) { _, new in new }
+        // For first page, replace all tracks
+        if page == 1 {
+            tracks = convertedTracks
+        } else {
+            // For subsequent pages, append new tracks that don't exist yet
+            for apiTrack in convertedTracks {
+                if !tracks.contains(where: { $0.id == apiTrack.id }) {
+                    tracks.append(apiTrack)
                 }
-            } else {
-                // Add new track
-                add(apiTrack)
             }
         }
         
@@ -156,30 +155,63 @@ class TrackRepository: ObservableObject {
         }
     }
     
-    /// Toggle love status
-    func toggleLove(_ track: Track) async {
-        let newLoveState = !track.loved
+    /// Toggle love status by artist/track name
+    func toggleLove(artist: String, track: String) async -> Bool {
+        // Find track and toggle
+        let trackKey = TrackIdentity.key(artist: artist, track: track)
+        Logger.debug("toggleLove: Looking for '\(artist) - \(track)' (key: \(trackKey))", log: Logger.ui)
+        Logger.debug("toggleLove: Repository has \(tracks.count) tracks", log: Logger.ui)
+        
+        guard let existing = tracks.first(where: {
+            TrackIdentity.key(artist: $0.artist, track: $0.name) == trackKey
+        }) else {
+            // Track not in repo yet, just update via service
+            Logger.error("toggleLove: Track not found in repository, updating services only", log: Logger.ui)
+            let newLoveState = true // Default to loved if not found
+            if Reachability.shared.isConnected {
+                await serviceManager.updateLoveAll(artist: artist, track: track, loved: newLoveState)
+            }
+            return newLoveState
+        }
+        
+        let newLoveState = !existing.loved
+        Logger.debug("toggleLove: Found track, toggling from \(existing.loved) to \(newLoveState)", log: Logger.ui)
         
         // Optimistic UI update
-        update(id: track.id) { t in
+        update(id: existing.id) { t in
             t.loved = newLoveState
         }
         
         // Queue or execute
         if Reachability.shared.isConnected {
             await serviceManager.updateLoveAll(
-                artist: track.artist,
-                track: track.name,
+                artist: artist,
+                track: track,
                 loved: newLoveState
             )
         } else {
             try? await offlineQueue.enqueue(.love(
-                artist: track.artist,
-                track: track.name,
+                artist: artist,
+                track: track,
                 loved: newLoveState,
                 services: Defaults.shared.enabledServices.map { $0.service }
             ))
         }
+        
+        return newLoveState
+    }
+    
+    /// Toggle love status for a specific track
+    func toggleLove(_ track: Track) async {
+        _ = await toggleLove(artist: track.artist, track: track.name)
+    }
+    
+    /// Get loved state for a track
+    func isLoved(artist: String, track: String) -> Bool {
+        let trackKey = TrackIdentity.key(artist: artist, track: track)
+        return tracks.first(where: {
+            TrackIdentity.key(artist: $0.artist, track: $0.name) == trackKey
+        })?.loved ?? false
     }
     
     /// Delete scrobble from services
@@ -211,29 +243,61 @@ class TrackRepository: ObservableObject {
         }
     }
     
+    /// Get playcount for a track
+    func playcount(artist: String, track: String) -> Int? {
+        let trackKey = TrackIdentity.key(artist: artist, track: track)
+        return tracks.first(where: {
+            TrackIdentity.key(artist: $0.artist, track: $0.name) == trackKey
+        })?.playcount
+    }
+    
+    /// Decrement playcount (for undo)
+    func decrementPlaycount(artist: String, track: String) {
+        update(artist: artist, track: track) { t in
+            t.playcount = max(0, t.playcount - 1)
+        }
+    }
+    
+    /// Increment playcount (for redo)
+    func incrementPlaycount(artist: String, track: String) {
+        update(artist: artist, track: track) { t in
+            t.playcount += 1
+        }
+    }
+    
     // MARK: - Blacklist Integration
     
-    func toggleBlacklist(_ track: Track) async {
-        let isBlacklisted = await blacklist.contains(
-            artist: track.artist,
-            track: track.name
-        )
+    /// Toggle blacklist status by artist/track name
+    func toggleBlacklist(artist: String, track: String) async -> Bool {
+        let isBlacklisted = await blacklist.contains(artist: artist, track: track)
         
         if isBlacklisted {
-            try? await blacklist.remove(
-                artist: track.artist,
-                track: track.name
-            )
+            try? await blacklist.remove(artist: artist, track: track)
         } else {
-            try? await blacklist.add(
-                artist: track.artist,
-                track: track.name
-            )
+            try? await blacklist.add(artist: artist, track: track)
         }
         
-        // Update local state
-        update(id: track.id) { t in
-            t.blacklisted = !isBlacklisted
+        // Update all tracks with this artist/track in repository
+        objectWillChange.send()
+        let trackKey = TrackIdentity.key(artist: artist, track: track)
+        var updatedTracks = tracks
+        for (index, existingTrack) in updatedTracks.enumerated() where
+            TrackIdentity.key(artist: existingTrack.artist, track: existingTrack.name) == trackKey {
+            updatedTracks[index].blacklisted = !isBlacklisted
         }
+        tracks = updatedTracks
+        
+        return !isBlacklisted
+    }
+    
+    /// Toggle blacklist status for a specific track
+    func toggleBlacklist(_ track: Track) async {
+        _ = await toggleBlacklist(artist: track.artist, track: track.name)
+    }
+    
+    /// Check if track is blacklisted
+    func isBlacklisted(artist: String, track: String) async -> Bool {
+        // Check persistent storage
+        return await blacklist.contains(artist: artist, track: track)
     }
 }

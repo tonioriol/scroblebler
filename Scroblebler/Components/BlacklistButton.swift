@@ -4,6 +4,7 @@ struct BlacklistButton: View {
     let artist: String
     let track: String
     
+    @StateObject private var trackRepo = TrackRepository.shared
     @State private var isBlacklisted = false
     @State private var isAnimating = false
     
@@ -15,25 +16,20 @@ struct BlacklistButton: View {
     var body: some View {
         Button {
             Task {
-                let isCurrentlyBlacklisted = await LocalBlacklist.shared.contains(artist: artist, track: track)
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                    isAnimating = true
+                }
                 
-                do {
-                    if isCurrentlyBlacklisted {
-                        try await LocalBlacklist.shared.remove(artist: artist, track: track)
-                    } else {
-                        try await LocalBlacklist.shared.add(artist: artist, track: track)
-                    }
-                    
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                        isAnimating = true
-                    }
-                    
-                    try? await Task.sleep(nanoseconds: 300_000_000)
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                        isAnimating = false
-                    }
-                } catch {
-                    Logger.error("Blacklist operation failed: \(error)", log: Logger.ui)
+                // Toggle via TrackRepository
+                let newState = await trackRepo.toggleBlacklist(artist: artist, track: track)
+                
+                await MainActor.run {
+                    isBlacklisted = newState
+                }
+                
+                try? await Task.sleep(nanoseconds: 300_000_000)
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    isAnimating = false
                 }
             }
         } label: {
@@ -67,7 +63,7 @@ struct BlacklistButton: View {
     
     @MainActor
     private func updateBlacklistStatus() async {
-        let status = await LocalBlacklist.shared.contains(artist: artist, track: track)
+        let status = await trackRepo.isBlacklisted(artist: artist, track: track)
         isBlacklisted = status
     }
 }

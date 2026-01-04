@@ -3,29 +3,18 @@ import SwiftUI
 struct HistoryItem: View {
     @EnvironmentObject var serviceManager: ServiceManager
     @EnvironmentObject var defaults: Defaults
-    @ObservedObject private var stateManager = TrackStateManager.shared
     
-    let track: RecentTrack
-    @State private var serviceInfo: [String: ServiceTrackData]
+    let track: Track
+    @State private var serviceInfo: [ScrobbleService: ServiceTrackData]
     
-    init(track: RecentTrack) {
+    init(track: Track) {
         self.track = track
         self._serviceInfo = State(initialValue: track.serviceInfo)
     }
     
-    private var loved: Bool {
-        stateManager.state(artist: track.artist, track: track.name)?.loved ?? track.loved
-    }
-    
-    private var playcount: Int? {
-        stateManager.state(artist: track.artist, track: track.name)?.playcount ?? track.playcount
-    }
-    
     private var syncStatus: SyncStatus {
         let enabledServices = Set(defaults.enabledServices.map { $0.service })
-        var updatedTrack = track
-        updatedTrack.serviceInfo = serviceInfo
-        return updatedTrack.syncStatus(enabledServices: enabledServices)
+        return track.syncStatus(enabledServices: enabledServices)
     }
     
     var body: some View {
@@ -33,10 +22,10 @@ struct HistoryItem: View {
             trackName: track.name,
             artist: track.artist,
             album: track.album,
-            loved: .constant(loved),
+            loved: .constant(track.loved),
             artworkImageUrl: track.imageUrl,
-            timestamp: track.date,
-            playCount: .constant(playcount),
+            timestamp: track.timestamp,
+            playCount: .constant(track.playcount),
             artistURL: track.artistURL,
             albumURL: track.albumURL,
             trackURL: track.trackURL,
@@ -45,7 +34,7 @@ struct HistoryItem: View {
                     // Sync status indicator
                     SyncStatusBadge(
                         syncStatus: syncStatus,
-                        serviceInfo: serviceInfo,
+                        serviceInfo: convertServiceInfoToStringKeys(),
                         sourceService: track.sourceService
                     )
                     
@@ -53,9 +42,9 @@ struct HistoryItem: View {
                         artist: track.artist,
                         track: track.name,
                         album: track.album,
-                        serviceInfo: serviceInfo
+                        serviceInfo: convertServiceInfoToStringKeys()
                     )
-                    .id("\(track.artist)-\(track.name)-\(track.date ?? 0)")
+                    .id("\(track.artist)-\(track.name)-\(track.timestamp)")
                     
                     BlacklistButton(
                         artist: track.artist,
@@ -66,39 +55,14 @@ struct HistoryItem: View {
         )
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
-        .onAppear {
-            // Initialize state manager asynchronously
-            Task { @MainActor in
-                stateManager.updateState(
-                    artist: track.artist,
-                    track: track.name,
-                    loved: track.loved,
-                    playcount: track.playcount,
-                    timestamp: track.date
-                )
-            }
-            fetchTrackInfo()
-        }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TrackBackfillSucceeded"))) { notification in
             updateSyncStatus(from: notification)
         }
     }
     
-    private func fetchTrackInfo() {
-        guard let primary = defaults.primaryService,
-              let client = serviceManager.client(for: primary.service) else { return }
-        
-        Task {
-            if let (lovedState, count) = try? await client.getTrackInfo(artist: track.artist, track: track.name) {
-                await MainActor.run {
-                    stateManager.updateState(
-                        artist: track.artist,
-                        track: track.name,
-                        loved: lovedState,
-                        playcount: count
-                    )
-                }
-            }
+    private func convertServiceInfoToStringKeys() -> [String: ServiceTrackData] {
+        serviceInfo.reduce(into: [:]) { result, entry in
+            result[entry.key.rawValue] = entry.value
         }
     }
     
@@ -113,7 +77,7 @@ struct HistoryItem: View {
         // Check if this notification is for our track
         guard track.artist == artist,
               track.name == trackName,
-              track.date == timestamp else {
+              track.timestamp == timestamp else {
             return
         }
         
@@ -121,7 +85,7 @@ struct HistoryItem: View {
         if let serviceRawValue = userInfo["service"] as? String,
            let service = ScrobbleService(rawValue: serviceRawValue) {
             // Update serviceInfo - syncStatus will be recomputed automatically
-            serviceInfo[service.id] = ServiceTrackData(timestamp: timestamp, id: nil)
+            serviceInfo[service] = ServiceTrackData(timestamp: timestamp, id: nil)
         }
     }
 }

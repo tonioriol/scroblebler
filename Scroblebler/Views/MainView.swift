@@ -4,6 +4,7 @@ struct MainView: View {
     @EnvironmentObject var watcher: Watcher
     @EnvironmentObject var serviceManager: ServiceManager
     @EnvironmentObject var defaults: Defaults
+    @StateObject private var trackRepo = TrackRepository.shared
     @State private var showProfileView = false
     @State private var loginService: ScrobbleService?
     @State private var tokenInput = ""
@@ -11,19 +12,22 @@ struct MainView: View {
     @State private var showPasswordSheet = false
     @State private var pendingLastFmUsername: String?
     @State private var showWebClientPasswordSheet = false
-    @State private var recentTracks: [RecentTrack] = []
     @State private var currentPage = 1
     @State private var isLoadingMore = false
     @State private var hasMoreTracks = true
     @State private var loginState: WaitingLogin.Status = .generatingToken
     @State private var isPlaying = false
+    
+    private var historyTracks: [Track] {
+        trackRepo.tracks.filter { $0.scrobbled }
+    }
 
     var body: some View {
         ZStack(alignment: .bottom) {
             VStack(spacing: 0) {
                 mainContent
-                    .frame(height: recentTracks.isEmpty ? nil : 600, alignment: .top)
-                    .frame(maxHeight: recentTracks.isEmpty ? .infinity : 600)
+                    .frame(height: historyTracks.isEmpty ? nil : 600, alignment: .top)
+                    .frame(maxHeight: historyTracks.isEmpty ? .infinity : 600)
                 
                 Divider()
                 
@@ -33,9 +37,9 @@ struct MainView: View {
                         .zIndex(10)
                 }
             }
-            .frame(height: recentTracks.isEmpty ? nil : 655)
-            .fixedSize(horizontal: false, vertical: recentTracks.isEmpty)
-            .offset(y: showProfileView ? (recentTracks.isEmpty ? -655 : -655) : 0)
+            .frame(height: historyTracks.isEmpty ? nil : 655)
+            .fixedSize(horizontal: false, vertical: historyTracks.isEmpty)
+            .offset(y: showProfileView ? (historyTracks.isEmpty ? -655 : -655) : 0)
             
             if showProfileView {
                 VStack(spacing: 0) {
@@ -51,8 +55,8 @@ struct MainView: View {
             }
         }
         .frame(width: 400)
-        .frame(height: recentTracks.isEmpty ? nil : 655)
-        .fixedSize(horizontal: false, vertical: recentTracks.isEmpty)
+        .frame(height: historyTracks.isEmpty ? nil : 655)
+        .fixedSize(horizontal: false, vertical: historyTracks.isEmpty)
         .background(Color(NSColor.windowBackgroundColor))
         .clipped()
         .animation(.spring(response: 0.5, dampingFraction: 0.75), value: showProfileView)
@@ -129,7 +133,7 @@ struct MainView: View {
             PendingOperationsView()
             
             // History section
-            if !recentTracks.isEmpty {
+            if !historyTracks.isEmpty {
                 VStack(alignment: .leading, spacing: 0) {
                     HStack {
                         Text("Recently Scrobbled")
@@ -155,16 +159,16 @@ struct MainView: View {
                     
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 0) {
-                            ForEach(Array(recentTracks.enumerated()), id: \.element.id) { index, track in
+                            ForEach(Array(historyTracks.enumerated()), id: \.element.id) { index, track in
                                 HistoryItem(track: track)
                                     .id(track.id)
                                     .onAppear {
-                                        let isLastItem = index == recentTracks.count - 1
+                                        let isLastItem = index == historyTracks.count - 1
                                         if isLastItem && !isLoadingMore && hasMoreTracks {
                                             loadMoreTracks()
                                         }
                                     }
-                                if index < recentTracks.count - 1 {
+                                if index < historyTracks.count - 1 {
                                     Divider()
                                         .padding(.horizontal, 16)
                                 }
@@ -240,27 +244,16 @@ struct MainView: View {
         hasMoreTracks = true
         
         Task {
+            guard let primary = defaults.primaryService else { return }
+            
             do {
-                let tracks = try await serviceManager.getAllRecentTracks(limit: 20, page: 1)
+                try await trackRepo.loadRecent(from: primary, limit: 20, page: 1)
                 await MainActor.run {
-                    recentTracks = tracks
-                    // Sync tracks to state manager
-                    for track in tracks {
-                        TrackStateManager.shared.updateState(
-                            artist: track.artist,
-                            track: track.name,
-                            loved: track.loved,
-                            playcount: track.playcount,
-                            timestamp: track.date
-                        )
-                    }
-                    // Don't stop pagination based on count - merging can reduce it
-                    // Keep trying until we get an empty result
-                    hasMoreTracks = !tracks.isEmpty
+                    hasMoreTracks = !historyTracks.isEmpty
                 }
                 // Preload in background without blocking
                 Task.detached {
-                    await self.preloadImages(for: tracks)
+                    await self.preloadImages(for: self.historyTracks)
                 }
             } catch {
                 Logger.error("Failed to load recent tracks: \(error)", log: Logger.ui)
@@ -277,23 +270,22 @@ struct MainView: View {
         let nextPage = currentPage + 1
         
         Task {
+            guard let primary = defaults.primaryService else {
+                await MainActor.run { isLoadingMore = false }
+                return
+            }
+            
             do {
-                let tracks = try await serviceManager.getAllRecentTracks(limit: 20, page: nextPage)
+                let countBefore = historyTracks.count
+                try await trackRepo.loadRecent(from: primary, limit: 20, page: nextPage)
+                
                 await MainActor.run {
-                    if !tracks.isEmpty {
-                        recentTracks.append(contentsOf: tracks)
-                        // Sync tracks to state manager
-                        for track in tracks {
-                            TrackStateManager.shared.updateState(
-                                artist: track.artist,
-                                track: track.name,
-                                loved: track.loved,
-                                playcount: track.playcount,
-                                timestamp: track.date
-                            )
-                        }
+                    let countAfter = historyTracks.count
+                    let newTracksCount = countAfter - countBefore
+                    
+                    if newTracksCount > 0 {
                         currentPage = nextPage
-                        hasMoreTracks = tracks.count >= 20
+                        hasMoreTracks = newTracksCount >= 20
                     } else {
                         hasMoreTracks = false
                     }
@@ -301,7 +293,7 @@ struct MainView: View {
                 }
                 // Preload in background without blocking
                 Task.detached {
-                    await self.preloadImages(for: tracks)
+                    await self.preloadImages(for: self.historyTracks)
                 }
             } catch {
                 await MainActor.run {
@@ -312,7 +304,7 @@ struct MainView: View {
         }
     }
     
-    private func preloadImages(for tracks: [RecentTrack]) async {
+    private func preloadImages(for tracks: [Track]) async {
         await withTaskGroup(of: Void.self) { group in
             for track in tracks {
                 guard let imageUrl = track.imageUrl else { continue }
@@ -340,16 +332,12 @@ struct MainView: View {
     }
     
     private func handleBackfillEvent(_ event: BackfillEvent) {
-        // Find and update the matching track inline
-        if let index = recentTracks.firstIndex(where: {
-            $0.artist == event.artist && $0.name == event.track && $0.date == event.timestamp
-        }) {
-            // Add service info - sync status will be recomputed automatically via the method
-            recentTracks[index].serviceInfo[event.service.id] = ServiceTrackData(
+        // Update track in repository
+        trackRepo.update(artist: event.artist, track: event.track) { track in
+            track.serviceInfo[event.service] = ServiceTrackData(
                 timestamp: event.timestamp,
                 id: nil
             )
-            
         }
     }
     
