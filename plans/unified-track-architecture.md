@@ -574,53 +574,55 @@ enum Operation: Codable {
 
 ## Implementation Steps
 
-### Step 1: Create Unified Track Model
-- [ ] Create `Scroblebler/Models/Track.swift` with unified model
-- [ ] Add factory methods for different sources
-- [ ] Ensure Codable, Identifiable, Equatable conformance
+### Step 1: Create Unified Track Model ✅
+- [x] Create `Scroblebler/Models/Track.swift` with unified model
+- [x] Add factory methods for different sources
+- [x] Ensure Codable, Identifiable, Equatable conformance
 
-### Step 2: Create TrackIdentity
-- [ ] Create `Scroblebler/Utilities/TrackIdentity.swift`
-- [ ] Implement `key()`, `matches()`, `find()` methods
-- [ ] Add timestamp-based matching for sync
+### Step 2: Create TrackIdentity ✅
+- [x] Create `Scroblebler/Utilities/TrackIdentity.swift`
+- [x] Implement `key()`, `matches()`, `find()` methods
+- [x] Add timestamp-based matching for sync
 
-### Step 3: Create TrackRepository
-- [ ] Create `Scroblebler/Services/TrackRepository.swift`
-- [ ] Implement `@Published var tracks: [Track]`
-- [ ] Add CRUD operations
-- [ ] Add service operations (scrobble, love, delete)
-- [ ] Integrate with OfflineQueue, LocalBlacklist
+### Step 3: Create TrackRepository ✅
+- [x] Create `Scroblebler/Services/TrackRepository.swift`
+- [x] Implement `@Published var tracks: [Track]`
+- [x] Add CRUD operations
+- [x] Add service operations (scrobble, love, delete)
+- [x] Integrate with OfflineQueue, LocalBlacklist
 
-### Step 4: Update MainView
+### Step 4: Update MainView 🚧
 - [ ] Replace `@State recentTracks` with `@StateObject repository`
 - [ ] Remove TrackStateManager references
 - [ ] Simplify load logic (just call `repository.loadRecent()`)
 
-### Step 5: Update Components
+### Step 5: Update Components 🚧
 - [ ] HistoryItem: Pass `Track` instead of `RecentTrack`
 - [ ] LoveButton: Use `repository.toggleLove(track)`
 - [ ] UndoButton: Use `repository.delete(track)`
 - [ ] BlacklistButton: Use `repository.toggleBlacklist(track)`
 - [ ] NowPlaying: Use `repository.nowPlaying`
 
-### Step 6: Update ServiceManager
-- [ ] Remove `@Published` state
-- [ ] Change return types to `[Track]`
-- [ ] Convert API responses to unified Track model
-- [ ] Delegate state management to TrackRepository
+### Step 6: Update ServiceManager ✅
+- [x] Remove `@Published` state (not needed with TrackRepository)
+- [x] Change return types to `[Track]`
+- [x] Convert API responses to unified Track model (LastFmClient, ListenBrainzClient, LibreFmClient)
+- [x] Delegate state management to TrackRepository
 
-### Step 7: Update OfflineQueue
+### Step 7: Update OfflineQueue 🚧
 - [ ] Change `Operation` enum to use unified `Track`
 - [ ] Update serialization logic
 - [ ] Update sync execution to work with TrackRepository
 
-### Step 8: Cleanup
-- [ ] Delete `TrackStateManager.swift`
+### Step 8: Cleanup 🔄
+- [ ] Delete `TrackStateManager.swift` (if exists)
 - [ ] Remove `RecentTrack` from `Models.swift`
-- [ ] Update `TrackMatcher` to use `TrackIdentity`
+- [x] Update `TrackMatcher` to use `TrackIdentity`
 - [ ] Remove redundant matching from `LocalBlacklist`
+- [x] Update `CrossServiceSync` to work with `Track`
+- [x] Update `BackfillService` to work with `Track`
 
-### Step 9: Testing
+### Step 9: Testing ⏳
 - [ ] Verify UI updates correctly
 - [ ] Test love/unlove synchronization
 - [ ] Test undo/redo operations
@@ -628,6 +630,31 @@ enum Operation: Codable {
 - [ ] Test offline queue
 - [ ] Test pagination
 - [ ] Test cross-service sync
+
+---
+
+## Progress Summary
+
+✅ **Completed (Backend Layer)**
+- Unified Track model with factory methods
+- TrackIdentity utility for centralized matching
+- TrackRepository as single source of truth
+- ScrobbleClient protocol updated to return `[Track]`
+- All service clients (LastFmClient, ListenBrainzClient, LibreFmClient) return `Track`
+- CrossServiceSync reconciliation works with `Track`
+- BackfillService uses `Track` for operations
+- TrackMatcher uses TrackIdentity for matching
+- ServiceManager returns `[Track]` from API calls
+
+🚧 **In Progress (UI Layer)**
+- MainView migration to TrackRepository
+- Component updates (HistoryItem, LoveButton, UndoButton, BlacklistButton, NowPlaying)
+- OfflineQueue Operation enum updates
+
+⏳ **Pending**
+- ContentView watcher callbacks verification
+- RecentTrack removal from Models.swift
+- Final cleanup and testing
 
 ---
 
