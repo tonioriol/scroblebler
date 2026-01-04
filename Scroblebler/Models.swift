@@ -1,36 +1,5 @@
 import Foundation
 
-// MARK: - Domain Models
-
-struct RecentTrack: Codable, Identifiable {
-    var id: String {
-        // Create unique ID from artist, track name, timestamp, and source service
-        let timestamp = date ?? 0
-        let source = sourceService?.rawValue ?? "unknown"
-        return "\(artist)-\(name)-\(timestamp)-\(source)"
-    }
-    
-    let name: String
-    let artist: String
-    let album: String
-    let date: Int?
-    let isNowPlaying: Bool
-    let loved: Bool
-    let imageUrl: String?
-    let artistURL: URL
-    let albumURL: URL
-    let trackURL: URL
-    let playcount: Int?
-    var serviceInfo: [String: ServiceTrackData] = [:]
-    var sourceService: ScrobbleService? = nil
-    
-    /// Compute sync status based on which services have this track
-    func syncStatus(enabledServices: Set<ScrobbleService>) -> SyncStatus {
-        let presentIn = Set([sourceService].compactMap { $0 } + serviceInfo.keys.compactMap { ScrobbleService(rawValue: $0) })
-        return SyncStatus.calculate(presentInServices: presentIn, enabledServices: enabledServices)
-    }
-}
-
 // MARK: - Sync Models
 
 enum SyncStatus: Codable {
