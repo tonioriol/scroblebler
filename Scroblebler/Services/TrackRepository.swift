@@ -19,12 +19,14 @@ class TrackRepository: ObservableObject {
     // MARK: - Dependencies
     
     private let serviceManager: ServiceManager
+    private let syncService: SyncService
     private let offlineQueue = OfflineQueue.shared
     private let blacklist = LocalBlacklist.shared
     private let db = LocalDatabase.shared
     
-    private init(serviceManager: ServiceManager = .shared) {
+    private init(serviceManager: ServiceManager = .shared, syncService: SyncService? = nil) {
         self.serviceManager = serviceManager
+        self.syncService = syncService ?? SyncService(serviceManager: serviceManager)
     }
     
     // MARK: - CRUD Operations
@@ -86,22 +88,40 @@ class TrackRepository: ObservableObject {
         limit: Int = 20,
         page: Int = 1
     ) async throws {
-        // Get recent tracks from ServiceManager (now returns Track directly)
-        let loadedTracks = try await serviceManager.getAllRecentTracks(limit: limit, page: page)
+        // Fetch from primary via ServiceManager
+        var primaryTracks = try await serviceManager.fetchRecentTracks(
+            service: service.service,
+            limit: limit,
+            page: page
+        )
         
-        // For first page, replace all tracks
-        if page == 1 {
-            tracks = loadedTracks
-        } else {
-            // For subsequent pages, append new tracks that don't exist yet
-            for track in loadedTracks {
-                if !tracks.contains(where: { $0.id == track.id }) {
-                    tracks.append(track)
-                }
-            }
+        Logger.info("Fetched \(primaryTracks.count) tracks from primary service \(service.service.displayName)", log: Logger.sync)
+        
+        // Enrich with secondary services via SyncService
+        let otherServices = Defaults.shared.enabledServices
+            .filter { $0.service != service.service }
+            .map { $0.service }
+        
+        if !otherServices.isEmpty {
+            await syncService.enrichTracksWithSecondaryServices(
+                tracks: &primaryTracks,
+                primaryService: service.service,
+                secondaryServices: otherServices,
+                limit: limit,
+                page: page
+            )
         }
         
-        Logger.info("Loaded \(loadedTracks.count) tracks from \(service.service.displayName)", log: Logger.sync)
+        // Update state
+        if page == 1 {
+            tracks = primaryTracks
+        } else {
+            tracks.append(contentsOf: primaryTracks.filter { new in
+                !tracks.contains(where: { $0.id == new.id })
+            })
+        }
+        
+        Logger.info("Loaded \(primaryTracks.count) tracks from \(service.service.displayName)", log: Logger.sync)
     }
     
     /// Scrobble a track to all enabled services

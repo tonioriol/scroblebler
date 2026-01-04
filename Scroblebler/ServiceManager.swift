@@ -19,13 +19,7 @@ class ServiceManager: ObservableObject {
         .listenbrainz: ListenBrainzClient()
     ]
     
-    private let crossServiceSync: CrossServiceSync
-    private let backfillService: BackfillService
-    
     init() {
-        self.crossServiceSync = CrossServiceSync(clients: clients)
-        self.backfillService = BackfillService(clients: clients)
-        
         // Restore stored credentials to clients
         restoreCredentials()
     }
@@ -289,62 +283,12 @@ class ServiceManager: ObservableObject {
         }
     }
     
-    func getAllRecentTracks(limit: Int = 20, page: Int = 1) async throws -> [Track] {
-        // New approach: render tracks from the main/primary service only
-        guard let primaryService = Defaults.shared.primaryService else {
-            Logger.error("No primary service configured", log: Logger.sync)
-            return []
-        }
-        
-        guard let client = self.client(for: primaryService.service) else {
-            Logger.error("No client available for primary service", log: Logger.sync)
-            return []
-        }
-        
-        // Fetch tracks from primary service
-        var primaryTracks: [Track]
-        do {
-            primaryTracks = try await client.getRecentTracks(
-                limit: limit,
-                page: page
-            )
-        } catch {
-            Logger.error("Failed to fetch history from primary service \(primaryService.service.displayName): \(error)", log: Logger.sync)
-            return []
-        }
-        
-        Logger.info("Fetched \(primaryTracks.count) tracks from primary service \(primaryService.service.displayName)", log: Logger.sync)
-        
-        // Enrich with data from other enabled services for undo/love actions
-        let otherServices = Defaults.shared.enabledServices.filter { $0.service != primaryService.service }
-        
-        if !otherServices.isEmpty {
-            await enrichTracksWithOtherServices(tracks: &primaryTracks, otherServices: otherServices, limit: limit, page: page)
-        }
-        
-        return primaryTracks
-    }
+    // MARK: - Single-Service Operations
     
-    private func enrichTracksWithOtherServices(tracks: inout [Track], otherServices: [ServiceCredentials], limit: Int, page: Int) async {
-        // Use CrossServiceSync to reconcile tracks
-        let backfillTasks = await crossServiceSync.reconcile(
-            primaryTracks: &tracks,
-            secondaryServices: otherServices,
-            limit: limit,
-            page: page
-        )
-        
-        // Execute backfills asynchronously
-        if !backfillTasks.isEmpty {
-            Task {
-                let events = await backfillService.execute(tasks: backfillTasks)
-                // Publish the last backfill event
-                if let lastEvent = events.last {
-                    await MainActor.run {
-                        self.lastBackfilledTrack = lastEvent
-                    }
-                }
-            }
+    func fetchRecentTracks(service: ScrobbleService, limit: Int, page: Int) async throws -> [Track] {
+        guard let client = clients[service] else {
+            throw NSError(domain: "ServiceManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "Client not found for \(service.displayName)"])
         }
+        return try await client.getRecentTracks(limit: limit, page: page)
     }
 }
