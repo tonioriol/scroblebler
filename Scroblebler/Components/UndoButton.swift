@@ -3,7 +3,7 @@ import SwiftUI
 struct UndoButton: View {
     @EnvironmentObject var serviceManager: ServiceManager
     @EnvironmentObject var defaults: Defaults
-    @StateObject private var trackRepo = TrackRepository.shared
+    @StateObject private var trackRepo = TrackStore.shared
     
     let artist: String
     let track: String

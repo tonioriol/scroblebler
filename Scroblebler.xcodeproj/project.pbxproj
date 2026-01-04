@@ -69,7 +69,7 @@
 		PENDOP00000000000000002 /* PendingOperationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = PENDOP00000000000000001 /* PendingOperationsView.swift */; };
 		UNTRACK0000000000000002 /* Track.swift in Sources */ = {isa = PBXBuildFile; fileRef = UNTRACK0000000000000001 /* Track.swift */; };
 		TRKID000000000000000002 /* TrackIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = TRKID000000000000000001 /* TrackIdentity.swift */; };
-		TRKREP00000000000000002 /* TrackRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = TRKREP00000000000000001 /* TrackRepository.swift */; };
+		TRKREP00000000000000002 /* TrackStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = TRKREP00000000000000001 /* TrackStore.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -150,7 +150,7 @@
 		PENDOP00000000000000001 /* PendingOperationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingOperationsView.swift; sourceTree = "<group>"; };
 		UNTRACK0000000000000001 /* Track.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Track.swift; sourceTree = "<group>"; };
 		TRKID000000000000000001 /* TrackIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackIdentity.swift; sourceTree = "<group>"; };
-		TRKREP00000000000000001 /* TrackRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackRepository.swift; sourceTree = "<group>"; };
+		TRKREP00000000000000001 /* TrackStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackStore.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -314,7 +314,7 @@
 			isa = PBXGroup;
 			children = (
 				SYNCSVC0000000000000001 /* SyncService.swift */,
-				TRKREP00000000000000001 /* TrackRepository.swift */,
+				TRKREP00000000000000001 /* TrackStore.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -485,7 +485,7 @@
 				PENDOP00000000000000002 /* PendingOperationsView.swift in Sources */,
 				UNTRACK0000000000000002 /* Track.swift in Sources */,
 				TRKID000000000000000002 /* TrackIdentity.swift in Sources */,
-				TRKREP00000000000000002 /* TrackRepository.swift in Sources */,
+				TRKREP00000000000000002 /* TrackStore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

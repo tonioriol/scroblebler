@@ -4,7 +4,7 @@ struct BlacklistButton: View {
     let artist: String
     let track: String
     
-    @StateObject private var trackRepo = TrackRepository.shared
+    @StateObject private var trackRepo = TrackStore.shared
     @State private var isBlacklisted = false
     @State private var isAnimating = false
     
@@ -20,7 +20,7 @@ struct BlacklistButton: View {
                     isAnimating = true
                 }
                 
-                // Toggle via TrackRepository
+                // Toggle via TrackStore
                 let newState = await trackRepo.toggleBlacklist(artist: artist, track: track)
                 
                 await MainActor.run {

@@ -3,8 +3,8 @@ import Combine
 
 /// Single source of truth for all track data
 @MainActor
-class TrackRepository: ObservableObject {
-    static let shared = TrackRepository()
+class TrackStore: ObservableObject {
+    static let shared = TrackStore()
     
     // MARK: - Published State
     

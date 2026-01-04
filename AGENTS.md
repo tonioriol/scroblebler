@@ -3,3 +3,5 @@ Please make it simple, elegant and NEVER overengineer. I want straightforward im
 use conventional commit format with single line msg. DO NOT COMMIT UNLESS REQUESTED.
 
 Always update Scroblebler.xcodeproj/project.pbxproj file when making changes to the project structure. Adding/removing files, groups, targets, build phases etc.
+
+system has GNU (not BSD) sed: `sed -i 's/old/new/g'`

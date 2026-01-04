@@ -4,7 +4,7 @@ struct MainView: View {
     @EnvironmentObject var watcher: Watcher
     @EnvironmentObject var serviceManager: ServiceManager
     @EnvironmentObject var defaults: Defaults
-    @StateObject private var trackRepo = TrackRepository.shared
+    @StateObject private var trackRepo = TrackStore.shared
     @State private var showProfileView = false
     @State private var loginService: ScrobbleService?
     @State private var tokenInput = ""

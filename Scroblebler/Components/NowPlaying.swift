@@ -4,7 +4,7 @@ struct NowPlaying: View {
     @EnvironmentObject var serviceManager: ServiceManager
     @EnvironmentObject var defaults: Defaults
     @EnvironmentObject var watcher: Watcher
-    @StateObject private var trackRepo = TrackRepository.shared
+    @StateObject private var trackRepo = TrackStore.shared
     @Binding var track: Track?
     @Binding var currentPosition: Double?
     @Binding var isPlaying: Bool
