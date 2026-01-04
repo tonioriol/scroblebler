@@ -161,7 +161,7 @@ struct MainView: View {
                         LazyVStack(alignment: .leading, spacing: 0) {
                             ForEach(Array(historyTracks.enumerated()), id: \.element.id) { index, track in
                                 HistoryItem(track: track)
-                                    .id(track.id)
+                                    .id("\(track.id)-\(track.serviceInfo.keys.map { $0.rawValue }.sorted().joined(separator: ","))")
                                     .onAppear {
                                         let isLastItem = index == historyTracks.count - 1
                                         if isLastItem && !isLoadingMore && hasMoreTracks {
@@ -332,12 +332,15 @@ struct MainView: View {
     }
     
     private func handleBackfillEvent(_ event: BackfillEvent) {
+        Logger.info("🔄 UI: Handling backfill event for '\(event.artist) - \(event.track)' to \(event.service.displayName)", log: Logger.ui)
         // Update track in repository
         trackRepo.update(artist: event.artist, track: event.track) { track in
+            Logger.debug("  Before update - serviceInfo keys: \(track.serviceInfo.keys.map { $0.rawValue }.joined(separator: ", "))", log: Logger.ui)
             track.serviceInfo[event.service] = ServiceTrackData(
                 timestamp: event.timestamp,
                 id: nil
             )
+            Logger.debug("  After update - serviceInfo keys: \(track.serviceInfo.keys.map { $0.rawValue }.joined(separator: ", "))", log: Logger.ui)
         }
     }
     

@@ -48,13 +48,7 @@ class SyncService {
         // 3. Execute backfills asynchronously
         if !backfillTasks.isEmpty {
             Task {
-                let events = await executeBackfills(tasks: backfillTasks)
-                // Publish the last backfill event
-                if let lastEvent = events.last {
-                    await MainActor.run {
-                        self.serviceManager.lastBackfilledTrack = lastEvent
-                    }
-                }
+                await executeBackfills(tasks: backfillTasks)
             }
         }
     }
@@ -95,13 +89,12 @@ class SyncService {
     
     // MARK: - Private - Backfill execution
     
-    private func executeBackfills(tasks: [(track: Track, service: ScrobbleService)]) async -> [BackfillEvent] {
+    private func executeBackfills(tasks: [(track: Track, service: ScrobbleService)]) async {
         Logger.info("Backfilling \(tasks.count) missing tracks", log: Logger.sync)
         
         var succeeded = 0
         var failed = 0
         var skipped = 0
-        var events: [BackfillEvent] = []
         
         for (index, (track, service)) in tasks.enumerated() {
             Logger.debug("Backfill task \(index + 1)/\(tasks.count): '\(track.artist) - \(track.name)' to \(service.displayName)", log: Logger.sync)
@@ -134,14 +127,16 @@ class SyncService {
                     loved: track.loved
                 )
                 
-                // Collect event
+                // Publish event immediately to trigger UI update
                 let event = BackfillEvent(
                     artist: track.artist,
                     track: track.name,
                     timestamp: track.timestamp,
                     service: service
                 )
-                events.append(event)
+                await MainActor.run {
+                    self.serviceManager.lastBackfilledTrack = event
+                }
                 
                 // Rate limiting
                 try await Task.sleep(nanoseconds: 500_000_000)
@@ -152,7 +147,6 @@ class SyncService {
         }
         
         Logger.info("Backfill complete: \(succeeded) succeeded, \(failed) failed, \(skipped) skipped (blacklisted)", log: Logger.sync)
-        return events
     }
     
     // MARK: - Private - Matching logic
