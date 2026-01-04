@@ -11,11 +11,11 @@ class CrossServiceSync {
     /// Reconcile primary tracks with secondary services
     /// - Returns: List of tracks that need backfilling
     func reconcile(
-        primaryTracks: inout [RecentTrack],
+        primaryTracks: inout [Track],
         secondaryServices: [ServiceCredentials],
         limit: Int,
         page: Int
-    ) async -> [(track: RecentTrack, credentials: ServiceCredentials)] {
+    ) async -> [(track: Track, credentials: ServiceCredentials)] {
         // Calculate time range for efficient fetching
         let timeRange = calculateTimeRange(from: primaryTracks)
         
@@ -37,8 +37,8 @@ class CrossServiceSync {
     
     // MARK: - Private
     
-    private func calculateTimeRange(from tracks: [RecentTrack]) -> TimeRange {
-        let timestamps = tracks.compactMap { $0.date }
+    private func calculateTimeRange(from tracks: [Track]) -> TimeRange {
+        let timestamps = tracks.map { $0.timestamp }
         let buffer = 300  // 5-minute buffer for clock skew
         
         return TimeRange(
@@ -52,10 +52,10 @@ class CrossServiceSync {
         timeRange: TimeRange,
         limit: Int,
         page: Int
-    ) async -> [(credentials: ServiceCredentials, tracks: [RecentTrack])] {
-        var results: [(credentials: ServiceCredentials, tracks: [RecentTrack])] = []
+    ) async -> [(credentials: ServiceCredentials, tracks: [Track])] {
+        var results: [(credentials: ServiceCredentials, tracks: [Track])] = []
         
-        await withTaskGroup(of: (ServiceCredentials, [RecentTrack]?).self) { group in
+        await withTaskGroup(of: (ServiceCredentials, [Track]?).self) { group in
             for creds in services {
                 guard let client = clients[creds.service] else { continue }
                 
@@ -90,21 +90,21 @@ class CrossServiceSync {
     }
     
     private func matchAndMerge(
-        primary: inout [RecentTrack],
-        secondary: [(credentials: ServiceCredentials, tracks: [RecentTrack])],
+        primary: inout [Track],
+        secondary: [(credentials: ServiceCredentials, tracks: [Track])],
         services: [ServiceCredentials]
-    ) -> [(track: RecentTrack, credentials: ServiceCredentials)] {
-        var backfillTasks: [(track: RecentTrack, credentials: ServiceCredentials)] = []
+    ) -> [(track: Track, credentials: ServiceCredentials)] {
+        var backfillTasks: [(track: Track, credentials: ServiceCredentials)] = []
         
         for result in secondary {
             for index in primary.indices {
                 if let match = TrackMatcher.findMatch(for: primary[index], in: result.tracks) {
                     // Track exists - merge service info
                     Logger.info("[MATCH] ✅ Matched '\(primary[index].artist) - \(primary[index].name)' in \(result.credentials.service.displayName)", log: Logger.sync)
-                    Logger.debug("  Before merge - serviceInfo keys: \(primary[index].serviceInfo.keys.joined(separator: ", "))", log: Logger.sync)
-                    Logger.debug("  Merging from \(result.credentials.service.displayName) - keys: \(match.serviceInfo.keys.joined(separator: ", "))", log: Logger.sync)
+                    Logger.debug("  Before merge - serviceInfo keys: \(primary[index].serviceInfo.keys.map { $0.rawValue }.joined(separator: ", "))", log: Logger.sync)
+                    Logger.debug("  Merging from \(result.credentials.service.displayName) - keys: \(match.serviceInfo.keys.map { $0.rawValue }.joined(separator: ", "))", log: Logger.sync)
                     primary[index].serviceInfo.merge(match.serviceInfo) { (_, new) in new }
-                    Logger.debug("  After merge - serviceInfo keys: \(primary[index].serviceInfo.keys.joined(separator: ", "))", log: Logger.sync)
+                    Logger.debug("  After merge - serviceInfo keys: \(primary[index].serviceInfo.keys.map { $0.rawValue }.joined(separator: ", "))", log: Logger.sync)
                 } else if BackfillService.canBackfill(track: primary[index], to: result.credentials.service) {
                     // Track missing and eligible for backfill
                     Logger.info("[MATCH] ❌ No match for '\(primary[index].artist) - \(primary[index].name)' in \(result.credentials.service.displayName)", log: Logger.sync)

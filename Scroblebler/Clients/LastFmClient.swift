@@ -225,7 +225,7 @@ class LastFmClient: ObservableObject, ScrobbleClient {
     
     // MARK: - Profile Data
     
-    func getRecentTracks(limit: Int, page: Int) async throws -> [RecentTrack] {
+    func getRecentTracks(limit: Int, page: Int) async throws -> [Track] {
         guard let username = self.username else {
             Logger.error("❌ Last.fm getRecentTracks - NO USERNAME (not authenticated)", log: Logger.api)
             throw Error.apiError(9, "Not authenticated")
@@ -266,37 +266,26 @@ class LastFmClient: ObservableObject, ScrobbleClient {
             return baseTracks
         }
         
-        return try await withThrowingTaskGroup(of: (Int, Int?).self) { group in
+        return try await withThrowingTaskGroup(of: (Int, (Bool, Int?)).self) { group in
             for (index, track) in baseTracks.enumerated() {
                 group.addTask {
-                    let (_, count) = try await self.getTrackInfo(artist: track.artist, track: track.name)
-                    return (index, count)
+                    let info = try await self.getTrackInfo(artist: track.artist, track: track.name)
+                    return (index, info)
                 }
             }
             
             var tracksCopy = baseTracks
-            for try await (index, count) in group {
-                tracksCopy[index] = RecentTrack(
-                    name: tracksCopy[index].name,
-                    artist: tracksCopy[index].artist,
-                    album: tracksCopy[index].album,
-                    date: tracksCopy[index].date,
-                    isNowPlaying: tracksCopy[index].isNowPlaying,
-                    loved: tracksCopy[index].loved,
-                    imageUrl: tracksCopy[index].imageUrl,
-                    artistURL: tracksCopy[index].artistURL,
-                    albumURL: tracksCopy[index].albumURL,
-                    trackURL: tracksCopy[index].trackURL,
-                    playcount: count,
-                    serviceInfo: tracksCopy[index].serviceInfo,
-                    sourceService: tracksCopy[index].sourceService
-                )
+            for try await (index, (loved, count)) in group {
+                tracksCopy[index].loved = loved
+                if let count = count {
+                    tracksCopy[index].playcount = count
+                }
             }
             return tracksCopy
         }
     }
     
-    func getRecentTracksByTimeRange(minTs: Int?, maxTs: Int?, limit: Int) async throws -> [RecentTrack]? {
+    func getRecentTracksByTimeRange(minTs: Int?, maxTs: Int?, limit: Int) async throws -> [Track]? {
         guard let username = self.username else {
             throw Error.apiError(9, "Not authenticated")
         }
@@ -580,9 +569,9 @@ private extension LastFmClient {
     struct RecentTracksResponse: Decodable {
         let recenttracks: RecentTracks
         struct RecentTracks: Decodable {
-            let track: [Track]
+            let track: [LastFmTrack]
         }
-        struct Track: Decodable {
+        struct LastFmTrack: Decodable {
             let name: String
             let artist: TextContainer
             let album: TextContainer
@@ -606,29 +595,33 @@ private extension LastFmClient {
                 case name, artist, album, date, loved, image, attr = "@attr"
             }
             
-            func toDomain(client: LastFmClient) -> RecentTrack {
+            func toDomain(client: LastFmClient) -> Track {
                 let artistName = artist.text
                 let albumName = album.text
                 let trackName = name
                 
-                let dateInt = date.flatMap { Int($0.uts) }
+                let dateInt = date.flatMap { Int($0.uts) } ?? 0
                 
-                return RecentTrack(
-                    name: trackName,
+                return Track(
+                    id: UUID(),
                     artist: artistName,
                     album: albumName,
-                    date: dateInt,
-                    isNowPlaying: false,
+                    name: trackName,
+                    timestamp: dateInt,
+                    duration: 0,
+                    sourceService: .lastfm,
                     loved: loved == "1",
-                    imageUrl: image?.last(where: { !$0.text.isEmpty })?.text,
+                    playcount: 1,
+                    scrobbled: true,
+                    blacklisted: false,
+                    serviceInfo: [
+                        .lastfm: ServiceTrackData.lastfm(timestamp: dateInt)
+                    ],
+                    artwork: nil,
                     artistURL: client.artistURL(artist: artistName, mbid: nil),
                     albumURL: client.albumURL(artist: artistName, album: albumName, mbid: nil),
                     trackURL: client.trackURL(artist: artistName, track: trackName, mbid: nil),
-                    playcount: nil,
-                    serviceInfo: [
-                        ScrobbleService.lastfm.id: ServiceTrackData.lastfm(timestamp: dateInt ?? 0)
-                    ],
-                    sourceService: .lastfm
+                    imageUrl: image?.last(where: { !$0.text.isEmpty })?.text
                 )
             }
         }

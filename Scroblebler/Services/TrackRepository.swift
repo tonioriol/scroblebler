@@ -86,49 +86,22 @@ class TrackRepository: ObservableObject {
         limit: Int = 20,
         page: Int = 1
     ) async throws {
-        // Get recent tracks from ServiceManager (returns RecentTrack for now)
-        let recentTracks = try await serviceManager.getAllRecentTracks(limit: limit, page: page)
-        
-        // Convert RecentTrack to unified Track model
-        let convertedTracks = recentTracks.map { apiTrack in
-            Track(
-                id: UUID(),
-                artist: apiTrack.artist,
-                album: apiTrack.album,
-                name: apiTrack.name,
-                timestamp: apiTrack.date ?? 0,
-                duration: 0,
-                sourceService: apiTrack.sourceService ?? .lastfm,
-                loved: apiTrack.loved,
-                playcount: apiTrack.playcount ?? 1,
-                scrobbled: !apiTrack.isNowPlaying,
-                blacklisted: false,
-                serviceInfo: apiTrack.serviceInfo.reduce(into: [:]) { result, entry in
-                    if let service = ScrobbleService(rawValue: entry.key) {
-                        result[service] = entry.value
-                    }
-                },
-                artwork: nil,
-                artistURL: apiTrack.artistURL,
-                albumURL: apiTrack.albumURL,
-                trackURL: apiTrack.trackURL,
-                imageUrl: apiTrack.imageUrl
-            )
-        }
+        // Get recent tracks from ServiceManager (now returns Track directly)
+        let loadedTracks = try await serviceManager.getAllRecentTracks(limit: limit, page: page)
         
         // For first page, replace all tracks
         if page == 1 {
-            tracks = convertedTracks
+            tracks = loadedTracks
         } else {
             // For subsequent pages, append new tracks that don't exist yet
-            for apiTrack in convertedTracks {
-                if !tracks.contains(where: { $0.id == apiTrack.id }) {
-                    tracks.append(apiTrack)
+            for track in loadedTracks {
+                if !tracks.contains(where: { $0.id == track.id }) {
+                    tracks.append(track)
                 }
             }
         }
         
-        Logger.info("Loaded \(convertedTracks.count) tracks from \(service.service.displayName)", log: Logger.sync)
+        Logger.info("Loaded \(loadedTracks.count) tracks from \(service.service.displayName)", log: Logger.sync)
     }
     
     /// Scrobble a track to all enabled services

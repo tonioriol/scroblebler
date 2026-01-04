@@ -289,7 +289,7 @@ class ServiceManager: ObservableObject {
         }
     }
     
-    func getAllRecentTracks(limit: Int = 20, page: Int = 1) async throws -> [RecentTrack] {
+    func getAllRecentTracks(limit: Int = 20, page: Int = 1) async throws -> [Track] {
         // New approach: render tracks from the main/primary service only
         guard let primaryService = Defaults.shared.primaryService else {
             Logger.error("No primary service configured", log: Logger.sync)
@@ -302,7 +302,7 @@ class ServiceManager: ObservableObject {
         }
         
         // Fetch tracks from primary service
-        var primaryTracks: [RecentTrack]
+        var primaryTracks: [Track]
         do {
             primaryTracks = try await client.getRecentTracks(
                 limit: limit,
@@ -325,7 +325,7 @@ class ServiceManager: ObservableObject {
         return primaryTracks
     }
     
-    private func enrichTracksWithOtherServices(tracks: inout [RecentTrack], otherServices: [ServiceCredentials], limit: Int, page: Int) async {
+    private func enrichTracksWithOtherServices(tracks: inout [Track], otherServices: [ServiceCredentials], limit: Int, page: Int) async {
         // Use CrossServiceSync to reconcile tracks
         let backfillTasks = await crossServiceSync.reconcile(
             primaryTracks: &tracks,

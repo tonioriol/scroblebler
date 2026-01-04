@@ -290,7 +290,7 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
     
     // MARK: - Profile Data
     
-    func getRecentTracks(limit: Int, page: Int) async throws -> [RecentTrack] {
+    func getRecentTracks(limit: Int, page: Int) async throws -> [Track] {
         guard let username = self.username else {
             Logger.error("❌ ListenBrainz getRecentTracks - NO USERNAME (not authenticated)", log: Logger.api)
             throw Error.invalidToken
@@ -369,7 +369,7 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         // Second pass: enrich missing MBIDs using MBID Mapper 2.0
         var enrichedCount = 0
         var tracksNeedingLookup = 0
-        let result = await withTaskGroup(of: (Int, RecentTrack?, Bool).self) { group in
+        let result = await withTaskGroup(of: (Int, Track?, Bool).self) { group in
             for (index, track) in tracks.enumerated() {
                 group.addTask {
                     var (artistMbid, releaseMbid, recordingMbid) = track.existingMbids
@@ -406,33 +406,37 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
                     let imageUrl = self.extractCoverArtUrl(from: track.metadata)
                     let playcount = await self.cache.getCachedPlayCount(username: username, artist: track.artist, track: track.name)
                     
-                    let recentTrack = RecentTrack(
-                        name: track.name,
+                    let unifiedTrack = Track(
+                        id: UUID(),
                         artist: track.artist,
                         album: track.album,
-                        date: track.timestamp,
-                        isNowPlaying: false,
+                        name: track.name,
+                        timestamp: track.timestamp ?? 0,
+                        duration: 0,
+                        sourceService: .listenbrainz,
                         loved: false,
-                        imageUrl: imageUrl,
-                        artistURL: self.artistURL(artist: track.artist, mbid: artistMbid),
-                        albumURL: self.albumURL(artist: track.artist, album: track.album, mbid: releaseMbid),
-                        trackURL: self.trackURL(artist: track.artist, track: track.name, mbid: recordingMbid),
-                        playcount: playcount,
+                        playcount: playcount ?? 1,
+                        scrobbled: true,
+                        blacklisted: false,
                         serviceInfo: [
-                            ScrobbleService.listenbrainz.id: ServiceTrackData.listenbrainz(
+                            .listenbrainz: ServiceTrackData.listenbrainz(
                                 recordingMsid: track.msid ?? "",
                                 timestamp: track.timestamp ?? 0
                             )
                         ],
-                        sourceService: .listenbrainz
+                        artwork: nil,
+                        artistURL: self.artistURL(artist: track.artist, mbid: artistMbid),
+                        albumURL: self.albumURL(artist: track.artist, album: track.album, mbid: releaseMbid),
+                        trackURL: self.trackURL(artist: track.artist, track: track.name, mbid: recordingMbid),
+                        imageUrl: imageUrl
                     )
                     
-                    return (index, recentTrack, wasEnriched)
+                    return (index, unifiedTrack, wasEnriched)
                 }
             }
             
             // Collect results and maintain original order
-            var results: [(Int, RecentTrack?, Bool)] = []
+            var results: [(Int, Track?, Bool)] = []
             for await result in group {
                 results.append(result)
             }
@@ -452,7 +456,7 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         return result.compactMap { $0.1 }
     }
     
-    func getRecentTracksByTimeRange(minTs: Int?, maxTs: Int?, limit: Int) async throws -> [RecentTrack]? {
+    func getRecentTracksByTimeRange(minTs: Int?, maxTs: Int?, limit: Int) async throws -> [Track]? {
         guard let username = self.username else {
             throw Error.invalidToken
         }
@@ -479,7 +483,7 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         Logger.debug("ListenBrainz received \(listens.count) listens for time range", log: Logger.api)
         
         // Extract and build tracks (simplified version without cache)
-        let tracks = listens.compactMap { listen -> RecentTrack? in
+        let tracks = listens.compactMap { listen -> Track? in
             guard let metadata = listen["track_metadata"] as? [String: Any],
                   let artist = metadata["artist_name"] as? String,
                   let name = metadata["track_name"] as? String else { return nil }
@@ -490,25 +494,29 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
             let timestamp = listen["listened_at"] as? Int
             let imageUrl = extractCoverArtUrl(from: metadata)
             
-            return RecentTrack(
-                name: name,
+            return Track(
+                id: UUID(),
                 artist: artist,
                 album: album,
-                date: timestamp,
-                isNowPlaying: false,
+                name: name,
+                timestamp: timestamp ?? 0,
+                duration: 0,
+                sourceService: .listenbrainz,
                 loved: false,
-                imageUrl: imageUrl,
-                artistURL: artistURL(artist: artist, mbid: mbids.artistMbid),
-                albumURL: albumURL(artist: artist, album: album, mbid: mbids.releaseMbid),
-                trackURL: trackURL(artist: artist, track: name, mbid: mbids.recordingMbid),
-                playcount: nil,
+                playcount: 1,
+                scrobbled: true,
+                blacklisted: false,
                 serviceInfo: [
-                    ScrobbleService.listenbrainz.id: ServiceTrackData.listenbrainz(
+                    .listenbrainz: ServiceTrackData.listenbrainz(
                         recordingMsid: msid ?? "",
                         timestamp: timestamp ?? 0
                     )
                 ],
-                sourceService: .listenbrainz
+                artwork: nil,
+                artistURL: artistURL(artist: artist, mbid: mbids.artistMbid),
+                albumURL: albumURL(artist: artist, album: album, mbid: mbids.releaseMbid),
+                trackURL: trackURL(artist: artist, track: name, mbid: mbids.recordingMbid),
+                imageUrl: imageUrl
             )
         }
         

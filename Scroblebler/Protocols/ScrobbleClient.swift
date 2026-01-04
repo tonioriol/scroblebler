@@ -17,8 +17,8 @@ protocol ScrobbleClient {
     func updateLove(artist: String, track: String, loved: Bool) async throws
     
     // Profile methods
-    func getRecentTracks(limit: Int, page: Int) async throws -> [RecentTrack]
-    func getRecentTracksByTimeRange(minTs: Int?, maxTs: Int?, limit: Int) async throws -> [RecentTrack]?
+    func getRecentTracks(limit: Int, page: Int) async throws -> [Track]
+    func getRecentTracksByTimeRange(minTs: Int?, maxTs: Int?, limit: Int) async throws -> [Track]?
     func getUserStats() async throws -> UserStats?
     func getTopArtists(period: String, limit: Int) async throws -> [TopArtist]
     func getTopAlbums(period: String, limit: Int) async throws -> [TopAlbum]
@@ -37,7 +37,7 @@ extension ScrobbleClient {
         // Optional - not all services support this
     }
     
-    func getRecentTracksByTimeRange(minTs: Int?, maxTs: Int?, limit: Int) async throws -> [RecentTrack]? {
+    func getRecentTracksByTimeRange(minTs: Int?, maxTs: Int?, limit: Int) async throws -> [Track]? {
         // Optional - only services that support timestamp-based queries implement this
         return nil
     }
