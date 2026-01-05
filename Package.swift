@@ -25,6 +25,11 @@ let package = Package(
                 "Assets.xcassets",
                 "Preview Content"
             ]
+        ),
+        .testTarget(
+            name: "ScrobbleblerTests",
+            dependencies: ["Scroblebler"],
+            path: "ScrobbleblerTests"
         )
     ]
 )

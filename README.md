@@ -74,6 +74,19 @@ To create a release DMG:
 ./scripts/build.sh <version>
 ```
 
+### Running Tests
+
+Run unit tests for core business logic:
+```bash
+swift test
+```
+
+Tests cover:
+- Track matching and identity logic
+- Scrobbling threshold calculations (95% rule)
+- Offline operation queue serialization
+- Playback monitoring algorithms
+
 
 ## Credits
 
@@ -98,9 +111,12 @@ on their repository](https://github.com/lastfm/lastfm-desktop/blob/9ae84cf4ab204
 - [x] Add playcontrols.
 - [x] Use proper logger.
 - [ ] Testing.
+- [ ] Links in now playing for lastfm not working.
 - [ ] Stop the constant reloading of images on scroll in history view.
 - [ ] Fix progress bar jumping ui.
-- [ ] Is TrackIdentity the right approach? what is it???
+- [ ] Add metrics (with opt-out).
+- [ ] Is TrackIdentity the right approach? what is it??? what is canonicalKey? coul we use messybraibrainz ids? to standardize across services?
+- [ ] Factory methods on the model violate Single Responsibility Principle. Track should be a pure data model, and conversion logic belongs in the clients/decoders.
 - [ ] Update the date and the (c) of the new files.
 - [ ] Update the reverse domain.
 - [ ] Offline support.
