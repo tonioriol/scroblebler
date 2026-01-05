@@ -83,7 +83,7 @@ class Reachability: ObservableObject {
                     Logger.error("No credentials for \(service.displayName)", log: Logger.sync)
                     continue
                 }
-                try await ServiceManager.shared.scrobble(credentials: creds, track: track)
+                try await ScrobbleManager.shared.scrobble(credentials: creds, track: track)
             }
             Logger.info("Scrobbled: \(track.artist) - \(track.name)", log: Logger.sync)
             
@@ -93,7 +93,7 @@ class Reachability: ObservableObject {
                     Logger.error("No credentials for \(service.displayName)", log: Logger.sync)
                     continue
                 }
-                try await ServiceManager.shared.updateLove(
+                try await ScrobbleManager.shared.updateLove(
                     credentials: creds,
                     artist: artist,
                     track: track,
@@ -114,7 +114,7 @@ class Reachability: ObservableObject {
                     timestamp: timestamp,
                     serviceId: nil
                 )
-                try await ServiceManager.shared.deleteScrobble(
+                try await ScrobbleManager.shared.deleteScrobble(
                     credentials: creds,
                     identifier: identifier
                 )

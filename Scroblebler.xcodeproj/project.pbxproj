@@ -39,7 +39,7 @@
 		FF2222222222222222222222 /* LibreFmClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE2222222222222222222222 /* LibreFmClient.swift */; };
 		FF3333333333333333333333 /* ListenBrainzClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE3333333333333333333333 /* ListenBrainzClient.swift */; };
 		FF4444444444444444444444 /* ScrobbleClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE4444444444444444444444 /* ScrobbleClient.swift */; };
-		FF5555555555555555555555 /* ServiceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE5555555555555555555555 /* ServiceManager.swift */; };
+		FF5555555555555555555555 /* ScrobbleManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE5555555555555555555555 /* ScrobbleManager.swift */; };
 		FF6666666666666666666666 /* WaitingLogin.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE6666666666666666666666 /* WaitingLogin.swift */; };
 		FF7777777777777777777777 /* TokenInputSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE7777777777777777777777 /* TokenInputSheet.swift */; };
 		FF8888888888888888888889 /* PasswordInputSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE8888888888888888888889 /* PasswordInputSheet.swift */; };
@@ -120,7 +120,7 @@
 		EE2222222222222222222222 /* LibreFmClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibreFmClient.swift; sourceTree = "<group>"; };
 		EE3333333333333333333333 /* ListenBrainzClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListenBrainzClient.swift; sourceTree = "<group>"; };
 		EE4444444444444444444444 /* ScrobbleClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrobbleClient.swift; sourceTree = "<group>"; };
-		EE5555555555555555555555 /* ServiceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceManager.swift; sourceTree = "<group>"; };
+		EE5555555555555555555555 /* ScrobbleManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrobbleManager.swift; sourceTree = "<group>"; };
 		EE6666666666666666666666 /* WaitingLogin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaitingLogin.swift; sourceTree = "<group>"; };
 		EE7777777777777777777777 /* TokenInputSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenInputSheet.swift; sourceTree = "<group>"; };
 		EE8888888888888888888889 /* PasswordInputSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasswordInputSheet.swift; sourceTree = "<group>"; };
@@ -253,7 +253,7 @@
 				DA8F729829315119007920D3 /* Defaults.swift */,
 				DAC47090293166B300734C24 /* main.swift */,
 				DAEF0C3E2933A5010083F9AB /* LaunchAtStartup.swift */,
-				EE5555555555555555555555 /* ServiceManager.swift */,
+				EE5555555555555555555555 /* ScrobbleManager.swift */,
 				KEYC0000000000000000001 /* KeychainHelper.swift */,
 				IMGCACHE000000000000001 /* ImageCache.swift */,
 				LOGGER00000000000000001 /* Logger.swift */,
@@ -457,7 +457,7 @@
 				FF2222222222222222222222 /* LibreFmClient.swift in Sources */,
 				FF3333333333333333333333 /* ListenBrainzClient.swift in Sources */,
 				FF4444444444444444444444 /* ScrobbleClient.swift in Sources */,
-				FF5555555555555555555555 /* ServiceManager.swift in Sources */,
+				FF5555555555555555555555 /* ScrobbleManager.swift in Sources */,
 				FF6666666666666666666666 /* WaitingLogin.swift in Sources */,
 				FF7777777777777777777777 /* TokenInputSheet.swift in Sources */,
 				FF8888888888888888888889 /* PasswordInputSheet.swift in Sources */,

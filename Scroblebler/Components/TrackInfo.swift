@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct TrackInfo<ActionButtons: View>: View {
-    @EnvironmentObject var serviceManager: ServiceManager
+    @EnvironmentObject var serviceManager: ScrobbleManager
     @EnvironmentObject var defaults: Defaults
     @EnvironmentObject var watcher: Watcher
     

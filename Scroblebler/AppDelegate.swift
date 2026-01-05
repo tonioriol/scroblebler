@@ -69,7 +69,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         
         // Auto-authenticate Last.fm web client if password is stored in Keychain
         Task {
-            await ServiceManager.shared.autoAuthenticateLastFmWebClient()
+            await ScrobbleManager.shared.autoAuthenticateLastFmWebClient()
         }
         
         // Initialize network reachability monitoring

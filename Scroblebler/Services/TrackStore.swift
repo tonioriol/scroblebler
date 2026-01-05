@@ -18,13 +18,13 @@ class TrackStore: ObservableObject {
     
     // MARK: - Dependencies
     
-    private let serviceManager: ServiceManager
+    private let serviceManager: ScrobbleManager
     private let syncService: SyncService
     private let offlineQueue = OfflineQueue.shared
     private let blacklist = LocalBlacklist.shared
     private let db = LocalDatabase.shared
     
-    private init(serviceManager: ServiceManager = .shared, syncService: SyncService? = nil) {
+    private init(serviceManager: ScrobbleManager = .shared, syncService: SyncService? = nil) {
         self.serviceManager = serviceManager
         self.syncService = syncService ?? SyncService(serviceManager: serviceManager)
     }
@@ -88,7 +88,7 @@ class TrackStore: ObservableObject {
         limit: Int = 20,
         page: Int = 1
     ) async throws {
-        // Fetch from primary via ServiceManager
+        // Fetch from primary via ScrobbleManager
         var primaryTracks = try await serviceManager.fetchRecentTracks(
             service: service.service,
             limit: limit,

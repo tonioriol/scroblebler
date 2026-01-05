@@ -7,8 +7,8 @@ struct BackfillEvent: Equatable {
     let service: ScrobbleService
 }
 
-class ServiceManager: ObservableObject {
-    static let shared = ServiceManager()
+class ScrobbleManager: ObservableObject {
+    static let shared = ScrobbleManager()
     
     @Published var lastBackfilledTrack: BackfillEvent?
     @Published var scrobbleCompletedTrigger = 0
@@ -42,14 +42,14 @@ class ServiceManager: ObservableObject {
     
     func authenticate(service: ScrobbleService) async throws -> (token: String, authURL: URL) {
         guard let client = clients[service] else {
-            throw NSError(domain: "ServiceManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "Service not found"])
+            throw NSError(domain: "ScrobbleManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "Service not found"])
         }
         return try await client.authenticate()
     }
     
     func completeAuthentication(service: ScrobbleService, token: String) async throws -> ServiceCredentials {
         guard let client = clients[service] else {
-            throw NSError(domain: "ServiceManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "Service not found"])
+            throw NSError(domain: "ScrobbleManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "Service not found"])
         }
         let result = try await client.completeAuthentication(token: token)
         return ServiceCredentials(
@@ -69,11 +69,11 @@ class ServiceManager: ObservableObject {
     func setupLastFmWebClient(password: String) async throws {
         // Get username from stored Last.fm credentials
         guard let username = Defaults.shared.credentials(for: .lastfm)?.username else {
-            throw NSError(domain: "ServiceManager", code: 3, userInfo: [NSLocalizedDescriptionKey: "Last.fm not authenticated via API. Please authenticate first."])
+            throw NSError(domain: "ScrobbleManager", code: 3, userInfo: [NSLocalizedDescriptionKey: "Last.fm not authenticated via API. Please authenticate first."])
         }
         
         guard let lastFmClient = clients[.lastfm] as? LastFmClient else {
-            throw NSError(domain: "ServiceManager", code: 2, userInfo: [NSLocalizedDescriptionKey: "Last.fm client not found"])
+            throw NSError(domain: "ScrobbleManager", code: 2, userInfo: [NSLocalizedDescriptionKey: "Last.fm client not found"])
         }
         
         try await lastFmClient.authenticateWebClient(username: username, password: password)
@@ -287,7 +287,7 @@ class ServiceManager: ObservableObject {
     
     func fetchRecentTracks(service: ScrobbleService, limit: Int, page: Int) async throws -> [Track] {
         guard let client = clients[service] else {
-            throw NSError(domain: "ServiceManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "Client not found for \(service.displayName)"])
+            throw NSError(domain: "ScrobbleManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "Client not found for \(service.displayName)"])
         }
         return try await client.getRecentTracks(limit: limit, page: page)
     }

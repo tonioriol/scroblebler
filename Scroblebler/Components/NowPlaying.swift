@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct NowPlaying: View {
-    @EnvironmentObject var serviceManager: ServiceManager
+    @EnvironmentObject var serviceManager: ScrobbleManager
     @EnvironmentObject var defaults: Defaults
     @EnvironmentObject var watcher: Watcher
     @StateObject private var trackRepo = TrackStore.shared

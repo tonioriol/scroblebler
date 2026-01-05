@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct UndoButton: View {
-    @EnvironmentObject var serviceManager: ServiceManager
+    @EnvironmentObject var serviceManager: ScrobbleManager
     @EnvironmentObject var defaults: Defaults
     @StateObject private var trackRepo = TrackStore.shared
     
@@ -167,6 +167,6 @@ struct UndoButton: View {
         album: "Test Album",
         serviceInfo: [:]
     )
-    .environmentObject(ServiceManager.shared)
+    .environmentObject(ScrobbleManager.shared)
     .environmentObject(Defaults.shared)
 }

@@ -1,11 +1,11 @@
 import Foundation
 
 /// Coordinates synchronization logic across services
-/// Decides WHAT to sync and HOW, delegates execution to ServiceManager
+/// Decides WHAT to sync and HOW, delegates execution to ScrobbleManager
 class SyncService {
-    private let serviceManager: ServiceManager
+    private let serviceManager: ScrobbleManager
     
-    init(serviceManager: ServiceManager) {
+    init(serviceManager: ScrobbleManager) {
         self.serviceManager = serviceManager
     }
     
@@ -18,7 +18,7 @@ class SyncService {
         limit: Int,
         page: Int
     ) async {
-        // 1. Fetch from secondary services (delegates to ServiceManager)
+        // 1. Fetch from secondary services (delegates to ScrobbleManager)
         let secondaryTracksByService = await fetchFromSecondaries(
             secondaryServices,
             limit: limit,
@@ -107,7 +107,7 @@ class SyncService {
             }
             
             do {
-                // Delegate to ServiceManager - it knows how to get credentials
+                // Delegate to ScrobbleManager - it knows how to get credentials
                 guard let credentials = Defaults.shared.credentials(for: service) else {
                     Logger.error("No credentials for \(service.displayName)", log: Logger.sync)
                     failed += 1

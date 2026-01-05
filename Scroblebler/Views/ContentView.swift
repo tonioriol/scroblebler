@@ -9,7 +9,7 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject var watcher = Watcher()
-    @StateObject var serviceManager = ServiceManager.shared
+    @StateObject var serviceManager = ScrobbleManager.shared
     @StateObject var defaults = Defaults.shared
     @StateObject var trackRepo = TrackStore.shared
 

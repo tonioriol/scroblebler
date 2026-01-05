@@ -2,7 +2,7 @@ import SwiftUI
 
 struct ProfileView: View {
     @EnvironmentObject var defaults: Defaults
-    @EnvironmentObject var serviceManager: ServiceManager
+    @EnvironmentObject var serviceManager: ScrobbleManager
     @State private var userStats: UserStats?
     @State private var topArtists: [TopArtist] = []
     @State private var topAlbums: [TopAlbum] = []

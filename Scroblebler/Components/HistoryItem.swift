@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct HistoryItem: View {
-    @EnvironmentObject var serviceManager: ServiceManager
+    @EnvironmentObject var serviceManager: ScrobbleManager
     @EnvironmentObject var defaults: Defaults
     
     let track: Track
