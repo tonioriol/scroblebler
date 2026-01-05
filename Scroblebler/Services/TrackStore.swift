@@ -48,10 +48,11 @@ class TrackStore: ObservableObject {
         guard let index = tracks.firstIndex(where: { $0.id == id }) else {
             return
         }
-        objectWillChange.send()
         var updatedTrack = tracks[index]
         mutation(&updatedTrack)
-        tracks[index] = updatedTrack
+        var newTracks = tracks
+        newTracks[index] = updatedTrack
+        tracks = newTracks
         Logger.debug("Updated track: \(tracks[index].description)", log: Logger.ui)
     }
     
@@ -63,10 +64,11 @@ class TrackStore: ObservableObject {
         }) else {
             return
         }
-        objectWillChange.send()
         var updatedTrack = tracks[index]
         mutation(&updatedTrack)
-        tracks[index] = updatedTrack
+        var newTracks = tracks
+        newTracks[index] = updatedTrack
+        tracks = newTracks
     }
     
     /// Remove track
@@ -114,7 +116,15 @@ class TrackStore: ObservableObject {
         
         // Update state
         if page == 1 {
-            tracks = primaryTracks
+            // Preserve now-playing (unscrobbled) tracks when refreshing history
+            let nowPlayingTracks = tracks.filter { !$0.scrobbled }
+            
+            // Merge: keep now-playing tracks + add new history tracks
+            var mergedTracks = nowPlayingTracks
+            mergedTracks.append(contentsOf: primaryTracks.filter { new in
+                !mergedTracks.contains(where: { $0.id == new.id })
+            })
+            tracks = mergedTracks
         } else {
             tracks.append(contentsOf: primaryTracks.filter { new in
                 !tracks.contains(where: { $0.id == new.id })
@@ -155,33 +165,55 @@ class TrackStore: ObservableObject {
         Logger.debug("toggleLove: Looking for '\(artist) - \(track)' (key: \(trackKey))", log: Logger.ui)
         Logger.debug("toggleLove: Repository has \(tracks.count) tracks", log: Logger.ui)
         
-        guard let existing = tracks.first(where: {
+        // Check if track exists in repository
+        if let existing = tracks.first(where: {
             TrackIdentity.key(artist: $0.artist, track: $0.name) == trackKey
-        }) else {
-            // Track not in repo yet, just update via service
-            Logger.error("toggleLove: Track not found in repository, updating services only", log: Logger.ui)
-            let newLoveState = true // Default to loved if not found
-            if Reachability.shared.isConnected {
-                await serviceManager.updateLoveAll(artist: artist, track: track, loved: newLoveState)
+        }) {
+            let newLoveState = !existing.loved
+            Logger.debug("toggleLove: Found track, toggling from \(existing.loved) to \(newLoveState)", log: Logger.ui)
+            
+            // Optimistic UI update
+            update(id: existing.id) { t in
+                t.loved = newLoveState
             }
+            
+            // Queue or execute
+            if Reachability.shared.isConnected {
+                await serviceManager.updateLoveAll(
+                    artist: artist,
+                    track: track,
+                    loved: newLoveState
+                )
+            } else {
+                try? await offlineQueue.enqueue(.love(
+                    artist: artist,
+                    track: track,
+                    loved: newLoveState,
+                    services: Defaults.shared.enabledServices.map { $0.service }
+                ))
+            }
+            
             return newLoveState
         }
         
-        let newLoveState = !existing.loved
-        Logger.debug("toggleLove: Found track, toggling from \(existing.loved) to \(newLoveState)", log: Logger.ui)
+        // Track not in store - fetch current state first, then toggle
+        Logger.debug("toggleLove: Track not in repository, fetching current state", log: Logger.ui)
         
-        // Optimistic UI update
-        update(id: existing.id) { t in
-            t.loved = newLoveState
+        var currentLoveState = false
+        if let primary = Defaults.shared.primaryService,
+           let client = serviceManager.client(for: primary.service),
+           Reachability.shared.isConnected {
+            if let (loved, _) = try? await client.getTrackInfo(artist: artist, track: track) {
+                currentLoveState = loved
+            }
         }
         
-        // Queue or execute
+        let newLoveState = !currentLoveState
+        Logger.debug("toggleLove: Current state: \(currentLoveState), toggling to: \(newLoveState)", log: Logger.ui)
+        
+        // Update services
         if Reachability.shared.isConnected {
-            await serviceManager.updateLoveAll(
-                artist: artist,
-                track: track,
-                loved: newLoveState
-            )
+            await serviceManager.updateLoveAll(artist: artist, track: track, loved: newLoveState)
         } else {
             try? await offlineQueue.enqueue(.love(
                 artist: artist,

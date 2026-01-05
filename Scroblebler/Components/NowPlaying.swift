@@ -70,14 +70,32 @@ struct NowPlaying: View {
         .padding()
         .onAppear {
             Logger.debug("NowPlaying onAppear: track artwork size: \(track?.artwork?.count ?? 0) bytes", log: Logger.ui)
+            ensureTrackInRepository()
             fetchTrackInfo()
         }
         .onChange(of: track?.name) { _ in
             Logger.debug("NowPlaying track changed: '\(track?.name ?? "nil")', artwork size: \(track?.artwork?.count ?? 0) bytes", log: Logger.ui)
+            ensureTrackInRepository()
             fetchTrackInfo()
         }
         .onChange(of: track?.artwork) { newArtwork in
             Logger.debug("NowPlaying artwork changed: new size: \(newArtwork?.count ?? 0) bytes", log: Logger.ui)
+        }
+    }
+    
+    private func ensureTrackInRepository() {
+        guard let currentTrack = track else { return }
+        
+        // Check if track already exists in repository
+        let trackKey = TrackIdentity.key(artist: currentTrack.artist, track: currentTrack.name)
+        let exists = trackRepo.tracks.contains { existingTrack in
+            TrackIdentity.key(artist: existingTrack.artist, track: existingTrack.name) == trackKey
+        }
+        
+        // Add track to repository if it doesn't exist
+        if !exists {
+            trackRepo.add(currentTrack)
+            Logger.debug("Added now playing track to repository: '\(currentTrack.name)'", log: Logger.ui)
         }
     }
     

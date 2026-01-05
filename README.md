@@ -107,6 +107,7 @@ on their repository](https://github.com/lastfm/lastfm-desktop/blob/9ae84cf4ab204
 - [ ] Stop the constant reloading of images on scroll in history view
 - [ ] Add macOS notification center alerts for API failures
 - [ ] display blacklisted tracks somewhere, otherwise we have no way of knowing which tracks were blacklisted. Only when playing them.
+- [ ] is TrackIdentity the right approach? what is it???
 
 ## License
 

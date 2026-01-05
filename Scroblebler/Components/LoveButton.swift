@@ -2,7 +2,7 @@ import SwiftUI
 
 struct LoveButton: View {
     @EnvironmentObject var defaults: Defaults
-    @StateObject private var trackRepo = TrackStore.shared
+    @ObservedObject private var trackRepo = TrackStore.shared
     
     let artist: String
     let trackName: String
@@ -44,7 +44,6 @@ struct LoveButton: View {
         }
         
         Task {
-            // Use TrackStore which handles online/offline and state updates
             _ = await trackRepo.toggleLove(artist: artist, track: trackName)
             
             await MainActor.run {
