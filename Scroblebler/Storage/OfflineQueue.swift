@@ -121,13 +121,16 @@ class OfflineQueue {
 
 /// Represents an operation that can be queued for offline execution
 enum Operation: Codable, Identifiable {
-    case scrobble(track: Track, services: [ScrobbleService])
-    case love(artist: String, track: String, loved: Bool, services: [ScrobbleService])
-    case delete(artist: String, track: String, timestamp: Int?, services: [ScrobbleService])
+    case scrobble(id: UUID, track: Track, services: [ScrobbleService])
+    case love(id: UUID, artist: String, track: String, loved: Bool, services: [ScrobbleService])
+    case delete(id: UUID, artist: String, track: String, timestamp: Int?, services: [ScrobbleService])
     
     var id: UUID {
-        // Generate unique ID - stored with operation
-        UUID()
+        switch self {
+        case .scrobble(let id, _, _): return id
+        case .love(let id, _, _, _, _): return id
+        case .delete(let id, _, _, _, _): return id
+        }
     }
     
     var type: String {
@@ -136,5 +139,18 @@ enum Operation: Codable, Identifiable {
         case .love: return "love"
         case .delete: return "delete"
         }
+    }
+    
+    // Factory methods for creating operations with auto-generated IDs
+    static func scrobble(track: Track, services: [ScrobbleService]) -> Operation {
+        .scrobble(id: UUID(), track: track, services: services)
+    }
+    
+    static func love(artist: String, track: String, loved: Bool, services: [ScrobbleService]) -> Operation {
+        .love(id: UUID(), artist: artist, track: track, loved: loved, services: services)
+    }
+    
+    static func delete(artist: String, track: String, timestamp: Int?, services: [ScrobbleService]) -> Operation {
+        .delete(id: UUID(), artist: artist, track: track, timestamp: timestamp, services: services)
     }
 }

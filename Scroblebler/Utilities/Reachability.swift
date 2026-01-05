@@ -77,7 +77,7 @@ class Reachability: ObservableObject {
     /// Execute a queued operation
     private func executeOperation(_ operation: Operation) async throws {
         switch operation {
-        case .scrobble(let track, let services):
+        case .scrobble(_, let track, let services):
             for service in services {
                 guard let creds = Defaults.shared.credentials(for: service) else {
                     Logger.error("No credentials for \(service.displayName)", log: Logger.sync)
@@ -87,7 +87,7 @@ class Reachability: ObservableObject {
             }
             Logger.info("Scrobbled: \(track.artist) - \(track.name)", log: Logger.sync)
             
-        case .love(let artist, let track, let loved, let services):
+        case .love(_, let artist, let track, let loved, let services):
             for service in services {
                 guard let creds = Defaults.shared.credentials(for: service) else {
                     Logger.error("No credentials for \(service.displayName)", log: Logger.sync)
@@ -102,7 +102,7 @@ class Reachability: ObservableObject {
             }
             Logger.info("Updated love: \(artist) - \(track) = \(loved)", log: Logger.sync)
             
-        case .delete(let artist, let track, let timestamp, let services):
+        case .delete(_, let artist, let track, let timestamp, let services):
             for service in services {
                 guard let creds = Defaults.shared.credentials(for: service) else {
                     Logger.error("No credentials for \(service.displayName)", log: Logger.sync)

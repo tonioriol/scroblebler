@@ -37,7 +37,7 @@ final class OperationTests: XCTestCase {
         let encoded = try JSONEncoder().encode(original)
         let decoded = try JSONDecoder().decode(Operation.self, from: encoded)
         
-        guard case let .scrobble(decodedTrack, decodedServices) = decoded else {
+        guard case let .scrobble(_, decodedTrack, decodedServices) = decoded else {
             XCTFail("Expected scrobble operation")
             return
         }
@@ -58,7 +58,7 @@ final class OperationTests: XCTestCase {
         let encoded = try JSONEncoder().encode(original)
         let decoded = try JSONDecoder().decode(Operation.self, from: encoded)
         
-        guard case let .love(artist, track, loved, services) = decoded else {
+        guard case let .love(_, artist, track, loved, services) = decoded else {
             XCTFail("Expected love operation")
             return
         }
@@ -81,7 +81,7 @@ final class OperationTests: XCTestCase {
         let encoded = try JSONEncoder().encode(original)
         let decoded = try JSONDecoder().decode(Operation.self, from: encoded)
         
-        guard case let .delete(artist, track, decodedTimestamp, services) = decoded else {
+        guard case let .delete(_, artist, track, decodedTimestamp, services) = decoded else {
             XCTFail("Expected delete operation")
             return
         }
@@ -103,12 +103,12 @@ final class OperationTests: XCTestCase {
         let encoded = try JSONEncoder().encode(original)
         let decoded = try JSONDecoder().decode(Operation.self, from: encoded)
         
-        guard case let .delete(_, _, timestamp, _) = decoded else {
+        switch decoded {
+        case .delete(_, _, _, let timestamp, _):
+            XCTAssertNil(timestamp)
+        default:
             XCTFail("Expected delete operation")
-            return
         }
-        
-        XCTAssertNil(timestamp)
     }
     
     // MARK: - Multiple Services
@@ -121,7 +121,7 @@ final class OperationTests: XCTestCase {
         let encoded = try JSONEncoder().encode(operation)
         let decoded = try JSONDecoder().decode(Operation.self, from: encoded)
         
-        guard case let .scrobble(_, decodedServices) = decoded else {
+        guard case let .scrobble(_, _, decodedServices) = decoded else {
             XCTFail("Expected scrobble operation")
             return
         }

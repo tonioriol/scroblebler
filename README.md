@@ -74,18 +74,23 @@ To create a release DMG:
 ./scripts/build.sh <version>
 ```
 
-### Running Tests
+## Testing
 
-Run unit tests for core business logic:
+Run the test suite:
 ```bash
 swift test
 ```
 
-Tests cover:
-- Track matching and identity logic
-- Scrobbling threshold calculations (95% rule)
-- Offline operation queue serialization
-- Playback monitoring algorithms
+Run specific test suites:
+```bash
+swift test --filter E2ETests
+swift test --filter WatcherLogicTests
+```
+
+Run with verbose output:
+```bash
+swift test --verbose
+```
 
 
 ## Credits
