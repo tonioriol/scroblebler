@@ -92,22 +92,23 @@ on their repository](https://github.com/lastfm/lastfm-desktop/blob/9ae84cf4ab204
 
 ## TODO
 
-- [x] Sign, Notarize & Provide DMG installer
-- [x] Start at Login
-- [ ] Use proper logger
+- [x] Sign, Notarize & Provide DMG installer.
+- [x] Start at Login.
+- [x] Extract and unify the exponential backoff logic.
+- [x] Add playcontrols.
+- [x] Use proper logger.
+- [ ] Testing.
+- [ ] Stop the constant reloading of images on scroll in history view.
+- [ ] Fix progress bar jumping ui.
+- [ ] Is TrackIdentity the right approach? what is it???
 - [ ] Update the date and the (c) of the new files.
 - [ ] Update the reverse domain.
-- [ ] Offline support
-- [ ] Auto-update
-- [ ] Testing
-- [ ] Extract and unify the exponential backoff logic
-- [ ] Add playcontrols
-- [ ] Show multiple playing sources in player
-- [ ] Local first approach, store scrobbles locally and sync in background
-- [ ] Stop the constant reloading of images on scroll in history view
-- [ ] Add macOS notification center alerts for API failures
+- [ ] Offline support.
+- [ ] Auto-update.
+- [ ] Show multiple playing sources in player.
+- [ ] Add macOS notification center alerts (for tracck change, for API failures...).
 - [ ] display blacklisted tracks somewhere, otherwise we have no way of knowing which tracks were blacklisted. Only when playing them.
-- [ ] is TrackIdentity the right approach? what is it???
+- [ ] Local first approach, store scrobbles locally and sync in background.
 
 ## License
 
