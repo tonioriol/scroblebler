@@ -110,7 +110,16 @@ struct Track: Identifiable, Codable, Equatable {
         artwork: Data?,
         startedAt: Int32
     ) -> Track {
-        Track(
+        // Build Last.fm URLs for now playing tracks
+        let encodedArtist = artist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? artist
+        let encodedAlbum = album.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? album
+        let encodedTrack = name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? name
+        
+        let artistURL = URL(string: "https://www.last.fm/music/\(encodedArtist)")
+        let albumURL = URL(string: "https://www.last.fm/music/\(encodedArtist)/\(encodedAlbum)")
+        let trackURL = URL(string: "https://www.last.fm/music/\(encodedArtist)/_/\(encodedTrack)")
+        
+        return Track(
             id: UUID(),
             artist: artist,
             album: album,
@@ -119,9 +128,9 @@ struct Track: Identifiable, Codable, Equatable {
             duration: duration,
             sourceService: .lastfm,
             artwork: artwork,
-            artistURL: nil,
-            albumURL: nil,
-            trackURL: nil,
+            artistURL: artistURL,
+            albumURL: albumURL,
+            trackURL: trackURL,
             imageUrl: nil
         )
     }
