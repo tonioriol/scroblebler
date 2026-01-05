@@ -62,7 +62,6 @@ struct NowPlaying: View {
                 trackLength: track?.length,
                 onSeek: { position in
                     MediaControl.seek(to: position)
-                    watcher.notifySeek()
                 }
             )
             .padding(.bottom, 8)

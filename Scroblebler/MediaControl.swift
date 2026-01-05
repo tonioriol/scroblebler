@@ -12,9 +12,11 @@ enum MediaCommand: Int {
 
 class MediaControl {
     private static weak var controller: MediaController?
+    private static weak var watcher: Watcher?
     
-    static func setup(controller: MediaController) {
+    static func setup(controller: MediaController, watcher: Watcher) {
         self.controller = controller
+        self.watcher = watcher
     }
     
     static func send(_ command: MediaCommand) {
@@ -46,6 +48,11 @@ class MediaControl {
         }
         
         Logger.debug("Seeking to position: \(position)s", log: Logger.playback)
+        
+        // Immediately update watcher state to prevent UI jank
+        watcher?.notifySeek(to: position)
+        
+        // Send seek command to media player
         controller.setTime(seconds: position)
     }
 }

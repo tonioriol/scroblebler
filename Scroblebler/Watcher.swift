@@ -45,7 +45,7 @@ class Watcher: ObservableObject {
     
     init(debug: Bool = false) {
         setupMediaController()
-        MediaControl.setup(controller: mediaController)
+        MediaControl.setup(controller: mediaController, watcher: self)
     }
     
     private func setupMediaController() {
@@ -137,8 +137,17 @@ class Watcher: ObservableObject {
         }
     }
     
-    func notifySeek() {
+    func notifySeek(to position: Double) {
         lastSeekTime = Date()
+        lastSnapshotTime = Date()
+        lastSnapshotPosition = position
+        
+        setState {
+            self.currentPosition = position
+            if self.maxPosition == nil || position > (self.maxPosition ?? 0) {
+                self.maxPosition = position
+            }
+        }
     }
     
     private func handleTrackInfo(_ trackInfo: MediaRemoteAdapter.TrackInfo) {
@@ -391,15 +400,32 @@ class Watcher: ObservableObject {
             // Update position if changed significantly
             let snapshotPos = status.elapsedTime ?? 0
             
-            // Check if we got a fresh snapshot (position changed significantly)
-            if abs(snapshotPos - (lastSnapshotPosition ?? 0)) > 0.1 {
-                Logger.debug("Fresh snapshot from adapter: \(snapshotPos)s", log: Logger.playback)
-                lastSnapshotTime = Date()
-                lastSnapshotPosition = snapshotPos
-                
-                currentPosition = snapshotPos
-                if maxPosition == nil || snapshotPos > (maxPosition ?? 0) {
-                    maxPosition = snapshotPos
+            // Ignore stale position updates for 1 second after seeking
+            let isInSeekGracePeriod = lastSeekTime.map { Date().timeIntervalSince($0) < 1.0 } ?? false
+            if isInSeekGracePeriod {
+                // During seek grace period, only accept updates that are close to our expected position
+                let expectedPos = lastSnapshotPosition ?? 0
+                if abs(snapshotPos - expectedPos) < 2.0 {
+                    // Position is close to expected, accept it
+                    lastSnapshotTime = Date()
+                    lastSnapshotPosition = snapshotPos
+                    currentPosition = snapshotPos
+                    if maxPosition == nil || snapshotPos > (maxPosition ?? 0) {
+                        maxPosition = snapshotPos
+                    }
+                }
+                // Otherwise ignore stale update
+            } else {
+                // Normal operation - check if we got a fresh snapshot (position changed significantly)
+                if abs(snapshotPos - (lastSnapshotPosition ?? 0)) > 0.1 {
+                    Logger.debug("Fresh snapshot from adapter: \(snapshotPos)s", log: Logger.playback)
+                    lastSnapshotTime = Date()
+                    lastSnapshotPosition = snapshotPos
+                    
+                    currentPosition = snapshotPos
+                    if maxPosition == nil || snapshotPos > (maxPosition ?? 0) {
+                        maxPosition = snapshotPos
+                    }
                 }
             }
         }
