@@ -64,9 +64,9 @@ struct NowPlaying: View {
                     MediaControl.seek(to: position)
                 }
             )
-            .padding(.bottom, 8)
         }
-        .padding()
+        .padding(.vertical, 12)
+        .padding(.horizontal, 12)
         .onAppear {
             Logger.debug("NowPlaying onAppear: track artwork size: \(track?.artwork?.count ?? 0) bytes", log: Logger.ui)
             ensureTrackInRepository()
