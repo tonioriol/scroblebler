@@ -119,15 +119,21 @@ class TrackStore: ObservableObject {
             // Preserve now-playing (unscrobbled) tracks when refreshing history
             let nowPlayingTracks = tracks.filter { !$0.scrobbled }
             
-            // Merge: keep now-playing tracks + add new history tracks
+            // Merge: keep now-playing tracks + add new history tracks (match by canonical key, not ID)
             var mergedTracks = nowPlayingTracks
             mergedTracks.append(contentsOf: primaryTracks.filter { new in
-                !mergedTracks.contains(where: { $0.id == new.id })
+                let newKey = TrackIdentity.key(artist: new.artist, track: new.name)
+                return !mergedTracks.contains(where: { existing in
+                    TrackIdentity.key(artist: existing.artist, track: existing.name) == newKey
+                })
             })
             tracks = mergedTracks
         } else {
             tracks.append(contentsOf: primaryTracks.filter { new in
-                !tracks.contains(where: { $0.id == new.id })
+                let newKey = TrackIdentity.key(artist: new.artist, track: new.name)
+                return !tracks.contains(where: { existing in
+                    TrackIdentity.key(artist: existing.artist, track: existing.name) == newKey
+                })
             })
         }
         

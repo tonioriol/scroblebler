@@ -342,7 +342,9 @@ struct MainView: View {
             Logger.debug("  Before update - serviceInfo keys: \(track.serviceInfo.keys.map { $0.rawValue }.joined(separator: ", "))", log: Logger.ui)
             track.serviceInfo[event.service] = ServiceTrackData(
                 timestamp: event.timestamp,
-                id: nil
+                id: nil,
+                artistMbid: nil,
+                releaseMbid: nil
             )
             Logger.debug("  After update - serviceInfo keys: \(track.serviceInfo.keys.map { $0.rawValue }.joined(separator: ", "))", log: Logger.ui)
         }

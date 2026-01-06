@@ -13,10 +13,10 @@ class ScrobbleManager: ObservableObject {
     @Published var lastBackfilledTrack: BackfillEvent?
     @Published var scrobbleCompletedTrigger = 0
     
-    private let clients: [ScrobbleService: ScrobbleClient] = [
-        .lastfm: LastFmClient(),
-        .librefm: LibreFmClient(),
-        .listenbrainz: ListenBrainzClient()
+    private let services: [ScrobbleService: Service] = [
+        .lastfm: LastFmService(client: LastFmClient()),
+        .librefm: LibreFmService(client: LibreFmClient()),
+        .listenbrainz: ListenBrainzService(client: ListenBrainzClient())
     ]
     
     init() {
@@ -27,8 +27,8 @@ class ScrobbleManager: ObservableObject {
     private func restoreCredentials() {
         for service in ScrobbleService.allCases {
             if let credentials = Defaults.shared.credentials(for: service),
-               let client = clients[service] {
-                client.setCredentials(username: credentials.username, sessionKey: credentials.token)
+               let serviceInstance = services[service] {
+                serviceInstance.client.setCredentials(username: credentials.username, sessionKey: credentials.token)
                 Logger.info("✅ Restored credentials for \(service.displayName): \(credentials.username)", log: Logger.authentication)
             } else {
                 Logger.debug("No credentials to restore for \(service.displayName)", log: Logger.authentication)
@@ -36,22 +36,26 @@ class ScrobbleManager: ObservableObject {
         }
     }
     
+    func service(for scrobbleService: ScrobbleService) -> Service? {
+        services[scrobbleService]
+    }
+    
     func client(for service: ScrobbleService) -> ScrobbleClient? {
-        clients[service]
+        services[service]?.client
     }
     
     func authenticate(service: ScrobbleService) async throws -> (token: String, authURL: URL) {
-        guard let client = clients[service] else {
+        guard let serviceInstance = services[service] else {
             throw NSError(domain: "ScrobbleManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "Service not found"])
         }
-        return try await client.authenticate()
+        return try await serviceInstance.client.authenticate()
     }
     
     func completeAuthentication(service: ScrobbleService, token: String) async throws -> ServiceCredentials {
-        guard let client = clients[service] else {
+        guard let serviceInstance = services[service] else {
             throw NSError(domain: "ScrobbleManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "Service not found"])
         }
-        let result = try await client.completeAuthentication(token: token)
+        let result = try await serviceInstance.client.completeAuthentication(token: token)
         return ServiceCredentials(
             service: service,
             token: result.sessionKey,
@@ -72,7 +76,8 @@ class ScrobbleManager: ObservableObject {
             throw NSError(domain: "ScrobbleManager", code: 3, userInfo: [NSLocalizedDescriptionKey: "Last.fm not authenticated via API. Please authenticate first."])
         }
         
-        guard let lastFmClient = clients[.lastfm] as? LastFmClient else {
+        guard let lastFmService = services[.lastfm],
+              let lastFmClient = lastFmService.client as? LastFmClient else {
             throw NSError(domain: "ScrobbleManager", code: 2, userInfo: [NSLocalizedDescriptionKey: "Last.fm client not found"])
         }
         
@@ -100,17 +105,17 @@ class ScrobbleManager: ObservableObject {
     }
     
     func updateNowPlaying(credentials: ServiceCredentials, track: Track) async throws {
-        guard let client = clients[credentials.service] else { return }
-        try await client.updateNowPlaying(track: track)
+        guard let service = services[credentials.service] else { return }
+        try await service.client.updateNowPlaying(track: track)
     }
     
     func scrobble(credentials: ServiceCredentials, track: Track) async throws {
-        guard let client = clients[credentials.service] else {
-            Logger.error("No client found for \(credentials.service.displayName)", log: Logger.scrobbling)
+        guard let service = services[credentials.service] else {
+            Logger.error("No service found for \(credentials.service.displayName)", log: Logger.scrobbling)
             return
         }
         Logger.debug("Scrobbling to \(credentials.service.displayName): '\(track.artist) - \(track.name)' (timestamp: \(track.startedAt))", log: Logger.scrobbling)
-        try await client.scrobble(track: track)
+        try await service.client.scrobble(track: track)
         Logger.info("Successfully scrobbled to \(credentials.service.displayName)", log: Logger.scrobbling)
     }
     
@@ -180,7 +185,8 @@ class ScrobbleManager: ObservableObject {
         var enrichedTrack = track
         if let primary = Defaults.shared.primaryService,
            primary.service == .listenbrainz,
-           let lbClient = clients[.listenbrainz] as? ListenBrainzClient {
+           let lbService = services[.listenbrainz],
+           let lbClient = lbService.client as? ListenBrainzClient {
             enrichedTrack = await lbClient.enrichTrackWithURLs(track)
         }
         
@@ -203,8 +209,8 @@ class ScrobbleManager: ObservableObject {
     }
     
     func updateLove(credentials: ServiceCredentials, artist: String, track: String, loved: Bool) async throws {
-        guard let client = clients[credentials.service] else { return }
-        try await client.updateLove(artist: artist, track: track, loved: loved)
+        guard let service = services[credentials.service] else { return }
+        try await service.client.updateLove(artist: artist, track: track, loved: loved)
     }
     
     func updateLoveAll(artist: String, track: String, loved: Bool) async {
@@ -233,8 +239,8 @@ class ScrobbleManager: ObservableObject {
     }
     
     func deleteScrobble(credentials: ServiceCredentials, identifier: ScrobbleIdentifier) async throws {
-        guard let client = clients[credentials.service] else { return }
-        try await client.deleteScrobble(identifier: identifier)
+        guard let service = services[credentials.service] else { return }
+        try await service.client.deleteScrobble(identifier: identifier)
     }
     
     func deleteScrobbleAll(artist: String, track: String, serviceInfo: [String: ServiceTrackData]) async {
@@ -286,9 +292,9 @@ class ScrobbleManager: ObservableObject {
     // MARK: - Single-Service Operations
     
     func fetchRecentTracks(service: ScrobbleService, limit: Int, page: Int) async throws -> [Track] {
-        guard let client = clients[service] else {
-            throw NSError(domain: "ScrobbleManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "Client not found for \(service.displayName)"])
+        guard let serviceInstance = services[service] else {
+            throw NSError(domain: "ScrobbleManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "Service not found for \(service.displayName)"])
         }
-        return try await client.getRecentTracks(limit: limit, page: page)
+        return try await serviceInstance.client.getRecentTracks(limit: limit, page: page)
     }
 }

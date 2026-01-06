@@ -52,7 +52,7 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
     
     private func albumURL(artist: String, album: String, mbid: String?) -> URL {
         if let mbid = mbid {
-            return URL(string: "https://listenbrainz.org/album/\(mbid)/")!
+            return URL(string: "https://listenbrainz.org/release/\(mbid)/")!
         }
         let encodedArtist = artist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
         let encodedAlbum = album.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
@@ -262,6 +262,13 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
                 }
                 
                 let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+                
+                // Log raw JSON to see all available fields
+                if let jsonData = try? JSONSerialization.data(withJSONObject: json ?? [:], options: .prettyPrinted),
+                   let jsonString = String(data: jsonData, encoding: .utf8) {
+                    Logger.debug("MBID Mapper raw JSON for '\(artist) - \(track)':\n\(jsonString)", log: Logger.network)
+                }
+                
                 let confidence = json?["confidence"] as? Double ?? 0.0
                 
                 guard confidence > 0.5 else {
@@ -271,9 +278,11 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
                 
                 let artistMbids = json?["artist_credit_mbids"] as? [String]
                 let releaseMbid = json?["release_mbid"] as? String
+                let releaseGroupMbid = json?["release_group_mbid"] as? String
                 let recordingMbid = json?["recording_mbid"] as? String
                 
                 Logger.debug("MBID Mapper: Matched '\(artist) - \(track)' (confidence: \(String(format: "%.2f", confidence)))", log: Logger.network)
+                Logger.debug("  release_mbid: \(releaseMbid ?? "none"), release_group_mbid: \(releaseGroupMbid ?? "none")", log: Logger.network)
                 
                 return MapperResult(
                     artistMbid: artistMbids?.first,
@@ -709,7 +718,7 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
             album: track.album.isEmpty ? nil : track.album
         ) {
             enrichedTrack.artistURL = result.artistMbid.map { URL(string: "https://listenbrainz.org/artist/\($0)/")! }
-            enrichedTrack.albumURL = result.releaseMbid.map { URL(string: "https://listenbrainz.org/album/\($0)/")! }
+            enrichedTrack.albumURL = result.releaseMbid.map { URL(string: "https://listenbrainz.org/release/\($0)/")! }
             enrichedTrack.trackURL = result.recordingMbid.map { URL(string: "https://listenbrainz.org/track/\($0)/")! }
         }
         

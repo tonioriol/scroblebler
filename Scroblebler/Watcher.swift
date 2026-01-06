@@ -270,22 +270,11 @@ class Watcher: ObservableObject {
         let elapsedTime = status.elapsedTime ?? 0
         let startedAt = Int32(Date().timeIntervalSince1970 - elapsedTime)
         
-        // Skip loved status - it's slow and blocks UI
-        let loved = false
-        
-        // Build Last.fm URLs for now playing tracks
         let artist = status.artist ?? ""
         let album = status.album ?? ""
         let title = status.title ?? ""
         
-        let encodedArtist = artist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? artist
-        let encodedAlbum = album.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? album
-        let encodedTrack = title.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? title
-        
-        let artistURL = URL(string: "https://www.last.fm/music/\(encodedArtist)")
-        let albumURL = URL(string: "https://www.last.fm/music/\(encodedArtist)/\(encodedAlbum)")
-        let trackURL = URL(string: "https://www.last.fm/music/\(encodedArtist)/_/\(encodedTrack)")
-        
+        // Watcher doesn't set URLs - they'll be set dynamically based on primary service
         return Track(
             id: UUID(),
             artist: artist,
@@ -293,16 +282,16 @@ class Watcher: ObservableObject {
             name: title,
             timestamp: Int(startedAt),
             duration: status.duration ?? 0,
-            sourceService: .lastfm,
-            loved: loved,
+            sourceService: .lastfm, // Placeholder, not used for now-playing
+            loved: false,
             playcount: 1,
             scrobbled: false,
             blacklisted: false,
             serviceInfo: [:],
             artwork: artwork,
-            artistURL: artistURL,
-            albumURL: albumURL,
-            trackURL: trackURL,
+            artistURL: nil,
+            albumURL: nil,
+            trackURL: nil,
             imageUrl: nil
         )
     }

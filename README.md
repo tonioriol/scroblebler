@@ -115,10 +115,10 @@ on their repository](https://github.com/lastfm/lastfm-desktop/blob/9ae84cf4ab204
 - [x] Extract and unify the exponential backoff logic.
 - [x] Add playcontrols.
 - [x] Use proper logger.
-- [ ] Testing.
-- [ ] Links in now playing for lastfm not working.
+- [x] Testing.
+- [x] Links in now playing for lastfm not working.
 - [ ] Stop the constant reloading of images on scroll in history view.
-- [ ] Fix progress bar jumping ui.
+- [ ] Fix progress bar jumping ui, animation of bar screwing up when opening/closing app.
 - [ ] Add metrics (with opt-out).
 - [ ] Is TrackIdentity the right approach? what is it??? what is canonicalKey? coul we use messybraibrainz ids? to standardize across services?
 - [ ] Factory methods on the model violate Single Responsibility Principle. Track should be a pure data model, and conversion logic belongs in the clients/decoders.
@@ -130,6 +130,15 @@ on their repository](https://github.com/lastfm/lastfm-desktop/blob/9ae84cf4ab204
 - [ ] Add macOS notification center alerts (for tracck change, for API failures...).
 - [ ] display blacklisted tracks somewhere, otherwise we have no way of knowing which tracks were blacklisted. Only when playing them.
 - [ ] Local first approach, store scrobbles locally and sync in background.
+- [ ] detect non music playback (from browser, podcasts, videos, system sounds...).
+- [ ] Better state management when undoing propagating to secondary services and updating the sync icons accordingly.
+- [ ] Add retry button for unsynced scrobbles in history view.
+- [ ] Fix credits in files.
+- [ ] scrobble cache extremelly unreliable for listenbrainz, often losing scrobbles.
+- [ ] imrove caching of history, to reduce calls and improve performance.
+- [ ] stop requesting images and stuff every time we click in the progress bar.
+- [ ] fix ui for password request for lastfm.
+- [ ] taking 10+ seconds to load
 
 ## License
 
