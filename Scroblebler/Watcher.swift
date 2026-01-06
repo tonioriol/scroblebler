@@ -121,18 +121,19 @@ class Watcher: ObservableObject {
               status.playing == true,
               (status.playbackRate ?? 0) > 0,
               let lastTime = lastSnapshotTime,
-              let lastPos = lastSnapshotPosition else {
+              let lastPos = lastSnapshotPosition,
+              let duration = status.duration else {
             return
         }
         
         let now = Date()
         let elapsed = now.timeIntervalSince(lastTime)
-        let position = lastPos + elapsed
+        let position = min(lastPos + elapsed, duration) // Cap at duration
         
         setState {
             self.currentPosition = position
             if self.maxPosition == nil || position > (self.maxPosition ?? 0) {
-                self.maxPosition = position
+                self.maxPosition = min(position, duration) // Cap maxPosition at duration
             }
         }
     }
@@ -142,10 +143,13 @@ class Watcher: ObservableObject {
         lastSnapshotTime = Date()
         lastSnapshotPosition = position
         
+        // Cap position at duration if available
+        let cappedPosition = currentStatus?.duration.map { min(position, $0) } ?? position
+        
         setState {
-            self.currentPosition = position
-            if self.maxPosition == nil || position > (self.maxPosition ?? 0) {
-                self.maxPosition = position
+            self.currentPosition = cappedPosition
+            if self.maxPosition == nil || cappedPosition > (self.maxPosition ?? 0) {
+                self.maxPosition = cappedPosition
             }
         }
     }
@@ -184,6 +188,9 @@ class Watcher: ObservableObject {
         let durationSeconds = (payload.durationMicros ?? 0) / 1_000_000.0
         let elapsedTimeSeconds = payload.currentElapsedTime ?? ((payload.elapsedTimeMicros ?? 0) / 1_000_000.0)
         
+        // Create unique identifier from artist + title + album to properly detect track changes
+        let trackIdentifier = "\(payload.artist ?? "")|\(payload.title ?? "")|\(payload.album ?? "")"
+        
         let status = MediaControlStatus(
             title: payload.title,
             artist: payload.artist,
@@ -193,7 +200,7 @@ class Watcher: ObservableObject {
             playing: payload.isPlaying,
             playbackRate: payload.playbackRate,
             elapsedTime: elapsedTimeSeconds,
-            contentItemIdentifier: payload.title,
+            contentItemIdentifier: trackIdentifier,
             trackNumber: nil,
             totalTrackCount: nil,
             bundleIdentifier: payload.bundleIdentifier
@@ -409,9 +416,11 @@ class Watcher: ObservableObject {
                     // Position is close to expected, accept it
                     lastSnapshotTime = Date()
                     lastSnapshotPosition = snapshotPos
-                    currentPosition = snapshotPos
+                    // Cap position at duration
+                    let duration = status.duration ?? Double.infinity
+                    currentPosition = min(snapshotPos, duration)
                     if maxPosition == nil || snapshotPos > (maxPosition ?? 0) {
-                        maxPosition = snapshotPos
+                        maxPosition = min(snapshotPos, duration)
                     }
                 }
                 // Otherwise ignore stale update
@@ -422,9 +431,11 @@ class Watcher: ObservableObject {
                     lastSnapshotTime = Date()
                     lastSnapshotPosition = snapshotPos
                     
-                    currentPosition = snapshotPos
+                    // Cap position at duration
+                    let duration = status.duration ?? Double.infinity
+                    currentPosition = min(snapshotPos, duration)
                     if maxPosition == nil || snapshotPos > (maxPosition ?? 0) {
-                        maxPosition = snapshotPos
+                        maxPosition = min(snapshotPos, duration)
                     }
                 }
             }
