@@ -3,7 +3,7 @@ import SwiftUI
 struct UndoButton: View {
     @EnvironmentObject var serviceManager: ScrobbleManager
     @EnvironmentObject var defaults: Defaults
-    @StateObject private var trackRepo = TrackStore.shared
+    @StateObject private var trackStore = TrackStore.shared
     
     let artist: String
     let track: String
@@ -17,7 +17,7 @@ struct UndoButton: View {
     @State private var errorMessage = ""
     
     private var playcount: Int? {
-        trackRepo.playcount(artist: artist, track: track)
+        trackStore.playcount(artist: artist, track: track)
     }
     
     var body: some View {
@@ -53,8 +53,8 @@ struct UndoButton: View {
         isProcessing = true
         
         Task {
-            // Update track repository
-            trackRepo.decrementPlaycount(artist: artist, track: track)
+            // Update track store
+            trackStore.decrementPlaycount(artist: artist, track: track)
             
             await serviceManager.deleteScrobbleAll(artist: artist, track: track, serviceInfo: serviceInfo)
             
@@ -82,7 +82,7 @@ struct UndoButton: View {
         
         Task {
             // Check if track is blacklisted
-            if await trackRepo.isBlacklisted(artist: artist, track: track) {
+            if await trackStore.isBlacklisted(artist: artist, track: track) {
                 await MainActor.run {
                     errorMessage = "Cannot redo: track is blacklisted"
                     showError = true
@@ -136,8 +136,8 @@ struct UndoButton: View {
                 imageUrl: nil
             )
             
-            // Scrobble to all enabled services and update repository
-            trackRepo.incrementPlaycount(artist: artist, track: track)
+            // Scrobble to all enabled services and update store
+            trackStore.incrementPlaycount(artist: artist, track: track)
             
             await serviceManager.scrobbleAll(track: trackToScrobble)
             

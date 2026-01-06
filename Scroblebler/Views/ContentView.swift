@@ -11,7 +11,7 @@ struct ContentView: View {
     @StateObject var watcher = Watcher()
     @StateObject var serviceManager = ScrobbleManager.shared
     @StateObject var defaults = Defaults.shared
-    @StateObject var trackRepo = TrackStore.shared
+    @StateObject var trackStore = TrackStore.shared
 
     var body: some View {
         VStack {
@@ -25,8 +25,8 @@ struct ContentView: View {
                     let enrichedTrack = await serviceManager.updateNowPlayingAll(track: track)
                     await MainActor.run {
                         watcher.currentTrack = enrichedTrack
-                        // Add to repository so love/blacklist state can be tracked
-                        trackRepo.add(enrichedTrack)
+                        // Add to store so love/blacklist state can be tracked
+                        trackStore.add(enrichedTrack)
                     }
                 }
             }

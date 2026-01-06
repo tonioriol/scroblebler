@@ -169,9 +169,9 @@ class TrackStore: ObservableObject {
         // Find track and toggle
         let trackKey = TrackIdentity.key(artist: artist, track: track)
         Logger.debug("toggleLove: Looking for '\(artist) - \(track)' (key: \(trackKey))", log: Logger.ui)
-        Logger.debug("toggleLove: Repository has \(tracks.count) tracks", log: Logger.ui)
+        Logger.debug("toggleLove: Store has \(tracks.count) tracks", log: Logger.ui)
         
-        // Check if track exists in repository
+        // Check if track exists in store
         if let existing = tracks.first(where: {
             TrackIdentity.key(artist: $0.artist, track: $0.name) == trackKey
         }) {
@@ -203,7 +203,7 @@ class TrackStore: ObservableObject {
         }
         
         // Track not in store - fetch current state first, then toggle
-        Logger.debug("toggleLove: Track not in repository, fetching current state", log: Logger.ui)
+        Logger.debug("toggleLove: Track not in store, fetching current state", log: Logger.ui)
         
         var currentLoveState = false
         if let primary = Defaults.shared.primaryService,
@@ -308,7 +308,7 @@ class TrackStore: ObservableObject {
             try? await blacklist.add(artist: artist, track: track)
         }
         
-        // Update all tracks with this artist/track in repository
+        // Update all tracks with this artist/track in store
         objectWillChange.send()
         let trackKey = TrackIdentity.key(artist: artist, track: track)
         var updatedTracks = tracks

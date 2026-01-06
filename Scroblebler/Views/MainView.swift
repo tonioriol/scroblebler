@@ -4,7 +4,7 @@ struct MainView: View {
     @EnvironmentObject var watcher: Watcher
     @EnvironmentObject var serviceManager: ScrobbleManager
     @EnvironmentObject var defaults: Defaults
-    @StateObject private var trackRepo = TrackStore.shared
+    @StateObject private var trackStore = TrackStore.shared
     @State private var showProfileView = false
     @State private var loginService: ScrobbleService?
     @State private var tokenInput = ""
@@ -20,7 +20,7 @@ struct MainView: View {
     @State private var showServicesSection = false
     
     private var historyTracks: [Track] {
-        trackRepo.tracks.filter { $0.scrobbled }
+        trackStore.tracks.filter { $0.scrobbled }
     }
 
     var body: some View {
@@ -251,7 +251,7 @@ struct MainView: View {
             guard let primary = defaults.primaryService else { return }
             
             do {
-                try await trackRepo.loadRecent(from: primary, limit: 20, page: 1)
+                try await trackStore.loadRecent(from: primary, limit: 20, page: 1)
                 await MainActor.run {
                     hasMoreTracks = !historyTracks.isEmpty
                 }
@@ -281,7 +281,7 @@ struct MainView: View {
             
             do {
                 let countBefore = historyTracks.count
-                try await trackRepo.loadRecent(from: primary, limit: 20, page: nextPage)
+                try await trackStore.loadRecent(from: primary, limit: 20, page: nextPage)
                 
                 await MainActor.run {
                     let countAfter = historyTracks.count
@@ -337,8 +337,8 @@ struct MainView: View {
     
     private func handleBackfillEvent(_ event: BackfillEvent) {
         Logger.info("🔄 UI: Handling backfill event for '\(event.artist) - \(event.track)' to \(event.service.displayName)", log: Logger.ui)
-        // Update track in repository
-        trackRepo.update(artist: event.artist, track: event.track) { track in
+        // Update track in store
+        trackStore.update(artist: event.artist, track: event.track) { track in
             Logger.debug("  Before update - serviceInfo keys: \(track.serviceInfo.keys.map { $0.rawValue }.joined(separator: ", "))", log: Logger.ui)
             track.serviceInfo[event.service] = ServiceTrackData(
                 timestamp: event.timestamp,

@@ -2,7 +2,7 @@ import SwiftUI
 
 struct LoveButton: View {
     @EnvironmentObject var defaults: Defaults
-    @ObservedObject private var trackRepo = TrackStore.shared
+    @ObservedObject private var trackStore = TrackStore.shared
     
     let artist: String
     let trackName: String
@@ -11,7 +11,7 @@ struct LoveButton: View {
     @State private var isAnimating: Bool = false
     
     private var loved: Bool {
-        trackRepo.isLoved(artist: artist, track: trackName)
+        trackStore.isLoved(artist: artist, track: trackName)
     }
     
     private var hasEnabledServices: Bool {
@@ -44,7 +44,7 @@ struct LoveButton: View {
         }
         
         Task {
-            _ = await trackRepo.toggleLove(artist: artist, track: trackName)
+            _ = await trackStore.toggleLove(artist: artist, track: trackName)
             
             await MainActor.run {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {

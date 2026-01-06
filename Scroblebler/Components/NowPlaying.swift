@@ -4,30 +4,30 @@ struct NowPlaying: View {
     @EnvironmentObject var serviceManager: ScrobbleManager
     @EnvironmentObject var defaults: Defaults
     @EnvironmentObject var watcher: Watcher
-    @StateObject private var trackRepo = TrackStore.shared
+    @StateObject private var trackStore = TrackStore.shared
     @Binding var track: Track?
     @Binding var currentPosition: Double?
     @Binding var isPlaying: Bool
     
-    // Computed properties that will refresh when trackRepo publishes changes
+    // Computed properties that will refresh when trackStore publishes changes
     private var lovedState: Bool {
         guard let track = track else { return false }
-        return trackRepo.isLoved(artist: track.artist, track: track.name)
+        return trackStore.isLoved(artist: track.artist, track: track.name)
     }
     
     private var playCount: Int? {
         guard let track = track else { return nil }
-        return trackRepo.playcount(artist: track.artist, track: track.name)
+        return trackStore.playcount(artist: track.artist, track: track.name)
     }
     
-    // Get fresh track from repository (includes updated serviceInfo after enrichment)
+    // Get fresh track from store (includes updated serviceInfo after enrichment)
     private var currentTrackFromRepo: Track? {
         guard let track = track else { return nil }
         let trackKey = TrackIdentity.key(artist: track.artist, track: track.name)
         let displayService = defaults.mainServicePreference ?? defaults.primaryService?.service ?? .lastfm
         
         // Find all matching tracks
-        let matches = trackRepo.tracks.filter { existingTrack in
+        let matches = trackStore.tracks.filter { existingTrack in
             TrackIdentity.key(artist: existingTrack.artist, track: existingTrack.name) == trackKey
         }
         
@@ -82,7 +82,7 @@ struct NowPlaying: View {
                     album: currentTrack.album,
                     loved: Binding(
                         get: {
-                            trackRepo.isLoved(artist: currentTrack.artist, track: currentTrack.name)
+                            trackStore.isLoved(artist: currentTrack.artist, track: currentTrack.name)
                         },
                         set: { _ in }
                     ),
@@ -93,7 +93,7 @@ struct NowPlaying: View {
                     loveFontSize: 12,
                     playCount: Binding(
                         get: {
-                            trackRepo.playcount(artist: currentTrack.artist, track: currentTrack.name)
+                            trackStore.playcount(artist: currentTrack.artist, track: currentTrack.name)
                         },
                         set: { _ in }
                     ),
@@ -122,12 +122,12 @@ struct NowPlaying: View {
         .padding(.horizontal, 12)
         .onAppear {
             Logger.debug("NowPlaying onAppear: track artwork size: \(track?.artwork?.count ?? 0) bytes", log: Logger.ui)
-            ensureTrackInRepository()
+            ensureTrackInStore()
             fetchTrackInfo()
         }
         .onChange(of: track?.name) { _ in
             Logger.debug("NowPlaying track changed: '\(track?.name ?? "nil")', artwork size: \(track?.artwork?.count ?? 0) bytes", log: Logger.ui)
-            ensureTrackInRepository()
+            ensureTrackInStore()
             fetchTrackInfo()
         }
         .onChange(of: defaults.mainServicePreference) { _ in
@@ -139,19 +139,19 @@ struct NowPlaying: View {
         }
     }
     
-    private func ensureTrackInRepository() {
+    private func ensureTrackInStore() {
         guard let currentTrack = track else { return }
         
-        // Check if track already exists in repository
+        // Check if track already exists in store
         let trackKey = TrackIdentity.key(artist: currentTrack.artist, track: currentTrack.name)
-        let exists = trackRepo.tracks.contains { existingTrack in
+        let exists = trackStore.tracks.contains { existingTrack in
             TrackIdentity.key(artist: existingTrack.artist, track: existingTrack.name) == trackKey
         }
         
-        // Add track to repository if it doesn't exist
+        // Add track to store if it doesn't exist
         if !exists {
-            trackRepo.add(currentTrack)
-            Logger.debug("Added now playing track to repository: '\(currentTrack.name)'", log: Logger.ui)
+            trackStore.add(currentTrack)
+            Logger.debug("Added now playing track to store: '\(currentTrack.name)'", log: Logger.ui)
         }
     }
     
@@ -169,7 +169,7 @@ struct NowPlaying: View {
         Task {
             // Enrich track with service-specific metadata (e.g., MBIDs for ListenBrainz)
             let enrichedTrack = await service.enrichTrack(currentTrack)
-            trackRepo.update(artist: currentTrack.artist, track: currentTrack.name) { track in
+            trackStore.update(artist: currentTrack.artist, track: currentTrack.name) { track in
                 track.serviceInfo = enrichedTrack.serviceInfo
             }
             
@@ -178,8 +178,8 @@ struct NowPlaying: View {
                 artist: currentTrack.artist,
                 track: currentTrack.name
             ) {
-                // Update repository with fetched metadata
-                trackRepo.update(artist: currentTrack.artist, track: currentTrack.name) { track in
+                // Update store with fetched metadata
+                trackStore.update(artist: currentTrack.artist, track: currentTrack.name) { track in
                     track.loved = loved
                     if let count = count {
                         track.playcount = count
