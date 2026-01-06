@@ -40,6 +40,10 @@ class Watcher: ObservableObject {
     private var lastSeekTime: Date?
     private let processingQueue = DispatchQueue(label: "com.scroblebler.watcher.processing", qos: .userInitiated)
     
+    // Artwork conversion cache
+    private var artworkCache: [String: String] = [:]
+    private var lastArtworkHash: Int?
+    
     var onTrackChanged: ((Track) -> Void)?
     var onScrobbleWanted: ((Track) -> Void)?
     
@@ -164,42 +168,42 @@ class Watcher: ObservableObject {
         }
     }
     
+    private func convertArtworkToBase64(_ artwork: NSImage) -> String? {
+        guard let tiffData = artwork.tiffRepresentation else { return nil }
+        
+        let artworkHash = String(tiffData.hashValue)
+        if let cached = artworkCache[artworkHash] {
+            return cached
+        }
+        
+        guard let bitmapImage = NSBitmapImageRep(data: tiffData),
+              let pngData = bitmapImage.representation(using: .png, properties: [:]) else {
+            return nil
+        }
+        
+        let base64 = pngData.base64EncodedString()
+        artworkCache[artworkHash] = base64
+        return base64
+    }
+    
     private func handleTrackInfo(_ trackInfo: MediaRemoteAdapter.TrackInfo) {
         let payload = trackInfo.payload
         
-        Logger.debug("handleTrackInfo called for: \(payload.title ?? "Unknown")", log: Logger.playback)
+        // Create unique identifier from artist + title + album to properly detect track changes
+        let trackIdentifier = "\(payload.artist ?? "")|\(payload.title ?? "")|\(payload.album ?? "")"
+        let trackChanged = currentStatus?.contentItemIdentifier != trackIdentifier
         
-        
-        // Convert artwork NSImage to base64 if available (on background thread to avoid blocking)
-        var artworkData: String?
-        if let artwork = payload.artwork {
-            Logger.debug("Artwork present, converting to base64...", log: Logger.playback)
-            if let tiffData = artwork.tiffRepresentation {
-                Logger.debug("Got TIFF data: \(tiffData.count) bytes", log: Logger.playback)
-                if let bitmapImage = NSBitmapImageRep(data: tiffData) {
-                    Logger.debug("Created bitmap image representation", log: Logger.playback)
-                    if let pngData = bitmapImage.representation(using: .png, properties: [:]) {
-                        artworkData = pngData.base64EncodedString()
-                        Logger.debug("Converted to PNG and base64: \(pngData.count) bytes", log: Logger.playback)
-                    } else {
-                        Logger.debug("Failed to convert bitmap to PNG", log: Logger.playback)
-                    }
-                } else {
-                    Logger.debug("Failed to create bitmap image from TIFF data", log: Logger.playback)
-                }
-            } else {
-                Logger.debug("Failed to get TIFF representation from artwork", log: Logger.playback)
-            }
+        // Determine artwork: convert if track changed, otherwise reuse
+        let artworkData: String?
+        if trackChanged {
+            artworkData = payload.artwork.flatMap { convertArtworkToBase64($0) }
         } else {
-            Logger.debug("No artwork in payload", log: Logger.playback)
+            artworkData = currentStatus?.artworkData
         }
         
         // Convert microseconds to seconds
         let durationSeconds = (payload.durationMicros ?? 0) / 1_000_000.0
         let elapsedTimeSeconds = payload.currentElapsedTime ?? ((payload.elapsedTimeMicros ?? 0) / 1_000_000.0)
-        
-        // Create unique identifier from artist + title + album to properly detect track changes
-        let trackIdentifier = "\(payload.artist ?? "")|\(payload.title ?? "")|\(payload.album ?? "")"
         
         let status = MediaControlStatus(
             title: payload.title,
@@ -215,8 +219,6 @@ class Watcher: ObservableObject {
             totalTrackCount: nil,
             bundleIdentifier: payload.bundleIdentifier
         )
-        
-        Logger.debug("Status created with artwork: \(artworkData != nil ? "YES" : "NO")", log: Logger.playback)
         
         // Handle missing or incomplete duration - preserve from previous if same track
         var newStatus = status
@@ -265,8 +267,6 @@ class Watcher: ObservableObject {
         let artwork = status.artworkData
             .flatMap { Data(base64Encoded: $0) } ?? Data()
         
-        Logger.debug("getPlayerTrack: status has artworkData: \(status.artworkData != nil), decoded artwork size: \(artwork.count) bytes", log: Logger.playback)
-        
         let elapsedTime = status.elapsedTime ?? 0
         let startedAt = Int32(Date().timeIntervalSince1970 - elapsedTime)
         
@@ -286,7 +286,7 @@ class Watcher: ObservableObject {
         let albumURL = URL(string: "https://www.last.fm/music/\(encodedArtist)/\(encodedAlbum)")
         let trackURL = URL(string: "https://www.last.fm/music/\(encodedArtist)/_/\(encodedTrack)")
         
-        let track = Track(
+        return Track(
             id: UUID(),
             artist: artist,
             album: album,
@@ -305,10 +305,6 @@ class Watcher: ObservableObject {
             trackURL: trackURL,
             imageUrl: nil
         )
-        
-        Logger.debug("getPlayerTrack: created track with artwork size: \(track.artwork?.count ?? 0) bytes", log: Logger.playback)
-        
-        return track
     }
     
     private func isMusicRunning() -> Bool {
@@ -374,7 +370,10 @@ class Watcher: ObservableObject {
         let trackChanged = currentTrackID != trackID
         
         if trackChanged {
-            Logger.debug("Track changed to: \(status.title ?? "Unknown") by \(status.artist ?? "Unknown")", log: Logger.playback)
+            Logger.info("Track changed: \(status.title ?? "Unknown") by \(status.artist ?? "Unknown")", log: Logger.playback)
+            
+            // Clear artwork cache on track change to prevent memory buildup
+            artworkCache.removeAll()
             
             // Track changed - scrobble previous if needed
             if let track = currentTrack, let maxPos = maxPosition {
@@ -396,7 +395,6 @@ class Watcher: ObservableObject {
             currentTrackID = trackID
             
             let track = try getPlayerTrack(from: status)
-            Logger.debug("processStatus: Setting currentTrack with artwork size: \(track.artwork?.count ?? 0) bytes", log: Logger.playback)
             currentTrack = track
             
             if let fn = onTrackChanged {
@@ -408,9 +406,7 @@ class Watcher: ObservableObject {
             let currentHasArtwork = (currentTrack?.artwork?.count ?? 0) > 0
             
             if hasArtwork && !currentHasArtwork {
-                Logger.debug("Artwork arrived late for same track, updating...", log: Logger.playback)
                 let track = try getPlayerTrack(from: status)
-                Logger.debug("processStatus: Updating currentTrack with artwork size: \(track.artwork?.count ?? 0) bytes", log: Logger.playback)
                 currentTrack = track
             }
             
@@ -437,7 +433,6 @@ class Watcher: ObservableObject {
             } else {
                 // Normal operation - check if we got a fresh snapshot (position changed significantly)
                 if abs(snapshotPos - (lastSnapshotPosition ?? 0)) > 0.1 {
-                    Logger.debug("Fresh snapshot from adapter: \(snapshotPos)s", log: Logger.playback)
                     lastSnapshotTime = Date()
                     lastSnapshotPosition = snapshotPos
                     

@@ -21,15 +21,11 @@ struct AlbumArtwork: View {
     
     func artworkImage() -> Image {
         if let artData = imageData ?? artwork {
-            Logger.debug("AlbumArtwork: Have artwork data (\(artData.count) bytes)", log: Logger.ui)
             if let img = NSImage(data: artData) {
-                Logger.debug("AlbumArtwork: Successfully created NSImage", log: Logger.ui)
                 return Image(nsImage: img)
             } else {
-                Logger.debug("AlbumArtwork: Failed to create NSImage from data", log: Logger.ui)
+                Logger.debug("AlbumArtwork: Failed to create NSImage from \(artData.count) bytes", log: Logger.ui)
             }
-        } else {
-            Logger.debug("AlbumArtwork: No artwork data available (imageData: \(imageData != nil), artwork: \(artwork != nil), imageUrl: \(imageUrl ?? "nil"))", log: Logger.ui)
         }
         return Image("nocover")
     }
