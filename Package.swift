@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "Scroblebler",
-    platforms: [.macOS(.v13)],
+    platforms: [.macOS(.v11)],
     products: [
         .executable(name: "Scroblebler", targets: ["Scroblebler"])
     ],
