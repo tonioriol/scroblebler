@@ -17,6 +17,7 @@ struct MainView: View {
     @State private var hasMoreTracks = true
     @State private var loginState: WaitingLogin.Status = .generatingToken
     @State private var isPlaying = false
+    @State private var showServicesSection = false
     
     private var historyTracks: [Track] {
         trackRepo.tracks.filter { $0.scrobbled }
@@ -32,7 +33,7 @@ struct MainView: View {
                 Divider()
                 
                 if !showProfileView {
-                    Header(showProfileView: $showProfileView)
+                    Header(showProfileView: $showProfileView, showServicesSection: $showServicesSection)
                         .environmentObject(defaults)
                         .zIndex(10)
                 }
@@ -43,7 +44,7 @@ struct MainView: View {
             
             if showProfileView {
                 VStack(spacing: 0) {
-                    Header(showProfileView: $showProfileView)
+                    Header(showProfileView: $showProfileView, showServicesSection: $showServicesSection)
                         .environmentObject(defaults)
                         .zIndex(10)
                     
@@ -190,36 +191,39 @@ struct MainView: View {
             }
             
             // Service management
-            VStack(spacing: 8) {
-                ForEach(ScrobbleService.allCases) { service in
-                    ServiceRow(
-                        service: service,
-                        credentials: defaults.credentials(for: service),
-                        isMainService: defaults.mainServicePreference == service,
-                        onLogin: {
-                            loginService = service
-                            loginState = .generatingToken
-                            Task { await doServiceLogin(service: service) }
-                        },
-                        onLogout: {
-                            defaults.removeCredentials(for: service)
-                        },
-                        onToggle: { enabled in
-                            defaults.toggleService(service, enabled: enabled)
-                        },
-                        onSetMain: {
-                            defaults.mainServicePreference = service
-                        },
-                        onSetupWebClient: service == .lastfm ? {
-                            pendingLastFmUsername = defaults.credentials(for: .lastfm)?.username
-                            showWebClientPasswordSheet = true
-                        } : nil
-                    )
+            if showServicesSection {
+                VStack(spacing: 8) {
+                    ForEach(ScrobbleService.allCases) { service in
+                        ServiceRow(
+                            service: service,
+                            credentials: defaults.credentials(for: service),
+                            isMainService: defaults.mainServicePreference == service,
+                            onLogin: {
+                                loginService = service
+                                loginState = .generatingToken
+                                Task { await doServiceLogin(service: service) }
+                            },
+                            onLogout: {
+                                defaults.removeCredentials(for: service)
+                            },
+                            onToggle: { enabled in
+                                defaults.toggleService(service, enabled: enabled)
+                            },
+                            onSetMain: {
+                                defaults.mainServicePreference = service
+                            },
+                            onSetupWebClient: service == .lastfm ? {
+                                pendingLastFmUsername = defaults.credentials(for: .lastfm)?.username
+                                showWebClientPasswordSheet = true
+                            } : nil
+                        )
+                    }
                 }
+                .padding(.horizontal)
+                .padding(.top)
+                .padding(.bottom)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
-            .padding(.horizontal)
-            .padding(.top)
-            .padding(.bottom)
         }
         .onAppear {
             loadRecentTracks()

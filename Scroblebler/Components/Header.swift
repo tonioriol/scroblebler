@@ -10,6 +10,7 @@ import SwiftUI
 struct Header: View {
     @EnvironmentObject var defaults: Defaults
     @Binding var showProfileView: Bool
+    @Binding var showServicesSection: Bool
     
     private var headerGradient: LinearGradient {
         switch defaults.mainServicePreference {
@@ -59,13 +60,21 @@ struct Header: View {
                     let logoHeight: CGFloat = service == .lastfm ? 28 : 35
                     let verticalPadding: CGFloat = service == .lastfm ? 13.5 : 10
                     
-                    serviceLogo(for: service)
-                        .resizable()
-                        .interpolation(.high)
-                        .antialiased(true)
-                        .scaledToFit()
-                        .frame(height: logoHeight)
-                        .padding(.vertical, verticalPadding)
+                    Button(action: {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                            showServicesSection.toggle()
+                        }
+                    }) {
+                        serviceLogo(for: service)
+                            .resizable()
+                            .interpolation(.high)
+                            .antialiased(true)
+                            .scaledToFit()
+                            .frame(height: logoHeight)
+                            .padding(.vertical, verticalPadding)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Show/hide service settings")
                 } else {
                     Image("app-logo")
                         .resizable()
@@ -177,6 +186,6 @@ struct Header: View {
 
 struct Header_Previews: PreviewProvider {
     static var previews: some View {
-        Header(showProfileView: .constant(false))
+        Header(showProfileView: .constant(false), showServicesSection: .constant(false))
     }
 }
