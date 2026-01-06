@@ -93,6 +93,16 @@ class Watcher: ObservableObject {
         startPositionTimer()
     }
     
+    func refreshCurrentState() {
+        // If we already have a current track, trigger the callback
+        // This handles the case where track info arrived before callbacks were set
+        if let track = currentTrack, let fn = onTrackChanged {
+            DispatchQueue.main.async {
+                fn(track)
+            }
+        }
+    }
+    
     func stop() {
         running = false
         mediaController.stopListening()

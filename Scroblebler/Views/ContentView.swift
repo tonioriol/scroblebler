@@ -36,6 +36,9 @@ struct ContentView: View {
                 }
             }
             watcher.start()
+            
+            // Check if track info arrived before callbacks were set
+            watcher.refreshCurrentState()
         }
     }
 }
