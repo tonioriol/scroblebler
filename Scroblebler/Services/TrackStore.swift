@@ -337,37 +337,34 @@ class TrackStore: ObservableObject {
     
     // MARK: - Now Playing Management
     
-    private var currentEnrichmentTask: Task<Void, Never>?
+    private var enrichedTracks: Set<String> = []  // Track which tracks we've enriched
     
     /// Set current track and enrich with metadata (single source of truth for now playing)
     func setCurrentTrack(_ track: Track) {
         let trackKey = TrackIdentity.key(artist: track.artist, track: track.name)
         
-        // Check if it's the same track (avoid redundant updates)
+        // Check if it's a different track
         if let current = currentTrack,
            TrackIdentity.key(artist: current.artist, track: current.name) == trackKey {
-            Logger.debug("Same track, skipping setCurrentTrack: '\(track.name)'", log: Logger.ui)
-            return
+            return  // Same track, nothing to do
         }
         
-        // Cancel any ongoing enrichment
-        currentEnrichmentTask?.cancel()
-        
         currentTrack = track
-        Logger.debug("Set current track: '\(track.name)'", log: Logger.ui)
         
-        // Also add to tracks array if new (for history when scrobbled)
+        // Add to tracks array if new
         let exists = tracks.contains { existing in
             TrackIdentity.key(artist: existing.artist, track: existing.name) == trackKey
         }
-        
         if !exists {
             add(track)
         }
         
-        // Enrich in background
-        currentEnrichmentTask = Task {
-            await enrichCurrentTrack()
+        // Enrich if not already done
+        if !enrichedTracks.contains(trackKey) {
+            enrichedTracks.insert(trackKey)
+            Task {
+                await enrichCurrentTrack()
+            }
         }
     }
     
@@ -375,9 +372,6 @@ class TrackStore: ObservableObject {
     private func enrichCurrentTrack() async {
         guard let track = currentTrack else { return }
         
-        Logger.debug("Starting enrichment for '\(track.name)'", log: Logger.ui)
-        
-        // Get display service
         let displayService = Defaults.shared.mainServicePreference
             ?? Defaults.shared.primaryService?.service
             ?? .lastfm
@@ -387,39 +381,24 @@ class TrackStore: ObservableObject {
             return
         }
         
-        // Skip if already enriched for this service
-        if let existing = track.serviceInfo[displayService],
-           displayService == .listenbrainz,
-           existing.id != nil && existing.artistMbid != nil && existing.releaseMbid != nil {
-            Logger.debug("Track '\(track.name)' already enriched for \(displayService.displayName), skipping", log: Logger.ui)
-            return
-        }
-        
-        // Enrich with service-specific metadata (e.g., MBIDs)
+        // Enrich with service-specific metadata
         var enrichedTrack = await service.enrichTrack(track)
         
-        // Fetch additional metadata (playcount, loved status)
-        if let (loved, count) = try? await client.getTrackInfo(
-            artist: track.artist,
-            track: track.name
-        ) {
+        // Fetch additional metadata
+        if let (loved, count) = try? await client.getTrackInfo(artist: track.artist, track: track.name) {
             enrichedTrack.loved = loved
             if let count = count {
                 enrichedTrack.playcount = count
             }
         }
         
-        // Only update if something actually changed
-        let hasNewServiceInfo = enrichedTrack.serviceInfo.keys.contains(where: {
-            track.serviceInfo[$0] != enrichedTrack.serviceInfo[$0]
-        })
-        let metadataChanged = enrichedTrack.loved != track.loved || enrichedTrack.playcount != track.playcount
-        
-        if hasNewServiceInfo || metadataChanged {
-            Logger.debug("Enrichment completed with changes for '\(track.name)'", log: Logger.ui)
+        // Update if changed
+        if enrichedTrack.serviceInfo != track.serviceInfo ||
+           enrichedTrack.loved != track.loved ||
+           enrichedTrack.playcount != track.playcount {
             currentTrack = enrichedTrack
             
-            // Also update in tracks array if it exists there
+            // Sync to tracks array
             update(artist: track.artist, track: track.name) { existing in
                 for (service, data) in enrichedTrack.serviceInfo {
                     existing.serviceInfo[service] = data
@@ -427,13 +406,14 @@ class TrackStore: ObservableObject {
                 existing.loved = enrichedTrack.loved
                 existing.playcount = enrichedTrack.playcount
             }
-        } else {
-            Logger.debug("Enrichment completed with no changes for '\(track.name)'", log: Logger.ui)
         }
     }
     
     /// Re-enrich current track when display service changes
     func refreshCurrentTrack() {
+        guard let track = currentTrack else { return }
+        let trackKey = TrackIdentity.key(artist: track.artist, track: track.name)
+        enrichedTracks.remove(trackKey)  // Clear enrichment flag
         Task {
             await enrichCurrentTrack()
         }
