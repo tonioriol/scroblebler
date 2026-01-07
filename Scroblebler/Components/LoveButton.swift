@@ -3,6 +3,7 @@ import SwiftUI
 struct LoveButton: View {
     @EnvironmentObject var defaults: Defaults
     @ObservedObject private var trackStore = TrackStore.shared
+    @ObservedObject private var trackService = TrackService.shared
     
     let artist: String
     let trackName: String
@@ -44,7 +45,7 @@ struct LoveButton: View {
         }
         
         Task {
-            _ = await trackStore.toggleLove(artist: artist, track: trackName)
+            _ = await trackService.toggleLove(artist: artist, track: trackName)
             
             await MainActor.run {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {

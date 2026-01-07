@@ -19,36 +19,25 @@ class ListenBrainzService: Service {
         let artistURL: URL
         if let artistMbid = serviceInfo?.artistMbid {
             artistURL = URL(string: "https://listenbrainz.org/artist/\(artistMbid)/")!
-            Logger.debug("LB URL: Using artist MBID \(artistMbid)", log: Logger.ui)
         } else {
             artistURL = URL(string: "https://listenbrainz.org/search/?search_term=\(encodedArtist)&search_type=artist")!
-            Logger.debug("LB URL: Artist fallback search", log: Logger.ui)
         }
         
         // Album URL: use release MBID if available, otherwise search
         let albumURL: URL
         if let releaseMbid = serviceInfo?.releaseMbid {
-            Logger.debug("LB URL: releaseMbid=\(releaseMbid), type=\(type(of: releaseMbid))", log: Logger.ui)
             albumURL = URL(string: "https://listenbrainz.org/release/\(releaseMbid)/")!
-            Logger.debug("LB URL: Using release MBID \(releaseMbid) -> \(albumURL.absoluteString)", log: Logger.ui)
         } else {
             albumURL = URL(string: "https://listenbrainz.org/search/?search_term=\(encodedArtist)%20\(encodedAlbum)&search_type=release")!
-            Logger.debug("LB URL: Album fallback search (no releaseMbid in serviceInfo)", log: Logger.ui)
         }
         
         // Track URL: use recording MBID if available, otherwise search
         let trackURL: URL
         if let recordingMbid = serviceInfo?.id {
             trackURL = URL(string: "https://listenbrainz.org/track/\(recordingMbid)/")!
-            Logger.debug("LB URL: Using recording MBID \(recordingMbid)", log: Logger.ui)
         } else {
             trackURL = URL(string: "https://listenbrainz.org/search/?search_term=\(encodedArtist)%20\(encodedTrack)&search_type=recording")!
-            Logger.debug("LB URL: Track fallback search", log: Logger.ui)
         }
-        
-        Logger.debug("LB URLs built - artist: \(artistURL.absoluteString)", log: Logger.ui)
-        Logger.debug("LB URLs built - album: \(albumURL.absoluteString)", log: Logger.ui)
-        Logger.debug("LB URLs built - track: \(trackURL.absoluteString)", log: Logger.ui)
         
         return (artistURL: artistURL, albumURL: albumURL, trackURL: trackURL)
     }

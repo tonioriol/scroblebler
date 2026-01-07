@@ -4,6 +4,7 @@ struct UndoButton: View {
     @EnvironmentObject var serviceManager: ScrobbleManager
     @EnvironmentObject var defaults: Defaults
     @StateObject private var trackStore = TrackStore.shared
+    @StateObject private var trackService = TrackService.shared
     
     let artist: String
     let track: String
@@ -82,7 +83,7 @@ struct UndoButton: View {
         
         Task {
             // Check if track is blacklisted
-            if await trackStore.isBlacklisted(artist: artist, track: track) {
+            if await trackService.isBlacklisted(artist: artist, track: track) {
                 await MainActor.run {
                     errorMessage = "Cannot redo: track is blacklisted"
                     showError = true

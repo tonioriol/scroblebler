@@ -4,6 +4,7 @@ struct NowPlaying: View {
     @EnvironmentObject var serviceManager: ScrobbleManager
     @EnvironmentObject var defaults: Defaults
     @StateObject private var trackStore = TrackStore.shared
+    @StateObject private var trackService = TrackService.shared
     @Binding var currentPosition: Double?
     @Binding var isPlaying: Bool
     
@@ -48,7 +49,7 @@ struct NowPlaying: View {
             }
             .padding()
             .onChange(of: defaults.mainServicePreference) { _ in
-                trackStore.refreshCurrentTrack()
+                trackService.refreshCurrentTrack()
             }
         }
     }

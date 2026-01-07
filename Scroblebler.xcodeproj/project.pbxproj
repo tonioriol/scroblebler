@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		214BE49AEB926CFA16D44F62 /* LoveButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0F361811AED80EF7ACDCA43 /* LoveButton.swift */; };
 		54EF5BB490E7B7CAEA23F3C5 /* ListenBrainzService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEC77CD2AD564E2DF10EF98C /* ListenBrainzService.swift */; };
+		9F5A3B2AB149F9C755694E25 /* TrackService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 180D3DE66CB8D321ADFAFCEC /* TrackService.swift */; };
 		AA1111111111111111111111 /* AlbumArtwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB1111111111111111111111 /* AlbumArtwork.swift */; };
 		AA1347A4BB2B1A01297C8A41 /* LibreFmService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEC89C26C447DC50A931C564 /* LibreFmService.swift */; };
 		AA2222222222222222222222 /* PlayCountBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB2222222222222222222222 /* PlayCountBadge.swift */; };
@@ -92,6 +93,7 @@
 
 /* Begin PBXFileReference section */
 		0390C611586C209B0D20291B /* LastFmService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LastFmService.swift; path = Scroblebler/Services/LastFmService.swift; sourceTree = "<group>"; };
+		180D3DE66CB8D321ADFAFCEC /* TrackService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TrackService.swift; path = TrackService.swift; sourceTree = "<group>"; };
 		2FE900854B26848E1F16665A /* Service.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = Service.swift; path = Scroblebler/Protocols/Service.swift; sourceTree = "<group>"; };
 		A0F361811AED80EF7ACDCA43 /* LoveButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoveButton.swift; sourceTree = "<group>"; };
 		BB1111111111111111111111 /* AlbumArtwork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlbumArtwork.swift; sourceTree = "<group>"; };
@@ -350,6 +352,7 @@
 			children = (
 				SYNCSVC0000000000000001 /* SyncService.swift */,
 				TRKREP00000000000000001 /* TrackStore.swift */,
+				180D3DE66CB8D321ADFAFCEC /* TrackService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -508,6 +511,7 @@
 				CE03AB3AD8E1A85EFDB1F9E7 /* LastFmService.swift in Sources */,
 				AA1347A4BB2B1A01297C8A41 /* LibreFmService.swift in Sources */,
 				54EF5BB490E7B7CAEA23F3C5 /* ListenBrainzService.swift in Sources */,
+				9F5A3B2AB149F9C755694E25 /* TrackService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

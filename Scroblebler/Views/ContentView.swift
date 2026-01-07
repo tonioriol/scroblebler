@@ -12,6 +12,7 @@ struct ContentView: View {
     @StateObject var serviceManager = ScrobbleManager.shared
     @StateObject var defaults = Defaults.shared
     @StateObject var trackStore = TrackStore.shared
+    @StateObject var trackService = TrackService.shared
 
     var body: some View {
         VStack {
@@ -24,15 +25,17 @@ struct ContentView: View {
                 Task {
                     let enrichedTrack = await serviceManager.updateNowPlayingAll(track: track)
                     await MainActor.run {
-                        watcher.currentTrack = enrichedTrack
-                        // Add to store so love/blacklist state can be tracked
-                        trackStore.add(enrichedTrack)
+                        trackStore.setCurrentTrack(enrichedTrack)
+                        // Enrich current track in background
+                        Task {
+                            await trackService.enrichCurrentTrack()
+                        }
                     }
                 }
             }
             watcher.onScrobbleWanted = { track in
                 Task {
-                    await serviceManager.scrobbleAll(track: track)
+                    await trackService.scrobble(track)
                 }
             }
             watcher.start()

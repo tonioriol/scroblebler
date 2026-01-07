@@ -25,7 +25,6 @@ struct MediaControlStatus: Codable {
 
 class Watcher: ObservableObject {
     @Published var currentTrackID: String?
-    @Published var currentTrack: Track?
     @Published var currentPosition: Double?
     @Published var maxPosition: Double?
     @Published var musicRunning = false
@@ -100,9 +99,11 @@ class Watcher: ObservableObject {
     func refreshCurrentState() {
         // If we already have a current track, trigger the callback
         // This handles the case where track info arrived before callbacks were set
-        if let track = currentTrack, let fn = onTrackChanged {
-            DispatchQueue.main.async {
-                fn(track)
+        Task { @MainActor in
+            if let track = TrackStore.shared.currentTrack, let fn = onTrackChanged {
+                DispatchQueue.main.async {
+                    fn(track)
+                }
             }
         }
     }
@@ -310,18 +311,11 @@ class Watcher: ObservableObject {
     }
     
     private func reset() {
-        if Thread.isMainThread {
+        Task { @MainActor in
             currentTrackID = nil
-            currentTrack = nil
             currentPosition = nil
             maxPosition = nil
-        } else {
-            DispatchQueue.main.async {
-                self.currentTrackID = nil
-                self.currentTrack = nil
-                self.currentPosition = nil
-                self.maxPosition = nil
-            }
+            TrackStore.shared.clearCurrentTrack()
         }
     }
     
@@ -362,7 +356,7 @@ class Watcher: ObservableObject {
             artworkCache.removeAll()
             
             // Track changed - scrobble previous if needed
-            if let track = currentTrack, let maxPos = maxPosition {
+            if let track = TrackStore.shared.currentTrack, let maxPos = maxPosition {
                 let percentPlayed = (maxPos / track.length) * 100
                 if percentPlayed >= 95 && !track.scrobbled && track.length >= 30 {
                     if let fn = onScrobbleWanted {
@@ -381,7 +375,6 @@ class Watcher: ObservableObject {
             currentTrackID = trackID
             
             let track = try getPlayerTrack(from: status)
-            currentTrack = track
             
             // Route through TrackStore (single source of truth)
             TrackStore.shared.setCurrentTrack(track)
@@ -392,11 +385,11 @@ class Watcher: ObservableObject {
         } else {
             // Same track - check if artwork arrived late
             let hasArtwork = status.artworkData != nil
-            let currentHasArtwork = (currentTrack?.artwork?.count ?? 0) > 0
+            let currentHasArtwork = (TrackStore.shared.currentTrack?.artwork?.count ?? 0) > 0
             
             if hasArtwork && !currentHasArtwork {
                 let track = try getPlayerTrack(from: status)
-                currentTrack = track
+                TrackStore.shared.updateCurrentTrack(track)
             }
             
             // Update position if changed significantly
