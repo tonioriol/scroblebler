@@ -130,9 +130,6 @@ struct UndoButton: View {
                 blacklisted: false,
                 serviceInfo: [:],
                 artwork: nil,
-                artistURL: nil,
-                albumURL: nil,
-                trackURL: nil,
                 imageUrl: nil
             )
             

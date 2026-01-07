@@ -181,23 +181,14 @@ class ScrobbleManager: ObservableObject {
             return track
         }
         
-        // Enrich track with URLs if ListenBrainz is the primary service
-        var enrichedTrack = track
-        if let primary = Defaults.shared.primaryService,
-           primary.service == .listenbrainz,
-           let lbService = services[.listenbrainz],
-           let lbClient = lbService.client as? ListenBrainzClient {
-            enrichedTrack = await lbClient.enrichTrackWithURLs(track)
-        }
-        
         let enabledServices = Defaults.shared.enabledServices
         
         await withTaskGroup(of: Void.self) { group in
             for credentials in enabledServices {
                 group.addTask {
                     do {
-                        try await self.updateNowPlaying(credentials: credentials, track: enrichedTrack)
-                        Logger.info("Updated now playing on \(credentials.service.displayName): \(enrichedTrack.description)", log: Logger.playback)
+                        try await self.updateNowPlaying(credentials: credentials, track: track)
+                        Logger.info("Updated now playing on \(credentials.service.displayName): \(track.description)", log: Logger.playback)
                     } catch {
                         Logger.error("Failed to update now playing on \(credentials.service.displayName): \(error)", log: Logger.playback)
                     }
@@ -205,7 +196,7 @@ class ScrobbleManager: ObservableObject {
             }
         }
         
-        return enrichedTrack
+        return track
     }
     
     func updateLove(credentials: ServiceCredentials, artist: String, track: String, loved: Bool) async throws {

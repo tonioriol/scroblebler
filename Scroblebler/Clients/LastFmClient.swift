@@ -618,9 +618,6 @@ private extension LastFmClient {
                         .lastfm: ServiceTrackData.lastfm(timestamp: dateInt)
                     ],
                     artwork: nil,
-                    artistURL: client.artistURL(artist: artistName, mbid: nil),
-                    albumURL: client.albumURL(artist: artistName, album: albumName, mbid: nil),
-                    trackURL: client.trackURL(artist: artistName, track: trackName, mbid: nil),
                     imageUrl: image?.last(where: { !$0.text.isEmpty })?.text
                 )
             }

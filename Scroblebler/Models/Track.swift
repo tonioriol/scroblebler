@@ -48,9 +48,6 @@ struct Track: Identifiable, Codable, Equatable {
     // MARK: - UI Metadata
     
     let artwork: Data?
-    var artistURL: URL?
-    var albumURL: URL?
-    var trackURL: URL?
     let imageUrl: String?
     
     // MARK: - Computed Properties
@@ -93,9 +90,6 @@ struct Track: Identifiable, Codable, Equatable {
         case blacklisted
         case serviceInfo
         case artwork
-        case artistURL
-        case albumURL
-        case trackURL
         case imageUrl
     }
     
@@ -110,15 +104,6 @@ struct Track: Identifiable, Codable, Equatable {
         artwork: Data?,
         startedAt: Int32
     ) -> Track {
-        // Build Last.fm URLs for now playing tracks
-        let encodedArtist = artist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? artist
-        let encodedAlbum = album.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? album
-        let encodedTrack = name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? name
-        
-        let artistURL = URL(string: "https://www.last.fm/music/\(encodedArtist)")
-        let albumURL = URL(string: "https://www.last.fm/music/\(encodedArtist)/\(encodedAlbum)")
-        let trackURL = URL(string: "https://www.last.fm/music/\(encodedArtist)/_/\(encodedTrack)")
-        
         return Track(
             id: UUID(),
             artist: artist,
@@ -128,9 +113,6 @@ struct Track: Identifiable, Codable, Equatable {
             duration: duration,
             sourceService: .lastfm,
             artwork: artwork,
-            artistURL: artistURL,
-            albumURL: albumURL,
-            trackURL: trackURL,
             imageUrl: nil
         )
     }
@@ -144,9 +126,6 @@ struct Track: Identifiable, Codable, Equatable {
         loved: Bool,
         playcount: Int?,
         imageUrl: String?,
-        artistURL: URL,
-        albumURL: URL,
-        trackURL: URL,
         sourceService: ScrobbleService,
         serviceData: ServiceTrackData
     ) -> Track {
@@ -163,9 +142,6 @@ struct Track: Identifiable, Codable, Equatable {
             scrobbled: true,
             serviceInfo: [sourceService: serviceData],
             artwork: nil,
-            artistURL: artistURL,
-            albumURL: albumURL,
-            trackURL: trackURL,
             imageUrl: imageUrl
         )
     }

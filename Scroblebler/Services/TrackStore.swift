@@ -331,4 +331,56 @@ class TrackStore: ObservableObject {
         // Check persistent storage
         return await blacklist.contains(artist: artist, track: track)
     }
+    
+    // MARK: - Track Enrichment
+    
+    /// Ensure track exists in store and enrich it with service metadata
+    func ensureTrackExists(_ track: Track, for displayService: ScrobbleService) async {
+        let trackKey = TrackIdentity.key(artist: track.artist, track: track.name)
+        
+        // Check if track exists
+        let existingTrack = tracks.first { existing in
+            TrackIdentity.key(artist: existing.artist, track: existing.name) == trackKey
+        }
+        
+        if existingTrack == nil {
+            // Add new track
+            add(track)
+            Logger.debug("Added track to store: '\(track.name)'", log: Logger.ui)
+        }
+        
+        // Enrich with service metadata
+        await enrichTrack(track, for: displayService)
+    }
+    
+    /// Enrich track with service-specific metadata (e.g., MBIDs for ListenBrainz)
+    func enrichTrack(_ track: Track, for displayService: ScrobbleService) async {
+        guard let service = serviceManager.service(for: displayService),
+              let client = serviceManager.client(for: displayService) else {
+            return
+        }
+        
+        // Enrich with service-specific metadata
+        let enrichedTrack = await service.enrichTrack(track)
+        
+        // Merge serviceInfo (preserve existing data from other services)
+        update(artist: track.artist, track: track.name) { existing in
+            for (service, data) in enrichedTrack.serviceInfo {
+                existing.serviceInfo[service] = data
+            }
+        }
+        
+        // Fetch additional metadata (playcount, loved status)
+        if let (loved, count) = try? await client.getTrackInfo(
+            artist: track.artist,
+            track: track.name
+        ) {
+            update(artist: track.artist, track: track.name) { existing in
+                existing.loved = loved
+                if let count = count {
+                    existing.playcount = count
+                }
+            }
+        }
+    }
 }

@@ -27,9 +27,9 @@ enum SyncStatus: Codable {
 
 struct ServiceTrackData: Codable {
     let timestamp: Int?     // Required for Last.fm/Libre.fm
-    let id: String?         // ListenBrainz recording_msid (for deletion) or recording_mbid
-    let artistMbid: String? // ListenBrainz artist MBID (for URLs)
-    let releaseMbid: String? // ListenBrainz release MBID (for URLs)
+    var id: String?         // ListenBrainz recording_msid (for deletion) or recording_mbid
+    var artistMbid: String? // ListenBrainz artist MBID (for URLs)
+    var releaseMbid: String? // ListenBrainz release MBID (for URLs)
     
     // Factory methods make intent clear
     static func lastfm(timestamp: Int) -> ServiceTrackData {

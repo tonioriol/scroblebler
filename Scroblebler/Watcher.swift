@@ -274,7 +274,7 @@ class Watcher: ObservableObject {
         let album = status.album ?? ""
         let title = status.title ?? ""
         
-        // Watcher doesn't set URLs - they'll be set dynamically based on primary service
+        // URLs will be built dynamically based on display service preference
         return Track(
             id: UUID(),
             artist: artist,
@@ -289,9 +289,6 @@ class Watcher: ObservableObject {
             blacklisted: false,
             serviceInfo: [:],
             artwork: artwork,
-            artistURL: nil,
-            albumURL: nil,
-            trackURL: nil,
             imageUrl: nil
         )
     }

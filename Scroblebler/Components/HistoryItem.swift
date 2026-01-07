@@ -12,6 +12,10 @@ struct HistoryItem: View {
     }
     
     var body: some View {
+        let displayService = defaults.mainServicePreference ?? defaults.primaryService?.service ?? .lastfm
+        let service = serviceManager.service(for: displayService)
+        let urls = service?.buildURLs(for: track)
+        
         TrackInfo(
             trackName: track.name,
             artist: track.artist,
@@ -20,9 +24,9 @@ struct HistoryItem: View {
             artworkImageUrl: track.imageUrl,
             timestamp: track.timestamp,
             playCount: .constant(track.playcount),
-            artistURL: track.artistURL,
-            albumURL: track.albumURL,
-            trackURL: track.trackURL,
+            artistURL: urls?.artistURL,
+            albumURL: urls?.albumURL,
+            trackURL: urls?.trackURL,
             actionButtons: {
                 HStack(spacing: 4) {
                     // Sync status indicator

@@ -40,34 +40,6 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
     var authURL: String { "https://listenbrainz.org/settings/" }
     var linkColor: Color { Color(hue: 0.08, saturation: 0.80, brightness: 0.85) }
     
-    // MARK: - URL Builders
-    
-    private func artistURL(artist: String, mbid: String?) -> URL {
-        if let mbid = mbid {
-            return URL(string: "https://listenbrainz.org/artist/\(mbid)/")!
-        }
-        let encoded = artist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
-        return URL(string: "https://musicbrainz.org/search?query=artist:%22\(encoded)%22&type=artist&limit=1&method=advanced")!
-    }
-    
-    private func albumURL(artist: String, album: String, mbid: String?) -> URL {
-        if let mbid = mbid {
-            return URL(string: "https://listenbrainz.org/release/\(mbid)/")!
-        }
-        let encodedArtist = artist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
-        let encodedAlbum = album.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
-        return URL(string: "https://musicbrainz.org/search?query=artist:%22\(encodedArtist)%22%20AND%20release:%22\(encodedAlbum)%22&type=release&limit=1&method=advanced")!
-    }
-    
-    private func trackURL(artist: String, track: String, mbid: String?) -> URL {
-        if let mbid = mbid {
-            return URL(string: "https://listenbrainz.org/track/\(mbid)/")!
-        }
-        let encodedArtist = artist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
-        let encodedTrack = track.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
-        return URL(string: "https://musicbrainz.org/search?query=artist:%22\(encodedArtist)%22%20AND%20recording:%22\(encodedTrack)%22&type=recording&limit=1&method=advanced")!
-    }
-    
     // MARK: - Authentication
     
     func authenticate() async throws -> (token: String, authURL: URL) {
@@ -415,6 +387,22 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
                     let imageUrl = self.extractCoverArtUrl(from: track.metadata)
                     let playcount = await self.cache.getCachedPlayCount(username: username, artist: track.artist, track: track.name)
                     
+                    // Store MBIDs in serviceInfo for URL building later
+                    var serviceData = ServiceTrackData.listenbrainz(
+                        recordingMsid: track.msid ?? "",
+                        timestamp: track.timestamp ?? 0
+                    )
+                    // Add MBIDs to serviceData
+                    if let recordingMbid = recordingMbid {
+                        serviceData.id = recordingMbid
+                    }
+                    if let artistMbid = artistMbid {
+                        serviceData.artistMbid = artistMbid
+                    }
+                    if let releaseMbid = releaseMbid {
+                        serviceData.releaseMbid = releaseMbid
+                    }
+                    
                     let unifiedTrack = Track(
                         id: UUID(),
                         artist: track.artist,
@@ -427,16 +415,8 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
                         playcount: playcount ?? 1,
                         scrobbled: true,
                         blacklisted: false,
-                        serviceInfo: [
-                            .listenbrainz: ServiceTrackData.listenbrainz(
-                                recordingMsid: track.msid ?? "",
-                                timestamp: track.timestamp ?? 0
-                            )
-                        ],
+                        serviceInfo: [.listenbrainz: serviceData],
                         artwork: nil,
-                        artistURL: self.artistURL(artist: track.artist, mbid: artistMbid),
-                        albumURL: self.albumURL(artist: track.artist, album: track.album, mbid: releaseMbid),
-                        trackURL: self.trackURL(artist: track.artist, track: track.name, mbid: recordingMbid),
                         imageUrl: imageUrl
                     )
                     
@@ -503,6 +483,21 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
             let timestamp = listen["listened_at"] as? Int
             let imageUrl = extractCoverArtUrl(from: metadata)
             
+            // Store MBIDs in serviceInfo for URL building later
+            var serviceData = ServiceTrackData.listenbrainz(
+                recordingMsid: msid ?? "",
+                timestamp: timestamp ?? 0
+            )
+            if let recordingMbid = mbids.recordingMbid {
+                serviceData.id = recordingMbid
+            }
+            if let artistMbid = mbids.artistMbid {
+                serviceData.artistMbid = artistMbid
+            }
+            if let releaseMbid = mbids.releaseMbid {
+                serviceData.releaseMbid = releaseMbid
+            }
+            
             return Track(
                 id: UUID(),
                 artist: artist,
@@ -515,16 +510,8 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
                 playcount: 1,
                 scrobbled: true,
                 blacklisted: false,
-                serviceInfo: [
-                    .listenbrainz: ServiceTrackData.listenbrainz(
-                        recordingMsid: msid ?? "",
-                        timestamp: timestamp ?? 0
-                    )
-                ],
+                serviceInfo: [.listenbrainz: serviceData],
                 artwork: nil,
-                artistURL: artistURL(artist: artist, mbid: mbids.artistMbid),
-                albumURL: albumURL(artist: artist, album: album, mbid: mbids.releaseMbid),
-                trackURL: trackURL(artist: artist, track: name, mbid: mbids.recordingMbid),
                 imageUrl: imageUrl
             )
         }
@@ -704,36 +691,6 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         
         // Check if any feedback entry has score = 1 (loved)
         return feedback.contains { ($0["score"] as? Int) == 1 }
-    }
-    
-    // MARK: - Track Enrichment
-    
-    func enrichTrackWithURLs(_ track: Track) async -> Track {
-        var enrichedTrack = track
-        
-        // Try MBID Mapper for better matching
-        if let result = try? await lookupMBIDFromMapper(
-            artist: track.artist,
-            track: track.name,
-            album: track.album.isEmpty ? nil : track.album
-        ) {
-            enrichedTrack.artistURL = result.artistMbid.map { URL(string: "https://listenbrainz.org/artist/\($0)/")! }
-            enrichedTrack.albumURL = result.releaseMbid.map { URL(string: "https://listenbrainz.org/release/\($0)/")! }
-            enrichedTrack.trackURL = result.recordingMbid.map { URL(string: "https://listenbrainz.org/track/\($0)/")! }
-        }
-        
-        // Fallback to search URLs if mapper didn't find MBIDs
-        if enrichedTrack.artistURL == nil {
-            enrichedTrack.artistURL = artistURL(artist: track.artist, mbid: nil)
-        }
-        if enrichedTrack.albumURL == nil {
-            enrichedTrack.albumURL = albumURL(artist: track.artist, album: track.album, mbid: nil)
-        }
-        if enrichedTrack.trackURL == nil {
-            enrichedTrack.trackURL = trackURL(artist: track.artist, track: track.name, mbid: nil)
-        }
-        
-        return enrichedTrack
     }
     
     // MARK: - Helpers

@@ -23,16 +23,9 @@ class LibreFmClient: LastFmClient {
     
     override func getRecentTracks(limit: Int, page: Int) async throws -> [Track] {
         let tracks = try await super.getRecentTracks(limit: limit, page: page)
-        // Replace URLs with Libre.fm specific ones
+        // Update serviceInfo to mark these as Libre.fm tracks
         return tracks.map { track in
-            let encodedArtist = track.artist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
-            let encodedAlbum = track.album.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
-            let encodedTrack = track.name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
-            
             var modifiedTrack = track
-            modifiedTrack.artistURL = URL(string: "https://libre.fm/music/\(encodedArtist)")!
-            modifiedTrack.albumURL = URL(string: "https://libre.fm/music/\(encodedArtist)/\(encodedAlbum)")!
-            modifiedTrack.trackURL = URL(string: "https://libre.fm/music/\(encodedArtist)/_/\(encodedTrack)")!
             modifiedTrack.serviceInfo = [
                 .librefm: ServiceTrackData.lastfm(timestamp: track.timestamp)
             ]
@@ -43,20 +36,13 @@ class LibreFmClient: LastFmClient {
     override func getRecentTracksByTimeRange(minTs: Int?, maxTs: Int?, limit: Int) async throws -> [Track]? {
         Logger.debug("Libre.fm getRecentTracksByTimeRange - minTs: \(minTs ?? 0), maxTs: \(maxTs ?? 0), limit: \(limit)", log: Logger.api)
         
-        // Call parent implementation and update URLs for Libre.fm
         guard let tracks = try await super.getRecentTracksByTimeRange(minTs: minTs, maxTs: maxTs, limit: limit) else {
             return nil
         }
         
+        // Update serviceInfo to mark these as Libre.fm tracks
         return tracks.map { track in
-            let encodedArtist = track.artist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
-            let encodedAlbum = track.album.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
-            let encodedTrack = track.name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
-            
             var modifiedTrack = track
-            modifiedTrack.artistURL = URL(string: "https://libre.fm/music/\(encodedArtist)")!
-            modifiedTrack.albumURL = URL(string: "https://libre.fm/music/\(encodedArtist)/\(encodedAlbum)")!
-            modifiedTrack.trackURL = URL(string: "https://libre.fm/music/\(encodedArtist)/_/\(encodedTrack)")!
             modifiedTrack.serviceInfo = [
                 .librefm: ServiceTrackData.lastfm(timestamp: track.timestamp)
             ]
