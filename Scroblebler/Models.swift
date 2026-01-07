@@ -25,7 +25,7 @@ enum SyncStatus: Codable {
     }
 }
 
-struct ServiceTrackData: Codable {
+struct ServiceTrackData: Codable, Equatable {
     let timestamp: Int?     // Required for Last.fm/Libre.fm
     var id: String?         // ListenBrainz recording_msid (for deletion) or recording_mbid
     var artistMbid: String? // ListenBrainz artist MBID (for URLs)

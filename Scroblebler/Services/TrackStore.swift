@@ -11,9 +11,12 @@ class TrackStore: ObservableObject {
     /// All tracks (recent history + now playing)
     @Published private(set) var tracks: [Track] = []
     
-    /// Currently playing track (first non-scrobbled track)
-    var nowPlaying: Track? {
-        tracks.first { !$0.scrobbled }
+    /// Currently playing track (single source of truth)
+    @Published private(set) var currentTrack: Track?
+    
+    /// History tracks (filtered from tracks array)
+    var history: [Track] {
+        tracks.filter { $0.scrobbled }
     }
     
     // MARK: - Dependencies
@@ -332,55 +335,107 @@ class TrackStore: ObservableObject {
         return await blacklist.contains(artist: artist, track: track)
     }
     
-    // MARK: - Track Enrichment
+    // MARK: - Now Playing Management
     
-    /// Ensure track exists in store and enrich it with service metadata
-    func ensureTrackExists(_ track: Track, for displayService: ScrobbleService) async {
+    private var currentEnrichmentTask: Task<Void, Never>?
+    
+    /// Set current track and enrich with metadata (single source of truth for now playing)
+    func setCurrentTrack(_ track: Track) {
         let trackKey = TrackIdentity.key(artist: track.artist, track: track.name)
         
-        // Check if track exists
-        let existingTrack = tracks.first { existing in
+        // Check if it's the same track (avoid redundant updates)
+        if let current = currentTrack,
+           TrackIdentity.key(artist: current.artist, track: current.name) == trackKey {
+            Logger.debug("Same track, skipping setCurrentTrack: '\(track.name)'", log: Logger.ui)
+            return
+        }
+        
+        // Cancel any ongoing enrichment
+        currentEnrichmentTask?.cancel()
+        
+        currentTrack = track
+        Logger.debug("Set current track: '\(track.name)'", log: Logger.ui)
+        
+        // Also add to tracks array if new (for history when scrobbled)
+        let exists = tracks.contains { existing in
             TrackIdentity.key(artist: existing.artist, track: existing.name) == trackKey
         }
         
-        if existingTrack == nil {
-            // Add new track
+        if !exists {
             add(track)
-            Logger.debug("Added track to store: '\(track.name)'", log: Logger.ui)
         }
         
-        // Enrich with service metadata
-        await enrichTrack(track, for: displayService)
+        // Enrich in background
+        currentEnrichmentTask = Task {
+            await enrichCurrentTrack()
+        }
     }
     
-    /// Enrich track with service-specific metadata (e.g., MBIDs for ListenBrainz)
-    func enrichTrack(_ track: Track, for displayService: ScrobbleService) async {
+    /// Enrich current track with service-specific metadata
+    private func enrichCurrentTrack() async {
+        guard let track = currentTrack else { return }
+        
+        Logger.debug("Starting enrichment for '\(track.name)'", log: Logger.ui)
+        
+        // Get display service
+        let displayService = Defaults.shared.mainServicePreference
+            ?? Defaults.shared.primaryService?.service
+            ?? .lastfm
+        
         guard let service = serviceManager.service(for: displayService),
               let client = serviceManager.client(for: displayService) else {
             return
         }
         
-        // Enrich with service-specific metadata
-        let enrichedTrack = await service.enrichTrack(track)
-        
-        // Merge serviceInfo (preserve existing data from other services)
-        update(artist: track.artist, track: track.name) { existing in
-            for (service, data) in enrichedTrack.serviceInfo {
-                existing.serviceInfo[service] = data
-            }
+        // Skip if already enriched for this service
+        if let existing = track.serviceInfo[displayService],
+           displayService == .listenbrainz,
+           existing.id != nil && existing.artistMbid != nil && existing.releaseMbid != nil {
+            Logger.debug("Track '\(track.name)' already enriched for \(displayService.displayName), skipping", log: Logger.ui)
+            return
         }
+        
+        // Enrich with service-specific metadata (e.g., MBIDs)
+        var enrichedTrack = await service.enrichTrack(track)
         
         // Fetch additional metadata (playcount, loved status)
         if let (loved, count) = try? await client.getTrackInfo(
             artist: track.artist,
             track: track.name
         ) {
-            update(artist: track.artist, track: track.name) { existing in
-                existing.loved = loved
-                if let count = count {
-                    existing.playcount = count
-                }
+            enrichedTrack.loved = loved
+            if let count = count {
+                enrichedTrack.playcount = count
             }
+        }
+        
+        // Only update if something actually changed
+        let hasNewServiceInfo = enrichedTrack.serviceInfo.keys.contains(where: {
+            track.serviceInfo[$0] != enrichedTrack.serviceInfo[$0]
+        })
+        let metadataChanged = enrichedTrack.loved != track.loved || enrichedTrack.playcount != track.playcount
+        
+        if hasNewServiceInfo || metadataChanged {
+            Logger.debug("Enrichment completed with changes for '\(track.name)'", log: Logger.ui)
+            currentTrack = enrichedTrack
+            
+            // Also update in tracks array if it exists there
+            update(artist: track.artist, track: track.name) { existing in
+                for (service, data) in enrichedTrack.serviceInfo {
+                    existing.serviceInfo[service] = data
+                }
+                existing.loved = enrichedTrack.loved
+                existing.playcount = enrichedTrack.playcount
+            }
+        } else {
+            Logger.debug("Enrichment completed with no changes for '\(track.name)'", log: Logger.ui)
+        }
+    }
+    
+    /// Re-enrich current track when display service changes
+    func refreshCurrentTrack() {
+        Task {
+            await enrichCurrentTrack()
         }
     }
 }

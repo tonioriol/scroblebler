@@ -113,8 +113,8 @@ struct MainView: View {
                 .opacity(0)
                 .accessibilityHidden(true)
             
-            if watcher.currentTrack != nil {
-                NowPlaying(track: $watcher.currentTrack, currentPosition: $watcher.currentPosition, isPlaying: $isPlaying)
+            if trackStore.currentTrack != nil {
+                NowPlaying(currentPosition: $watcher.currentPosition, isPlaying: $isPlaying)
             } else {
                 HStack(alignment: .top, spacing: 16) {
                     Image("nocover")

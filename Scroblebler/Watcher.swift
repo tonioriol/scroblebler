@@ -383,6 +383,9 @@ class Watcher: ObservableObject {
             let track = try getPlayerTrack(from: status)
             currentTrack = track
             
+            // Route through TrackStore (single source of truth)
+            TrackStore.shared.setCurrentTrack(track)
+            
             if let fn = onTrackChanged {
                 DispatchQueue.main.async { fn(track) }
             }
