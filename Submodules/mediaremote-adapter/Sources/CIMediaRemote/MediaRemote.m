@@ -73,8 +73,6 @@ CFStringRef kMRMediaRemoteNowPlayingInfoRepeatMode =
     CFSTR("kMRMediaRemoteNowPlayingInfoRepeatMode");
 CFStringRef kMRMediaRemoteNowPlayingInfoPlaybackRate =
     CFSTR("kMRMediaRemoteNowPlayingInfoPlaybackRate");
-CFStringRef kMRMediaRemoteNowPlayingInfoUniqueIdentifier =
-    CFSTR("kMRMediaRemoteNowPlayingInfoUniqueIdentifier");
 
 __attribute__((constructor)) static void initialize_mediaremote() {
     void *mr_framework_handle = dlopen(MR_FRAMEWORK_PATH, RTLD_LAZY);

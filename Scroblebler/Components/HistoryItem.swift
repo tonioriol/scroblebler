@@ -29,19 +29,6 @@ struct HistoryItem: View {
             trackURL: urls?.trackURL,
             actionButtons: {
                 HStack(spacing: 4) {
-                    // Play button (if track has a trackId)
-                    if let trackId = track.trackId, !trackId.isEmpty {
-                        Button(action: {
-                            // TODO: Implement playback via MediaControl
-                            Logger.debug("Play track: \(track.name) with ID: \(trackId)", log: Logger.playback)
-                        }) {
-                            Image(systemName: "play.circle")
-                                .foregroundColor(.accentColor)
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                        .help("Play this track")
-                    }
-                    
                     // Sync status indicator
                     SyncStatusBadge(
                         syncStatus: syncStatus,

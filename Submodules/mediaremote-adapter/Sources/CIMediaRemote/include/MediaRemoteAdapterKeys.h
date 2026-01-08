@@ -21,6 +21,5 @@ extern NSString *const kPID;
 extern NSString *const kShuffleMode;
 extern NSString *const kRepeatMode;
 extern NSString *const kPlaybackRate;
-extern NSString *const kUniqueIdentifier;
 
-#endif /* MediaRemoteAdapterKeys_h */
+#endif /* MediaRemoteAdapterKeys_h */ 

@@ -8,7 +8,7 @@ let package = Package(
         .executable(name: "Scroblebler", targets: ["Scroblebler"])
     ],
     dependencies: [
-        .package(path: "Submodules/mediaremote-adapter"),
+        .package(url: "https://github.com/ejbills/mediaremote-adapter.git", branch: "master"),
         .package(url: "https://github.com/groue/GRDB.swift", from: "6.0.0")
     ],
     targets: [
