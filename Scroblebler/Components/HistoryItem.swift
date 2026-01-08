@@ -8,12 +8,24 @@ struct HistoryItem: View {
     @State private var isHovered = false
     @State private var playbackState: PlaybackState = .idle
     
+    // Cache only the immutable dictionary conversion
+    private let serviceInfoKeys: [String: ServiceTrackData]
+    
+    init(track: Track) {
+        self.track = track
+        // Pre-compute only truly immutable operations
+        self.serviceInfoKeys = track.serviceInfo.reduce(into: [:]) { result, entry in
+            result[entry.key.rawValue] = entry.value
+        }
+    }
+    
     private enum PlaybackState {
         case idle
         case success
         case failed
     }
     
+    // Reactive but optimized - only computes when defaults actually change
     private var syncStatus: SyncStatus {
         let enabledServices = Set(defaults.enabledServices.map { $0.service })
         return track.syncStatus(enabledServices: enabledServices)
@@ -40,7 +52,7 @@ struct HistoryItem: View {
                     // Sync status indicator
                     SyncStatusBadge(
                         syncStatus: syncStatus,
-                        serviceInfo: convertServiceInfoToStringKeys(),
+                        serviceInfo: serviceInfoKeys,
                         sourceService: track.sourceService
                     )
                     
@@ -48,9 +60,8 @@ struct HistoryItem: View {
                         artist: track.artist,
                         track: track.name,
                         album: track.album,
-                        serviceInfo: convertServiceInfoToStringKeys()
+                        serviceInfo: serviceInfoKeys
                     )
-                    .id("\(track.artist)-\(track.name)-\(track.timestamp)")
                     
                     BlacklistButton(
                         artist: track.artist,
@@ -126,12 +137,6 @@ struct HistoryItem: View {
                 try? await Task.sleep(nanoseconds: 2_000_000_000)
                 playbackState = .idle
             }
-        }
-    }
-    
-    private func convertServiceInfoToStringKeys() -> [String: ServiceTrackData] {
-        track.serviceInfo.reduce(into: [:]) { result, entry in
-            result[entry.key.rawValue] = entry.value
         }
     }
 }

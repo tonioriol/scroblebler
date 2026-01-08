@@ -163,7 +163,6 @@ struct MainView: View {
                         LazyVStack(alignment: .leading, spacing: 0) {
                             ForEach(Array(historyTracks.enumerated()), id: \.element.id) { index, track in
                                 HistoryItem(track: track)
-                                    .id("\(track.id)-\(track.serviceInfo.keys.map { $0.rawValue }.sorted().joined(separator: ","))")
                                     .onAppear {
                                         let isLastItem = index == historyTracks.count - 1
                                         if isLastItem && !isLoadingMore && hasMoreTracks {
@@ -252,9 +251,9 @@ struct MainView: View {
             guard let primary = defaults.primaryService else { return }
             
             do {
-                try await trackService.loadHistory(from: primary, limit: 20, page: 1)
+                let fetchedCount = try await trackService.loadHistory(from: primary, limit: 20, page: 1)
                 await MainActor.run {
-                    hasMoreTracks = !historyTracks.isEmpty
+                    hasMoreTracks = fetchedCount >= 20
                 }
                 // Preload in background without blocking
                 Task.detached {
@@ -266,11 +265,24 @@ struct MainView: View {
         }
     }
     
+    /// Load more tracks for pagination
+    ///
+    /// IMPORTANT: Pagination logic must use fetchedCount from API, NOT the number of tracks added to UI.
+    /// When multiple services are enabled (e.g., Last.fm + ListenBrainz), tracks are merged/deduplicated,
+    /// so fewer tracks may be added to the UI than were fetched from the API.
+    ///
+    /// Example:
+    /// - API returns 20 tracks from Last.fm
+    /// - After merging with ListenBrainz, only 19 unique tracks are added to UI (1 was duplicate)
+    /// - If we check UI count (19 < 20), pagination stops incorrectly
+    /// - We must check API count (20 >= 20) to continue pagination correctly
     private func loadMoreTracks() {
         guard !isLoadingMore, hasMoreTracks else {
+            Logger.debug("Pagination blocked: isLoadingMore=\(isLoadingMore), hasMoreTracks=\(hasMoreTracks)", log: Logger.ui)
             return
         }
         
+        Logger.info("Loading more tracks - page \(currentPage + 1)", log: Logger.ui)
         isLoadingMore = true
         let nextPage = currentPage + 1
         
@@ -282,17 +294,25 @@ struct MainView: View {
             
             do {
                 let countBefore = historyTracks.count
-                try await trackService.loadHistory(from: primary, limit: 20, page: nextPage)
+                Logger.debug("Before load: \(countBefore) tracks in UI", log: Logger.ui)
+                
+                // CRITICAL: Use fetchedCount (from API) not UI count for pagination logic
+                let fetchedCount = try await trackService.loadHistory(from: primary, limit: 20, page: nextPage)
                 
                 await MainActor.run {
                     let countAfter = historyTracks.count
-                    let newTracksCount = countAfter - countBefore
+                    let addedToUI = countAfter - countBefore
                     
-                    if newTracksCount > 0 {
+                    Logger.info("After load: \(countAfter) tracks in UI (added \(addedToUI)), fetched \(fetchedCount) from API", log: Logger.ui)
+                    
+                    if fetchedCount > 0 {
                         currentPage = nextPage
-                        hasMoreTracks = newTracksCount >= 20
+                        // Continue pagination if API returned full page (use API count, not UI count!)
+                        hasMoreTracks = fetchedCount >= 20
+                        Logger.debug("Updated: currentPage=\(currentPage), hasMoreTracks=\(hasMoreTracks)", log: Logger.ui)
                     } else {
                         hasMoreTracks = false
+                        Logger.debug("No tracks fetched from API, stopping pagination", log: Logger.ui)
                     }
                     isLoadingMore = false
                 }

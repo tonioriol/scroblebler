@@ -21,11 +21,12 @@ class TrackService: ObservableObject {
     // MARK: - Load History
     
     /// Load recent tracks from primary service
+    /// Returns the number of tracks fetched from the primary service (before deduplication)
     func loadHistory(
         from service: ServiceCredentials,
         limit: Int = 20,
         page: Int = 1
-    ) async throws {
+    ) async throws -> Int {
         // Fetch from primary via ScrobbleManager
         var primaryTracks = try await serviceManager.fetchRecentTracks(
             service: service.service,
@@ -33,7 +34,8 @@ class TrackService: ObservableObject {
             page: page
         )
         
-        Logger.info("Fetched \(primaryTracks.count) tracks from primary service \(service.service.displayName)", log: Logger.sync)
+        let fetchedCount = primaryTracks.count
+        Logger.info("Fetched \(fetchedCount) tracks from primary service \(service.service.displayName)", log: Logger.sync)
         
         // Enrich with secondary services via SyncService
         let otherServices = Defaults.shared.enabledServices
@@ -50,7 +52,7 @@ class TrackService: ObservableObject {
             )
         }
         
-        // Update store
+        // Update store with enriched tracks
         if page == 1 {
             store.setHistory(primaryTracks)
         } else {
@@ -58,6 +60,7 @@ class TrackService: ObservableObject {
         }
         
         Logger.info("Loaded \(primaryTracks.count) tracks from \(service.service.displayName)", log: Logger.sync)
+        return fetchedCount
     }
     
     // MARK: - Scrobble

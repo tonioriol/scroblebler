@@ -18,11 +18,11 @@ class SyncService {
         limit: Int,
         page: Int
     ) async {
-        // 1. Fetch from secondary services (delegates to ScrobbleManager)
+        // 1. Fetch from secondary services using timestamp range from primary tracks
         let secondaryTracksByService = await fetchFromSecondaries(
             secondaryServices,
-            limit: limit,
-            page: page
+            primaryTracks: tracks,
+            limit: limit
         )
         
         // 2. Match tracks and backfill missing ones
@@ -57,23 +57,50 @@ class SyncService {
     
     private func fetchFromSecondaries(
         _ secondaryServices: [ScrobbleService],
-        limit: Int,
-        page: Int
+        primaryTracks: [Track],
+        limit: Int
     ) async -> [ScrobbleService: [Track]] {
         var result: [ScrobbleService: [Track]] = [:]
+        
+        // Extract timestamp range from primary tracks
+        guard !primaryTracks.isEmpty else {
+            Logger.debug("No primary tracks to extract timestamp range from", log: Logger.sync)
+            return result
+        }
+        
+        let timestamps = primaryTracks.map { $0.timestamp }
+        guard let minTimestamp = timestamps.min(), let maxTimestamp = timestamps.max() else {
+            return result
+        }
+        
+        // Add edge buffers (60s before/after) for clock skew between services
+        let edgeBuffer = 60 // seconds
+        let minTs = minTimestamp - edgeBuffer
+        let maxTs = maxTimestamp + edgeBuffer
+        
+        Logger.debug("Fetching secondaries for timestamp range: \(minTs) - \(maxTs) with \(edgeBuffer)s edge buffer (primary tracks: \(primaryTracks.count))", log: Logger.sync)
         
         await withTaskGroup(of: (ScrobbleService, [Track]?).self) { group in
             for service in secondaryServices {
                 group.addTask {
-                    // Over-fetch for better matching
-                    let fetchLimit = min(limit * 10 * page, 1000)
-                    let tracks = try? await self.serviceManager.fetchRecentTracks(
+                    // Try timestamp-based fetch first (only ListenBrainz supports this)
+                    // Note: getRecentTracksByTimeRange returns [Track]? (nil if not supported)
+                    let fetchResult = try? await self.serviceManager.fetchRecentTracksByTimeRange(
                         service: service,
-                        limit: fetchLimit,
-                        page: 1
+                        minTs: minTs,
+                        maxTs: maxTs,
+                        limit: limit * 2 // Fetch a bit more to ensure coverage
                     )
-                    Logger.debug("Fetched \(tracks?.count ?? 0) tracks from \(service.displayName)", log: Logger.sync)
-                    return (service, tracks)
+                    
+                    // Swift flattens double optional [Track]?? to [Track]?
+                    if let tracks = fetchResult {
+                        Logger.debug("Fetched \(tracks.count) tracks from \(service.displayName) by timestamp range", log: Logger.sync)
+                        return (service, tracks)
+                    }
+                    
+                    // Fallback: service doesn't support timestamp queries
+                    Logger.debug("\(service.displayName) doesn't support timestamp queries, skipping", log: Logger.sync)
+                    return (service, nil)
                 }
             }
             

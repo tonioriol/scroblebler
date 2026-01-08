@@ -288,4 +288,11 @@ class ScrobbleManager: ObservableObject {
         }
         return try await serviceInstance.client.getRecentTracks(limit: limit, page: page)
     }
+    
+    func fetchRecentTracksByTimeRange(service: ScrobbleService, minTs: Int?, maxTs: Int?, limit: Int) async throws -> [Track]? {
+        guard let serviceInstance = services[service] else {
+            throw NSError(domain: "ScrobbleManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "Service not found for \(service.displayName)"])
+        }
+        return try await serviceInstance.client.getRecentTracksByTimeRange(minTs: minTs, maxTs: maxTs, limit: limit)
+    }
 }
