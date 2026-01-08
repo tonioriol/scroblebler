@@ -6,7 +6,13 @@ struct HistoryItem: View {
     
     let track: Track
     @State private var isHovered = false
-    @State private var isPlayingTrack = false
+    @State private var playbackState: PlaybackState = .idle
+    
+    private enum PlaybackState {
+        case idle
+        case success
+        case failed
+    }
     
     private var syncStatus: SyncStatus {
         let enabledServices = Set(defaults.enabledServices.map { $0.service })
@@ -53,20 +59,20 @@ struct HistoryItem: View {
                 }
             },
             artworkOverlay: {
-                if isHovered || isPlayingTrack {
+                if isHovered || playbackState != .idle {
                     Button(action: playTrack) {
                         ZStack {
                             Circle()
                                 .fill(Color.black.opacity(0.6))
                                 .frame(width: 32, height: 32)
                             
-                            Image(systemName: isPlayingTrack ? "checkmark" : "play.fill")
-                                .foregroundColor(.white)
+                            Image(systemName: iconName)
+                                .foregroundColor(iconColor)
                                 .font(.system(size: 14))
                         }
                     }
                     .buttonStyle(.plain)
-                    .help("Play in Apple Music")
+                    .help(tooltipText)
                 }
             }
         )
@@ -77,20 +83,48 @@ struct HistoryItem: View {
         }
     }
     
+    private var iconName: String {
+        switch playbackState {
+        case .idle: return "play.fill"
+        case .success: return "checkmark"
+        case .failed: return "xmark"
+        }
+    }
+    
+    private var iconColor: Color {
+        switch playbackState {
+        case .idle, .success: return .white
+        case .failed: return .red
+        }
+    }
+    
+    private var tooltipText: String {
+        switch playbackState {
+        case .idle: return "Play in Apple Music"
+        case .success: return "Playing..."
+        case .failed: return "Track not found in library"
+        }
+    }
+    
     private func playTrack() {
-        isPlayingTrack = true
+        playbackState = .success
         
         Task {
             do {
                 try HistoryPlay.playTrack(artist: track.artist, track: track.name)
                 Logger.info("Successfully initiated playback for '\(track.name)' by '\(track.artist)'")
+                playbackState = .success
                 
                 // Reset icon after 2 seconds
                 try? await Task.sleep(nanoseconds: 2_000_000_000)
-                isPlayingTrack = false
+                playbackState = .idle
             } catch {
                 Logger.error("Failed to play track '\(track.name)' by '\(track.artist)': \(error)")
-                isPlayingTrack = false
+                playbackState = .failed
+                
+                // Reset icon after 2 seconds
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                playbackState = .idle
             }
         }
     }
