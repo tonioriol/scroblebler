@@ -125,6 +125,8 @@ struct UndoButton: View {
                 timestamp: Int(timestamp),
                 duration: 0,
                 sourceService: .lastfm,
+                bundleIdentifier: nil,
+                trackId: nil,
                 loved: false,
                 playcount: 1,
                 scrobbled: false,

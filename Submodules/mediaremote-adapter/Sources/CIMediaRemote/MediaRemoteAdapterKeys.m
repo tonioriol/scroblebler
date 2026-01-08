@@ -18,3 +18,4 @@ NSString *const kPID = @"PID";
 NSString *const kShuffleMode = @"shuffleMode";
 NSString *const kRepeatMode = @"repeatMode";
 NSString *const kPlaybackRate = @"playbackRate";
+NSString *const kUniqueIdentifier = @"uniqueIdentifier";

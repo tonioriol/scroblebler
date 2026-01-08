@@ -32,6 +32,7 @@ public struct TrackInfo: Codable {
         public let shuffleMode: ShuffleMode?
         public let repeatMode: RepeatMode?
         public let playbackRate: Double?
+        public let uniqueIdentifier: String?
 
         public var artwork: NSImage? {
             guard let base64String = artworkDataBase64,
@@ -40,10 +41,6 @@ public struct TrackInfo: Codable {
                 return nil
             }
             return NSImage(data: data)
-        }
-
-        public var uniqueIdentifier: String {
-            return "\(title ?? "")-\(artist ?? "")-\(album ?? "")"
         }
 
         /// Returns the current elapsed time in seconds, accounting for playback since the last update.
@@ -65,7 +62,7 @@ public struct TrackInfo: Codable {
         }
 
         enum CodingKeys: String, CodingKey {
-            case title, artist, album, isPlaying, durationMicros, elapsedTimeMicros, applicationName, bundleIdentifier, artworkDataBase64, artworkMimeType, timestampEpochMicros, PID, shuffleMode, repeatMode, playbackRate
+            case title, artist, album, isPlaying, durationMicros, elapsedTimeMicros, applicationName, bundleIdentifier, artworkDataBase64, artworkMimeType, timestampEpochMicros, PID, shuffleMode, repeatMode, playbackRate, uniqueIdentifier
         }
 
         public init(from decoder: Decoder) throws {
@@ -80,6 +77,7 @@ public struct TrackInfo: Codable {
             self.artworkDataBase64 = try container.decodeIfPresent(String.self, forKey: .artworkDataBase64)
             self.artworkMimeType = try container.decodeIfPresent(String.self, forKey: .artworkMimeType)
             self.timestampEpochMicros = try container.decodeIfPresent(Double.self, forKey: .timestampEpochMicros)
+            self.uniqueIdentifier = try container.decodeIfPresent(String.self, forKey: .uniqueIdentifier)
 
             // Handle PID which may come as Int or String
             if let pidNumber = try? container.decodeIfPresent(Int32.self, forKey: .PID) {
@@ -104,4 +102,4 @@ public struct TrackInfo: Codable {
             }
         }
     }
-} 
+}

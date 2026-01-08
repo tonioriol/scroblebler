@@ -16,10 +16,11 @@ struct MediaControlStatus: Codable {
     let trackNumber: Int?
     let totalTrackCount: Int?
     let bundleIdentifier: String?
+    let uniqueIdentifier: String? // MediaRemote persistent track ID
     
     enum CodingKeys: String, CodingKey {
         case title, artist, album, artworkData, duration, playing, playbackRate
-        case elapsedTime, contentItemIdentifier, trackNumber, totalTrackCount, bundleIdentifier
+        case elapsedTime, contentItemIdentifier, trackNumber, totalTrackCount, bundleIdentifier, uniqueIdentifier
     }
 }
 
@@ -218,7 +219,8 @@ class Watcher: ObservableObject {
             contentItemIdentifier: trackIdentifier,
             trackNumber: nil,
             totalTrackCount: nil,
-            bundleIdentifier: payload.bundleIdentifier
+            bundleIdentifier: payload.bundleIdentifier,
+            uniqueIdentifier: payload.uniqueIdentifier
         )
         
         // Handle missing or incomplete duration - preserve from previous if same track
@@ -243,7 +245,8 @@ class Watcher: ObservableObject {
                 contentItemIdentifier: newStatus.contentItemIdentifier,
                 trackNumber: newStatus.trackNumber,
                 totalTrackCount: newStatus.totalTrackCount,
-                bundleIdentifier: newStatus.bundleIdentifier
+                bundleIdentifier: newStatus.bundleIdentifier,
+                uniqueIdentifier: newStatus.uniqueIdentifier
             )
         }
         
@@ -284,6 +287,8 @@ class Watcher: ObservableObject {
             timestamp: Int(startedAt),
             duration: status.duration ?? 0,
             sourceService: .lastfm, // Placeholder, not used for now-playing
+            bundleIdentifier: status.bundleIdentifier,
+            trackId: status.uniqueIdentifier,
             loved: false,
             playcount: 1,
             scrobbled: false,

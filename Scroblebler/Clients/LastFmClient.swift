@@ -610,6 +610,8 @@ private extension LastFmClient {
                     timestamp: dateInt,
                     duration: 0,
                     sourceService: .lastfm,
+                    bundleIdentifier: nil,
+                    trackId: nil,
                     loved: loved == "1",
                     playcount: 1,
                     scrobbled: true,
