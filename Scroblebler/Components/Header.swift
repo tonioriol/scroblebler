@@ -76,11 +76,19 @@ struct Header: View {
                     .buttonStyle(.plain)
                     .help("Show/hide service settings")
                 } else {
-                    Image("app-logo")
-                        .resizable()
-                        .antialiased(true)
-                        .scaledToFit()
-                        .frame(height: 55)
+                    Button(action: {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                            showServicesSection.toggle()
+                        }
+                    }) {
+                        Image("app-logo")
+                            .resizable()
+                            .antialiased(true)
+                            .scaledToFit()
+                            .frame(height: 55)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Show/hide service settings")
                 }
                 
                 Spacer()
