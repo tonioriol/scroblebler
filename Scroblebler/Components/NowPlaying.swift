@@ -37,6 +37,9 @@ struct NowPlaying: View {
                     trackURL: urls?.trackURL,
                     actionButtons: {
                         BlacklistButton(artist: track.artist, track: track.name)
+                    },
+                    artworkOverlay: {
+                        EmptyView()
                     }
                 )
                 

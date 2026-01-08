@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct TrackInfo<ActionButtons: View>: View {
+struct TrackInfo<ActionButtons: View, ArtworkOverlay: View>: View {
     @EnvironmentObject var serviceManager: ScrobbleManager
     @EnvironmentObject var defaults: Defaults
     @EnvironmentObject var watcher: Watcher
@@ -34,6 +34,9 @@ struct TrackInfo<ActionButtons: View>: View {
     // Optional action buttons
     let actionButtons: ActionButtons?
     
+    // Optional artwork overlay
+    let artworkOverlay: ArtworkOverlay?
+    
     @Binding var playCount: Int?
     
     init(
@@ -55,7 +58,8 @@ struct TrackInfo<ActionButtons: View>: View {
         albumURL: URL? = nil,
         trackURL: URL? = nil,
         onSeek: ((Double) -> Void)? = nil,
-        @ViewBuilder actionButtons: () -> ActionButtons = { EmptyView() as! ActionButtons }
+        @ViewBuilder actionButtons: () -> ActionButtons = { EmptyView() as! ActionButtons },
+        @ViewBuilder artworkOverlay: () -> ArtworkOverlay = { EmptyView() as! ArtworkOverlay }
     ) {
         self.trackName = trackName
         self.artist = artist
@@ -76,6 +80,7 @@ struct TrackInfo<ActionButtons: View>: View {
         self.trackURL = trackURL
         self.onSeek = onSeek
         self.actionButtons = actionButtons()
+        self.artworkOverlay = artworkOverlay()
     }
     
     func formatDate(_ timestamp: Int?) -> String {
@@ -118,10 +123,16 @@ struct TrackInfo<ActionButtons: View>: View {
         }()
         
         HStack(alignment: .top, spacing: 12) {
-            if let imageData = artworkImageData {
-                AlbumArtwork(imageData: imageData, size: artworkSize)
-            } else {
-                AlbumArtwork(imageUrl: artworkImageUrl, size: artworkSize)
+            ZStack(alignment: .center) {
+                if let imageData = artworkImageData {
+                    AlbumArtwork(imageData: imageData, size: artworkSize)
+                } else {
+                    AlbumArtwork(imageUrl: artworkImageUrl, size: artworkSize)
+                }
+                
+                if let overlay = artworkOverlay {
+                    overlay
+                }
             }
             
             VStack(alignment: .leading, spacing: 3) {

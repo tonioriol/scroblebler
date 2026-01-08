@@ -5,6 +5,8 @@ struct HistoryItem: View {
     @EnvironmentObject var defaults: Defaults
     
     let track: Track
+    @State private var isHovered = false
+    @State private var isPlayingTrack = false
     
     private var syncStatus: SyncStatus {
         let enabledServices = Set(defaults.enabledServices.map { $0.service })
@@ -49,10 +51,48 @@ struct HistoryItem: View {
                         track: track.name
                     )
                 }
+            },
+            artworkOverlay: {
+                if isHovered || isPlayingTrack {
+                    Button(action: playTrack) {
+                        ZStack {
+                            Circle()
+                                .fill(Color.black.opacity(0.6))
+                                .frame(width: 32, height: 32)
+                            
+                            Image(systemName: isPlayingTrack ? "checkmark" : "play.fill")
+                                .foregroundColor(.white)
+                                .font(.system(size: 14))
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .help("Play in Apple Music")
+                }
             }
         )
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
+        .onHover { hovering in
+            isHovered = hovering
+        }
+    }
+    
+    private func playTrack() {
+        isPlayingTrack = true
+        
+        Task {
+            do {
+                try HistoryPlay.playTrack(artist: track.artist, track: track.name)
+                Logger.info("Successfully initiated playback for '\(track.name)' by '\(track.artist)'")
+                
+                // Reset icon after 2 seconds
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                isPlayingTrack = false
+            } catch {
+                Logger.error("Failed to play track '\(track.name)' by '\(track.artist)': \(error)")
+                isPlayingTrack = false
+            }
+        }
     }
     
     private func convertServiceInfoToStringKeys() -> [String: ServiceTrackData] {

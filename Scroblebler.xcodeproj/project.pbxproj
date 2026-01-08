@@ -40,6 +40,7 @@
 		DD000002000000000000001 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000001000000000000001 /* Models.swift */; };
 		DF4019FC2F05A4CF008DEBE5 /* MediaRemoteAdapter in Embed Frameworks */ = {isa = PBXBuildFile; productRef = MRAPKG00000000000000000 /* MediaRemoteAdapter */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		ED5A9C7606CA63100C3905BA /* Service.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE900854B26848E1F16665A /* Service.swift */; };
+		F640CF9174416B30FADDE1C5 /* MusicPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945B0AE950C577F39A8982D7 /* MusicPlayer.swift */; };
 		FF1111111111111111111111 /* LastFmClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE1111111111111111111111 /* LastFmClient.swift */; };
 		FF2222222222222222222222 /* LibreFmClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE2222222222222222222222 /* LibreFmClient.swift */; };
 		FF3333333333333333333333 /* ListenBrainzClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE3333333333333333333333 /* ListenBrainzClient.swift */; };
@@ -95,6 +96,7 @@
 		0390C611586C209B0D20291B /* LastFmService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LastFmService.swift; path = Scroblebler/Services/LastFmService.swift; sourceTree = "<group>"; };
 		180D3DE66CB8D321ADFAFCEC /* TrackService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TrackService.swift; path = TrackService.swift; sourceTree = "<group>"; };
 		2FE900854B26848E1F16665A /* Service.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = Service.swift; path = Scroblebler/Protocols/Service.swift; sourceTree = "<group>"; };
+		945B0AE950C577F39A8982D7 /* MusicPlayer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MusicPlayer.swift; path = Scroblebler/MusicPlayer.swift; sourceTree = "<group>"; };
 		A0F361811AED80EF7ACDCA43 /* LoveButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoveButton.swift; sourceTree = "<group>"; };
 		BB1111111111111111111111 /* AlbumArtwork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlbumArtwork.swift; sourceTree = "<group>"; };
 		BB2222222222222222222222 /* PlayCountBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayCountBadge.swift; sourceTree = "<group>"; };
@@ -183,6 +185,7 @@
 				0390C611586C209B0D20291B /* LastFmService.swift */,
 				BEC89C26C447DC50A931C564 /* LibreFmService.swift */,
 				CEC77CD2AD564E2DF10EF98C /* ListenBrainzService.swift */,
+				945B0AE950C577F39A8982D7 /* MusicPlayer.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -512,6 +515,7 @@
 				AA1347A4BB2B1A01297C8A41 /* LibreFmService.swift in Sources */,
 				54EF5BB490E7B7CAEA23F3C5 /* ListenBrainzService.swift in Sources */,
 				9F5A3B2AB149F9C755694E25 /* TrackService.swift in Sources */,
+				F640CF9174416B30FADDE1C5 /* MusicPlayer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
