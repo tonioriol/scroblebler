@@ -19,6 +19,7 @@ struct Track: Identifiable, Codable, Equatable {
     let timestamp: Int
     let duration: Double
     let sourceService: ScrobbleService
+    let bundleIdentifier: String? // Media player that was playing this track
     
     // MARK: - Mutable State
     
@@ -84,6 +85,7 @@ struct Track: Identifiable, Codable, Equatable {
         case timestamp
         case duration
         case sourceService
+        case bundleIdentifier
         case loved
         case playcount
         case scrobbled
@@ -102,7 +104,8 @@ struct Track: Identifiable, Codable, Equatable {
         name: String,
         duration: Double,
         artwork: Data?,
-        startedAt: Int32
+        startedAt: Int32,
+        bundleIdentifier: String? = nil
     ) -> Track {
         return Track(
             id: UUID(),
@@ -112,6 +115,7 @@ struct Track: Identifiable, Codable, Equatable {
             timestamp: Int(startedAt),
             duration: duration,
             sourceService: .lastfm,
+            bundleIdentifier: bundleIdentifier,
             artwork: artwork,
             imageUrl: nil
         )
@@ -137,6 +141,7 @@ struct Track: Identifiable, Codable, Equatable {
             timestamp: timestamp,
             duration: 0,
             sourceService: sourceService,
+            bundleIdentifier: nil,
             loved: loved,
             playcount: playcount ?? 1,
             scrobbled: true,
