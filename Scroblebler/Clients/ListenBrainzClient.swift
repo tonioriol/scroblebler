@@ -152,11 +152,17 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
     
     func deleteScrobble(identifier: ScrobbleIdentifier) async throws {
         guard let token = self.token else {
+            Logger.error("LB_DELETE: No token available", log: Logger.scrobbling)
             throw Error.invalidToken
         }
         
+        Logger.info("LB_DELETE: 🔍 Attempting delete for '\(identifier.artist) - \(identifier.track)'", log: Logger.scrobbling)
+        Logger.debug("LB_DELETE: identifier.timestamp = \(identifier.timestamp ?? 0)", log: Logger.scrobbling)
+        Logger.debug("LB_DELETE: identifier.serviceId = \(identifier.serviceId ?? "nil")", log: Logger.scrobbling)
+        
         guard let timestamp = identifier.timestamp, let msid = identifier.serviceId else {
-            Logger.info("ListenBrainz delete skipped - requires timestamp AND recording_msid", log: Logger.scrobbling)
+            Logger.error("LB_DELETE: ❌ MISSING DATA - timestamp: \(identifier.timestamp != nil ? "✓" : "✗"), recording_msid: \(identifier.serviceId != nil ? "✓" : "✗")", log: Logger.scrobbling)
+            Logger.error("LB_DELETE: Cannot delete from ListenBrainz - requires BOTH timestamp AND recording_msid", log: Logger.scrobbling)
             return
         }
         
@@ -165,11 +171,14 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
             "recording_msid": msid
         ]
         
+        Logger.info("LB_DELETE: 🚀 Sending delete request with timestamp=\(timestamp), recording_msid=\(msid)", log: Logger.scrobbling)
+        
         do {
             try await sendRequest(endpoint: "delete-listen", token: token, payload: payload)
-            Logger.info("ListenBrainz delete request sent", log: Logger.scrobbling)
+            Logger.info("LB_DELETE: ✅ Successfully deleted from ListenBrainz", log: Logger.scrobbling)
         } catch {
-            Logger.error("ListenBrainz delete failed: \(error)", log: Logger.scrobbling)
+            Logger.error("LB_DELETE: ❌ Delete request failed: \(error)", log: Logger.scrobbling)
+            throw error
         }
     }
     

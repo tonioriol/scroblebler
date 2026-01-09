@@ -237,8 +237,14 @@ class ScrobbleManager: ObservableObject {
     func deleteScrobbleAll(artist: String, track: String, serviceInfo: [String: ServiceTrackData]) async {
         let enabledServices = Defaults.shared.enabledServices
         
-        Logger.info("🗑️ Deleting scrobble '\(artist) - \(track)' from \(enabledServices.count) enabled services", log: Logger.scrobbling)
-        Logger.debug("Available serviceInfo keys: \(serviceInfo.keys.joined(separator: ", "))", log: Logger.scrobbling)
+        Logger.info("🗑️ DELETE_ALL: Deleting scrobble '\(artist) - \(track)' from \(enabledServices.count) enabled services", log: Logger.scrobbling)
+        Logger.debug("DELETE_ALL: Available serviceInfo keys: \(serviceInfo.keys.sorted().joined(separator: ", "))", log: Logger.scrobbling)
+        Logger.debug("DELETE_ALL: Enabled services: \(enabledServices.map { $0.service.displayName }.joined(separator: ", "))", log: Logger.scrobbling)
+        
+        // Log detailed serviceInfo for debugging
+        for (key, data) in serviceInfo {
+            Logger.debug("DELETE_ALL: serviceInfo[\(key)] = timestamp: \(data.timestamp ?? 0), id: \(data.id ?? "nil")", log: Logger.scrobbling)
+        }
         
         // Extract timestamp from any available service for offline queue
         let timestamp = serviceInfo.values.first?.timestamp
@@ -252,12 +258,15 @@ class ScrobbleManager: ObservableObject {
         await executeOrQueue(operation: operation, operationName: "Delete '\(artist) - \(track)'") {
             await withTaskGroup(of: Void.self) { group in
                 for credentials in enabledServices {
-                    let info = serviceInfo[credentials.service.id]
+                    let serviceId = credentials.service.id
+                    let info = serviceInfo[serviceId]
+                    
+                    Logger.debug("DELETE_ALL: Processing \(credentials.service.displayName) (id: \(serviceId))", log: Logger.scrobbling)
                     
                     if info == nil {
-                        Logger.error("⚠️ No serviceInfo for \(credentials.service.displayName) - track may not be in this service", log: Logger.scrobbling)
+                        Logger.error("DELETE_ALL: ⚠️ No serviceInfo for \(credentials.service.displayName) (id: \(serviceId)) - track may not have been scrobbled to this service", log: Logger.scrobbling)
                     } else {
-                        Logger.debug("✅ Found serviceInfo for \(credentials.service.displayName): timestamp=\(info?.timestamp ?? 0), id=\(info?.id ?? "none")", log: Logger.scrobbling)
+                        Logger.debug("DELETE_ALL: ✅ Found serviceInfo for \(credentials.service.displayName): timestamp=\(info?.timestamp ?? 0), id=\(info?.id ?? "none")", log: Logger.scrobbling)
                     }
                     
                     let identifier = ScrobbleIdentifier(
@@ -267,16 +276,20 @@ class ScrobbleManager: ObservableObject {
                         serviceId: info?.id
                     )
                     
+                    Logger.debug("DELETE_ALL: Created identifier for \(credentials.service.displayName): artist=\(identifier.artist), track=\(identifier.track), timestamp=\(identifier.timestamp ?? 0), serviceId=\(identifier.serviceId ?? "nil")", log: Logger.scrobbling)
+                    
                     group.addTask {
+                        Logger.info("DELETE_ALL: 🚀 Starting delete for \(credentials.service.displayName)", log: Logger.scrobbling)
                         do {
                             try await self.deleteScrobble(credentials: credentials, identifier: identifier)
-                            Logger.info("✅ Deleted scrobble from \(credentials.service.displayName): \(artist) - \(track)", log: Logger.scrobbling)
+                            Logger.info("DELETE_ALL: ✅ Successfully deleted scrobble from \(credentials.service.displayName): \(artist) - \(track)", log: Logger.scrobbling)
                         } catch {
-                            Logger.error("❌ Failed to delete scrobble from \(credentials.service.displayName): \(error)", log: Logger.scrobbling)
+                            Logger.error("DELETE_ALL: ❌ Failed to delete scrobble from \(credentials.service.displayName): \(error)", log: Logger.scrobbling)
                         }
                     }
                 }
             }
+            Logger.info("DELETE_ALL: 🏁 Completed all deletion tasks", log: Logger.scrobbling)
         }
     }
     

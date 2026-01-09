@@ -18,6 +18,18 @@ class TrackService: ObservableObject {
         self.syncService = SyncService(serviceManager: serviceManager)
     }
     
+    // MARK: - Deletion Tracking
+    
+    /// Mark a track as recently deleted to prevent immediate backfilling
+    func markTrackAsDeleted(artist: String, track: String) {
+        syncService.markAsDeleted(artist: artist, track: track)
+    }
+    
+    /// Clear deletion tracking for a track (called when redoing a scrobble)
+    func clearDeletionTracking(artist: String, track: String) {
+        syncService.clearDeletionTracking(artist: artist, track: track)
+    }
+    
     // MARK: - Load History
     
     /// Load recent tracks from primary service
@@ -166,6 +178,9 @@ class TrackService: ObservableObject {
                 services: Defaults.shared.enabledServices.map { $0.service }
             ))
         }
+        
+        // Mark as recently deleted to prevent immediate backfill
+        syncService.markAsDeleted(artist: track.artist, track: track.name)
         
         // Update local state
         store.updateTrack(artist: track.artist, track: track.name) { t in

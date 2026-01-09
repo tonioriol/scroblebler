@@ -5,8 +5,57 @@ import Foundation
 class SyncService {
     private let serviceManager: ScrobbleManager
     
+    /// Track recently deleted scrobbles to prevent immediate re-backfilling
+    /// Key: canonical track key (artist|track), Value: deletion timestamp
+    private var recentlyDeleted: [String: Date] = [:]
+    private let deletionCooldownPeriod: TimeInterval = 300 // 5 minutes
+    
     init(serviceManager: ScrobbleManager) {
         self.serviceManager = serviceManager
+    }
+    
+    /// Mark a track as recently deleted to prevent backfilling
+    func markAsDeleted(artist: String, track: String) {
+        let key = TrackIdentity.key(artist: artist, track: track)
+        recentlyDeleted[key] = Date()
+        Logger.info("SYNC: Marked '\(artist) - \(track)' as recently deleted (cooldown: \(Int(deletionCooldownPeriod))s)", log: Logger.sync)
+        
+        // Clean up old entries (older than cooldown period)
+        cleanupOldDeletions()
+    }
+    
+    /// Clear deletion tracking for a track (e.g., when redoing a scrobble)
+    func clearDeletionTracking(artist: String, track: String) {
+        let key = TrackIdentity.key(artist: artist, track: track)
+        if recentlyDeleted.removeValue(forKey: key) != nil {
+            Logger.info("SYNC: Cleared deletion tracking for '\(artist) - \(track)'", log: Logger.sync)
+        }
+    }
+    
+    /// Check if a track was recently deleted
+    private func wasRecentlyDeleted(artist: String, track: String) -> Bool {
+        let key = TrackIdentity.key(artist: artist, track: track)
+        guard let deletionTime = recentlyDeleted[key] else {
+            return false
+        }
+        
+        let timeSinceDeletion = Date().timeIntervalSince(deletionTime)
+        if timeSinceDeletion < deletionCooldownPeriod {
+            Logger.debug("SYNC: Track '\(artist) - \(track)' was deleted \(Int(timeSinceDeletion))s ago, skipping backfill", log: Logger.sync)
+            return true
+        }
+        
+        // Cooldown expired, remove from tracking
+        recentlyDeleted.removeValue(forKey: key)
+        return false
+    }
+    
+    /// Clean up old deletion tracking entries
+    private func cleanupOldDeletions() {
+        let now = Date()
+        recentlyDeleted = recentlyDeleted.filter { _, deletionTime in
+            now.timeIntervalSince(deletionTime) < deletionCooldownPeriod
+        }
     }
     
     /// Enrich tracks with data from secondary services
@@ -37,10 +86,14 @@ class SyncService {
                     Logger.debug("  Merging from \(service.displayName) - keys: \(match.serviceInfo.keys.map { $0.rawValue }.joined(separator: ", "))", log: Logger.sync)
                     tracks[i].serviceInfo.merge(match.serviceInfo) { (_, new) in new }
                     Logger.debug("  After merge - serviceInfo keys: \(tracks[i].serviceInfo.keys.map { $0.rawValue }.joined(separator: ", "))", log: Logger.sync)
-                } else if shouldBackfill(tracks[i], to: service) {
-                    // Track missing and eligible for backfill
-                    Logger.info("[MATCH] ❌ No match for '\(tracks[i].artist) - \(tracks[i].name)' in \(service.displayName)", log: Logger.sync)
-                    backfillTasks.append((track: tracks[i], service: service))
+                } else {
+                    // Track missing - check if eligible for backfill
+                    if wasRecentlyDeleted(artist: tracks[i].artist, track: tracks[i].name) {
+                        Logger.info("[MATCH] 🚫 No match for '\(tracks[i].artist) - \(tracks[i].name)' in \(service.displayName) - recently deleted, skipping backfill", log: Logger.sync)
+                    } else if shouldBackfill(tracks[i], to: service) {
+                        Logger.info("[MATCH] ❌ No match for '\(tracks[i].artist) - \(tracks[i].name)' in \(service.displayName)", log: Logger.sync)
+                        backfillTasks.append((track: tracks[i], service: service))
+                    }
                 }
             }
         }
@@ -189,6 +242,11 @@ class SyncService {
     }
     
     private func shouldBackfill(_ track: Track, to service: ScrobbleService) -> Bool {
+        // Don't backfill recently deleted tracks
+        if wasRecentlyDeleted(artist: track.artist, track: track.name) {
+            return false
+        }
+        
         let age = Date().timeIntervalSince1970 - TimeInterval(track.timestamp)
         let daysOld = age / 86400
         

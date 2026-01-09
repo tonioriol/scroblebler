@@ -54,10 +54,28 @@ struct UndoButton: View {
         isProcessing = true
         
         Task {
+            Logger.info("🔄 UNDO: Starting undo for '\(artist) - \(track)'", log: Logger.scrobbling)
+            Logger.debug("UNDO: serviceInfo keys: \(serviceInfo.keys.sorted().joined(separator: ", "))", log: Logger.scrobbling)
+            
+            // Log detailed serviceInfo for each service
+            for (serviceId, data) in serviceInfo {
+                Logger.debug("UNDO: serviceInfo[\(serviceId)] = timestamp: \(data.timestamp ?? 0), id: \(data.id ?? "nil")", log: Logger.scrobbling)
+            }
+            
+            // Log enabled services
+            let enabled = defaults.enabledServices
+            Logger.debug("UNDO: Enabled services: \(enabled.map { $0.service.displayName }.joined(separator: ", "))", log: Logger.scrobbling)
+            
             // Update track store
             trackStore.decrementPlaycount(artist: artist, track: track)
+            Logger.debug("UNDO: Decremented playcount in store", log: Logger.scrobbling)
             
             await serviceManager.deleteScrobbleAll(artist: artist, track: track, serviceInfo: serviceInfo)
+            
+            // Mark as recently deleted to prevent immediate backfill
+            trackService.markTrackAsDeleted(artist: artist, track: track)
+            
+            Logger.info("✅ UNDO: Completed undo operation", log: Logger.scrobbling)
             
             await MainActor.run {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
@@ -133,6 +151,9 @@ struct UndoButton: View {
                 artwork: nil,
                 imageUrl: nil
             )
+            
+            // Clear deletion tracking so this track can be backfilled again if needed
+            trackService.clearDeletionTracking(artist: artist, track: track)
             
             // Scrobble to all enabled services and update store
             trackStore.incrementPlaycount(artist: artist, track: track)
