@@ -33,9 +33,6 @@ extension Track {
             blacklisted: blacklisted,
             serviceInfo: serviceInfo,
             artwork: artwork,
-            artistURL: nil,
-            albumURL: nil,
-            trackURL: nil,
             imageUrl: nil
         )
     }
@@ -50,18 +47,18 @@ class TestDatabase {
         // Use temporary file as workaround - GRDB doesn't support true in-memory for testing
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("test-\(UUID().uuidString).db")
-        
+
         // Create database
         let fileManager = FileManager.default
         try? fileManager.createDirectory(
             at: url.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
-        
+
         // Return new instance (will run migrations)
         return LocalDatabaseInstance(path: url.path)
     }
-    
+
     /// Create a temporary file-based database
     /// Returns both the database and URL for cleanup
     static func createTemporary() -> (database: LocalDatabase, url: URL) {
@@ -70,7 +67,7 @@ class TestDatabase {
         let db = LocalDatabaseInstance(path: url.path)
         return (db, url)
     }
-    
+
     /// Clean up temporary database file
     static func cleanup(url: URL) {
         try? FileManager.default.removeItem(at: url)
@@ -86,7 +83,7 @@ private class LocalDatabaseInstance: LocalDatabase {
         let url = URL(fileURLWithPath: path)
         let dir = url.deletingLastPathComponent()
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        
+
         // Note: This is a workaround - actual LocalDatabase uses shared instance
         // For E2E tests, we may need to use the shared instance and clean between tests
         super.init()
@@ -130,7 +127,7 @@ extension XCTestCase {
         }
         throw TimeoutError()
     }
-    
+
     struct TimeoutError: Error, LocalizedError {
         var errorDescription: String? {
             "Async condition timed out"

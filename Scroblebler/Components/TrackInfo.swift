@@ -1,10 +1,11 @@
 import SwiftUI
+import AppKit
 
 struct TrackInfo<ActionButtons: View, ArtworkOverlay: View>: View {
     @EnvironmentObject var serviceManager: ScrobbleManager
     @EnvironmentObject var defaults: Defaults
     @EnvironmentObject var watcher: Watcher
-    
+
     let trackName: String
     let artist: String
     let album: String
@@ -15,30 +16,34 @@ struct TrackInfo<ActionButtons: View, ArtworkOverlay: View>: View {
     let detailFontSize: CGFloat
     @Binding var loved: Bool
     let loveFontSize: CGFloat
-    
+
     // For history items
     let timestamp: Int?
-    
+
     // For now playing (progress bar moved to PlayerControls)
     let currentPosition: Double?
     let trackLength: Double?
-    
+
+    private var sourceBundleIdentifier: String? {
+        watcher.currentBundleIdentifier
+    }
+
     // Pre-built URLs (from RecentTrack or Track)
     let artistURL: URL?
     let albumURL: URL?
     let trackURL: URL?
-    
+
     // Seek callback (moved to PlayerControls)
     let onSeek: ((Double) -> Void)?
-    
+
     // Optional action buttons
     let actionButtons: ActionButtons?
-    
+
     // Optional artwork overlay
     let artworkOverlay: ArtworkOverlay?
-    
+
     @Binding var playCount: Int?
-    
+
     init(
         trackName: String,
         artist: String,
@@ -82,7 +87,7 @@ struct TrackInfo<ActionButtons: View, ArtworkOverlay: View>: View {
         self.actionButtons = actionButtons()
         self.artworkOverlay = artworkOverlay()
     }
-    
+
     func formatDate(_ timestamp: Int?) -> String {
         guard let timestamp = timestamp else { return "" }
         let date = Date(timeIntervalSince1970: TimeInterval(timestamp))
@@ -90,12 +95,12 @@ struct TrackInfo<ActionButtons: View, ArtworkOverlay: View>: View {
         formatter.unitsStyle = .short
         return formatter.localizedString(for: date, relativeTo: Date())
     }
-    
+
     func formatDuration(_ value: Double) -> String {
         let hours = Int(value / 3600)
         let minutes = Int(value.truncatingRemainder(dividingBy: 3600) / 60)
         let seconds = Int(value.truncatingRemainder(dividingBy: 60))
-        
+
         if hours >= 1 {
             return String(format: "%d:%02d:%02d", hours, minutes, seconds)
         } else if minutes >= 1 {
@@ -104,12 +109,12 @@ struct TrackInfo<ActionButtons: View, ArtworkOverlay: View>: View {
             return String(format: "0:%02d", seconds)
         }
     }
-    
+
     var body: some View {
         let displayService = defaults.mainServicePreference ?? defaults.primaryService?.service ?? .lastfm
         let client = serviceManager.client(for: displayService)
         let linkColor = client?.linkColor ?? Color.primary
-        
+
         // Service-specific fallback homepage
         let fallbackURL: URL = {
             switch displayService {
@@ -121,20 +126,24 @@ struct TrackInfo<ActionButtons: View, ArtworkOverlay: View>: View {
                 return URL(string: "https://listenbrainz.org")!
             }
         }()
-        
+
         HStack(alignment: .top, spacing: 12) {
             ZStack(alignment: .center) {
-                if let imageData = artworkImageData {
-                    AlbumArtwork(imageData: imageData, size: artworkSize)
-                } else {
-                    AlbumArtwork(imageUrl: artworkImageUrl, size: artworkSize)
+                Group {
+                    if let imageData = artworkImageData {
+                        AlbumArtwork(imageData: imageData, size: artworkSize)
+                    } else {
+                        AlbumArtwork(imageUrl: artworkImageUrl, size: artworkSize)
+                    }
                 }
-                
+                .onTapGesture { openSourceAppIfPossible() }
+                .modifier(HelpIfAvailable(text: "Open player", isEnabled: sourceBundleIdentifier?.isEmpty == false))
+
                 if let overlay = artworkOverlay {
                     overlay
                 }
             }
-            
+
             VStack(alignment: .leading, spacing: 3) {
                 HStack(alignment: .top, spacing: 0) {
                     VStack(alignment: .leading, spacing: 2) {
@@ -148,7 +157,7 @@ struct TrackInfo<ActionButtons: View, ArtworkOverlay: View>: View {
                                 fontWeight: .semibold
                             )
                         }
-                        
+
                         // Artist
                         HStack(spacing: 3) {
                             if !artist.isEmpty {
@@ -169,7 +178,7 @@ struct TrackInfo<ActionButtons: View, ArtworkOverlay: View>: View {
                                     .font(.system(size: detailFontSize))
                             }
                         }
-                        
+
                         // Album
                         HStack(spacing: 3) {
                             if !album.isEmpty {
@@ -191,9 +200,9 @@ struct TrackInfo<ActionButtons: View, ArtworkOverlay: View>: View {
                             }
                         }
                     }
-                    
+
                     Spacer()
-                    
+
                     VStack(alignment: .trailing, spacing: 4) {
                         HStack(spacing: 4) {
                             if let count = playCount {
@@ -218,6 +227,28 @@ struct TrackInfo<ActionButtons: View, ArtworkOverlay: View>: View {
                     }
                 }
             }
+        }
+    }
+
+    private func openSourceAppIfPossible() {
+        guard let bundleId = sourceBundleIdentifier, !bundleId.isEmpty else { return }
+        guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) else { return }
+
+        let config = NSWorkspace.OpenConfiguration()
+        config.activates = true
+        NSWorkspace.shared.openApplication(at: appURL, configuration: config, completionHandler: nil)
+    }
+}
+
+private struct HelpIfAvailable: ViewModifier {
+    let text: String
+    let isEnabled: Bool
+
+    func body(content: Content) -> some View {
+        if isEnabled {
+            content.help(text)
+        } else {
+            content
         }
     }
 }
