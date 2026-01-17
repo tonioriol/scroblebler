@@ -117,28 +117,24 @@ on their repository](https://github.com/lastfm/lastfm-desktop/blob/9ae84cf4ab204
 - [x] Use proper logger.
 - [x] Testing.
 - [x] Links in now playing for lastfm not working.
+- [ ] Local-first storage + sync engine (store scrobbles locally, offline queue, background sync to multiple services). This should fix ListenBrainz cache losing scrobbles, enable retry for unsynced scrobbles, make undo/sync state consistent, and allow caching history locally.
+- [ ] taking 10+ seconds to load
 - [ ] Stop the constant reloading of images on scroll in history view.
 - [ ] Fix progress bar jumping ui, animation of bar screwing up when opening/closing app.
+- [ ] stop requesting images and stuff every time we click in the progress bar.
+- [ ] fix ui for password request for lastfm.
+- [ ] display blacklisted tracks somewhere, otherwise we have no way of knowing which tracks were blacklisted. Only when playing them.
+- [ ] Auto-update.
+- [ ] Add macOS notification center alerts (for tracck change, for API failures...).
+- [ ] detect non music playback (from browser, podcasts, videos, system sounds...).
+- [ ] Show multiple playing sources in player.
+- [ ] edit track info before/after scrobbling.
 - [ ] Add metrics (with opt-out).
 - [ ] Is TrackIdentity the right approach? what is it??? what is canonicalKey? coul we use messybraibrainz ids? to standardize across services?
 - [ ] Factory methods on the model violate Single Responsibility Principle. Track should be a pure data model, and conversion logic belongs in the clients/decoders.
-- [ ] Update the date and the (c) of the new files.
 - [ ] Update the reverse domain.
-- [ ] Offline support.
-- [ ] Auto-update.
-- [ ] Show multiple playing sources in player.
-- [ ] Add macOS notification center alerts (for tracck change, for API failures...).
-- [ ] display blacklisted tracks somewhere, otherwise we have no way of knowing which tracks were blacklisted. Only when playing them.
-- [ ] Local first approach, store scrobbles locally and sync in background.
-- [ ] detect non music playback (from browser, podcasts, videos, system sounds...).
-- [ ] Better state management when undoing propagating to secondary services and updating the sync icons accordingly.
-- [ ] Add retry button for unsynced scrobbles in history view.
+- [ ] Update the date and the (c) of the new files.
 - [ ] Fix credits in files.
-- [ ] scrobble cache extremelly unreliable for listenbrainz, often losing scrobbles.
-- [ ] imrove caching of history, to reduce calls and improve performance.
-- [ ] stop requesting images and stuff every time we click in the progress bar.
-- [ ] fix ui for password request for lastfm.
-- [ ] taking 10+ seconds to load
 
 ## License
 
