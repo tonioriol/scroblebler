@@ -10,3 +10,5 @@ DerivedData/
 # Distribution
 *.dmg
 dist/
+
+.roo/tasks/
