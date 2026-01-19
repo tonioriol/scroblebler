@@ -3,9 +3,9 @@ import AppKit
 
 class Defaults: ObservableObject {
     static let shared = Defaults()
-    
+
     private let defaults = UserDefaults.standard
-    
+
     @Published var firstRun: Bool {
         didSet {
             if firstRun {
@@ -15,13 +15,13 @@ class Defaults: ObservableObject {
             }
         }
     }
-    
+
     @Published var serviceCredentials: [ServiceCredentials] = [] {
         didSet {
             saveServiceCredentials()
         }
     }
-    
+
     @Published var mainServicePreference: ScrobbleService? {
         didSet {
             if let service = mainServicePreference {
@@ -31,18 +31,18 @@ class Defaults: ObservableObject {
             }
         }
     }
-    
+
     init() {
         firstRun = defaults.string(forKey: "firstRun") == nil
         picture = defaults.data(forKey: "picture")
-        
+
         if let serviceRaw = defaults.string(forKey: "mainServicePreference"),
            let service = ScrobbleService(rawValue: serviceRaw) {
             mainServicePreference = service
         } else {
             mainServicePreference = nil
         }
-        
+
         if let data = defaults.data(forKey: "serviceCredentials"),
            let decoded = try? JSONDecoder().decode([ServiceCredentials].self, from: data) {
             serviceCredentials = decoded
@@ -50,42 +50,42 @@ class Defaults: ObservableObject {
             serviceCredentials = []
             migrateLegacyCredentials()
         }
-        
+
         // Migrate blacklist from UserDefaults to SQLite
         Task {
             await migrateBlacklistToSQLite()
         }
     }
-    
+
     private func migrateBlacklistToSQLite() async {
         // Check if migration already done
         guard defaults.bool(forKey: "blacklistMigratedToSQLite") == false else { return }
-        
+
         // Get old blacklist data
         guard let oldBlacklist = defaults.stringArray(forKey: "blacklistedTracks"), !oldBlacklist.isEmpty else {
             defaults.set(true, forKey: "blacklistMigratedToSQLite")
             return
         }
-        
+
         Logger.info("Migrating \(oldBlacklist.count) blacklist entries from UserDefaults to SQLite", log: Logger.scrobbling)
-        
+
         for entry in oldBlacklist {
             let components = entry.components(separatedBy: "|||")
             guard components.count == 2 else { continue }
-            
+
             let artist = components[0]
             let track = components[1]
-            
+
             try? await LocalBlacklist.shared.add(artist: artist, track: track)
         }
-        
+
         // Mark migration complete and clean up old data
         defaults.set(true, forKey: "blacklistMigratedToSQLite")
         defaults.removeObject(forKey: "blacklistedTracks")
-        
+
         Logger.info("Blacklist migration complete", log: Logger.scrobbling)
     }
-    
+
     private func migrateLegacyCredentials() {
         // Migrate legacy Last.fm credentials
         if let token = defaults.string(forKey: "token"),
@@ -99,7 +99,7 @@ class Defaults: ObservableObject {
                 isEnabled: true
             )
             serviceCredentials.append(creds)
-            
+
             // Clean up legacy keys
             defaults.removeObject(forKey: "token")
             defaults.removeObject(forKey: "name")
@@ -107,7 +107,7 @@ class Defaults: ObservableObject {
             defaults.removeObject(forKey: "url")
             defaults.removeObject(forKey: "picture")
         }
-        
+
         // Migrate legacy Libre.fm credentials
         if let librefmToken = defaults.string(forKey: "librefmToken"),
            let librefmName = defaults.string(forKey: "librefmName") {
@@ -120,25 +120,25 @@ class Defaults: ObservableObject {
                 isEnabled: defaults.bool(forKey: "scrobbleToLibrefm")
             )
             serviceCredentials.append(creds)
-            
+
             // Clean up legacy keys
             defaults.removeObject(forKey: "librefmToken")
             defaults.removeObject(forKey: "librefmName")
             defaults.removeObject(forKey: "librefmUrl")
             defaults.removeObject(forKey: "scrobbleToLibrefm")
         }
-        
+
         if !serviceCredentials.isEmpty {
             saveServiceCredentials()
         }
     }
-    
+
     private func saveServiceCredentials() {
         if let encoded = try? JSONEncoder().encode(serviceCredentials) {
             defaults.set(encoded, forKey: "serviceCredentials")
         }
     }
-    
+
     func addOrUpdateCredentials(_ credentials: ServiceCredentials) {
         if let index = serviceCredentials.firstIndex(where: { $0.service == credentials.service }) {
             serviceCredentials[index] = credentials
@@ -146,35 +146,35 @@ class Defaults: ObservableObject {
             serviceCredentials.append(credentials)
         }
     }
-    
+
     func removeCredentials(for service: ScrobbleService) {
         serviceCredentials.removeAll { $0.service == service }
-        
+
         // Clear main preference if removing the main service
         if mainServicePreference == service {
             mainServicePreference = nil
         }
-        
+
         // Clear profile picture when logging out of Last.fm
         if service == .lastfm {
             picture = nil
         }
     }
-    
+
     func credentials(for service: ScrobbleService) -> ServiceCredentials? {
         serviceCredentials.first { $0.service == service }
     }
-    
+
     func toggleService(_ service: ScrobbleService, enabled: Bool) {
         if let index = serviceCredentials.firstIndex(where: { $0.service == service }) {
             serviceCredentials[index].isEnabled = enabled
         }
     }
-    
+
     var enabledServices: [ServiceCredentials] {
         serviceCredentials.filter { $0.isEnabled }
     }
-    
+
     var primaryService: ServiceCredentials? {
         if let preference = mainServicePreference,
            let credential = serviceCredentials.first(where: { $0.service == preference }) {
@@ -182,12 +182,18 @@ class Defaults: ObservableObject {
         }
         return enabledServices.first
     }
-    
+
+    // New setting for remote listen import
+    var importRemoteListens: Bool {
+        get { defaults.bool(forKey: "importRemoteListens") }
+        set { defaults.set(newValue, forKey: "importRemoteListens") }
+    }
+
     // Legacy properties for backward compatibility with views
     var name: String? { primaryService?.username }
     var pro: Bool? { primaryService?.isSubscriber }
     var url: String? { primaryService?.profileUrl }
-    
+
     @Published var picture: Data? {
         didSet {
             if let data = picture {
@@ -197,14 +203,14 @@ class Defaults: ObservableObject {
             }
         }
     }
-    
+
     func reset() {
         serviceCredentials = []
         picture = nil
     }
-    
+
     // MARK: - Blacklist
-    
+
     func toggleBlacklist(artist: String, track: String) async {
         let isCurrentlyBlacklisted = await LocalBlacklist.shared.contains(artist: artist, track: track)
         if isCurrentlyBlacklisted {
@@ -213,7 +219,7 @@ class Defaults: ObservableObject {
             try? await LocalBlacklist.shared.add(artist: artist, track: track)
         }
     }
-    
+
     func isBlacklisted(artist: String, track: String) async -> Bool {
         await LocalBlacklist.shared.contains(artist: artist, track: track)
     }

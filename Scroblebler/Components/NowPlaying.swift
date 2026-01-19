@@ -3,57 +3,54 @@ import SwiftUI
 struct NowPlaying: View {
     @EnvironmentObject var serviceManager: ScrobbleManager
     @EnvironmentObject var defaults: Defaults
-    @StateObject private var trackStore = TrackStore.shared
-    @StateObject private var trackService = TrackService.shared
+    @StateObject private var listenStore = ListenStore.shared
     @Binding var currentPosition: Double?
     @Binding var isPlaying: Bool
-    
+
     var body: some View {
-        if let track = trackStore.currentTrack {  // Read from store (single source of truth)
-            let displayService = defaults.mainServicePreference ?? defaults.primaryService?.service ?? .lastfm
-            let service = serviceManager.service(for: displayService)
-            let urls = service?.buildURLs(for: track)  // Uses enriched track with MBIDs
-            
+        if let listen = listenStore.currentListen {  // Read from store (single source of truth)
+            // TODO: Build URLs for listen (need to adapt service.buildURLs to work with Listen)
+            // let displayService = defaults.mainServicePreference ?? defaults.primaryService?.service ?? .lastfm
+            // let service = serviceManager.service(for: displayService)
+            // let urls = service?.buildURLs(for: listen)
+
             VStack(spacing: 12) {
                 TrackInfo(
-                    trackName: track.name,
-                    artist: track.artist,
-                    album: track.album,
+                    trackName: listen.track,
+                    artist: listen.artist,
+                    album: listen.album,
                     loved: Binding(
-                        get: { track.loved },
+                        get: { listen.loved },
                         set: { _ in }
                     ),
                     artworkSize: 92,
-                    artworkImageData: track.artwork,
+                    artworkImageData: nil,  // TODO: Load from releaseMbid
                     titleFontSize: 18,
                     detailFontSize: 13,
                     loveFontSize: 12,
                     playCount: Binding(
-                        get: { track.playcount },
+                        get: { 0 },  // TODO: Load playcount via ListenStore.playcount()
                         set: { _ in }
                     ),
-                    artistURL: urls?.artistURL,
-                    albumURL: urls?.albumURL,
-                    trackURL: urls?.trackURL,
+                    artistURL: nil,  // TODO: Build from service/MBIDs
+                    albumURL: nil,
+                    trackURL: nil,
                     actionButtons: {
-                        BlacklistButton(artist: track.artist, track: track.name)
+                        BlacklistButton(artist: listen.artist, track: listen.track)
                     },
                     artworkOverlay: {
                         EmptyView()
                     }
                 )
-                
+
                 PlayerControls(
                     isPlaying: $isPlaying,
                     currentPosition: currentPosition,
-                    trackLength: track.length,
+                    trackLength: listen.duration,
                     onSeek: { position in MediaControl.seek(to: position) }
                 )
             }
             .padding()
-            .onChange(of: defaults.mainServicePreference) { _ in
-                trackService.refreshCurrentTrack()
-            }
         }
     }
 }

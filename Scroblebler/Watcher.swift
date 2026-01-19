@@ -44,8 +44,8 @@ class Watcher: ObservableObject {
     private var artworkCache: [String: String] = [:]
     private var lastArtworkHash: Int?
 
-    var onTrackChanged: ((Track) -> Void)?
-    var onScrobbleWanted: ((Track) -> Void)?
+    var onTrackChanged: ((Listen) -> Void)?
+    var onScrobbleWanted: ((Listen) -> Void)?
 
     init(debug: Bool = false) {
         setupMediaController()
@@ -101,9 +101,9 @@ class Watcher: ObservableObject {
         // If we already have a current track, trigger the callback
         // This handles the case where track info arrived before callbacks were set
         Task { @MainActor in
-            if let track = TrackStore.shared.currentTrack, let fn = onTrackChanged {
+            if let listen = ListenStore.shared.currentListen, let fn = onTrackChanged {
                 DispatchQueue.main.async {
-                    fn(track)
+                    fn(listen)
                 }
             }
         }
@@ -265,10 +265,7 @@ class Watcher: ObservableObject {
         }
     }
 
-    private func getPlayerTrack(from status: MediaControlStatus) throws -> Track {
-        let artwork = status.artworkData
-            .flatMap { Data(base64Encoded: $0) } ?? Data()
-
+    private func getPlayerTrack(from status: MediaControlStatus) throws -> Listen {
         let elapsedTime = status.elapsedTime ?? 0
         let startedAt = Int32(Date().timeIntervalSince1970 - elapsedTime)
 
@@ -276,22 +273,21 @@ class Watcher: ObservableObject {
         let album = status.album ?? ""
         let title = status.title ?? ""
 
-        // URLs will be built dynamically based on display service preference
-        return Track(
-            id: UUID(),
+        // Create Listen from media player status
+        return Listen(
+            id: nil,
+            track: title,
             artist: artist,
             album: album,
-            name: title,
-            timestamp: Int(startedAt),
+            year: nil,
             duration: status.duration ?? 0,
-            sourceService: .lastfm, // Placeholder, not used for now-playing
+            listenedAt: Int(startedAt),
+            services: [:],
             loved: false,
-            playcount: 1,
-            scrobbled: false,
-            blacklisted: false,
-            serviceInfo: [:],
-            artwork: artwork,
-            imageUrl: nil
+            releaseMbid: nil,
+            sourceBundle: status.bundleIdentifier,
+            createdAt: Date.nowISO8601(),
+            updatedAt: Date.nowISO8601()
         )
     }
 
@@ -317,7 +313,7 @@ class Watcher: ObservableObject {
             currentPosition = nil
             maxPosition = nil
             currentBundleIdentifier = nil
-            TrackStore.shared.clearCurrentTrack()
+            ListenStore.shared.clearCurrentListen()
         }
     }
 
@@ -360,11 +356,11 @@ class Watcher: ObservableObject {
             artworkCache.removeAll()
 
             // Track changed - scrobble previous if needed
-            if let track = TrackStore.shared.currentTrack, let maxPos = maxPosition {
-                let percentPlayed = (maxPos / track.length) * 100
-                if percentPlayed >= 95 && !track.scrobbled && track.length >= 30 {
+            if let listen = ListenStore.shared.currentListen, let maxPos = maxPosition {
+                let percentPlayed = (maxPos / listen.duration) * 100
+                if percentPlayed >= 95 && listen.id == nil && listen.duration >= 30 {
                     if let fn = onScrobbleWanted {
-                        DispatchQueue.main.async { fn(track) }
+                        DispatchQueue.main.async { fn(listen) }
                     }
                 }
             }
@@ -378,22 +374,22 @@ class Watcher: ObservableObject {
             currentPosition = newPosition
             currentTrackID = trackID
 
-            let track = try getPlayerTrack(from: status)
+            let listen = try getPlayerTrack(from: status)
 
-            // Route through TrackStore (single source of truth)
-            TrackStore.shared.setCurrentTrack(track)
+            // Route through ListenStore (single source of truth)
+            ListenStore.shared.setCurrentListen(listen)
 
             if let fn = onTrackChanged {
-                DispatchQueue.main.async { fn(track) }
+                DispatchQueue.main.async { fn(listen) }
             }
         } else {
             // Same track - check if artwork arrived late
             let hasArtwork = status.artworkData != nil
-            let currentHasArtwork = (TrackStore.shared.currentTrack?.artwork?.count ?? 0) > 0
+            let currentHasArtwork = (ListenStore.shared.currentListen?.releaseMbid?.count ?? 0) > 0
 
             if hasArtwork && !currentHasArtwork {
-                let track = try getPlayerTrack(from: status)
-                TrackStore.shared.updateCurrentTrack(track)
+                let listen = try getPlayerTrack(from: status)
+                ListenStore.shared.updateCurrentListen(listen)
             }
 
             // Update position if changed significantly

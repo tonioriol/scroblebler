@@ -1,4 +1,14 @@
 import Foundation
+import GRDB
+
+// MARK: - Helper Extensions for JSON Serialization
+
+extension Dictionary where Key == String, Value == ServiceSyncState {
+    func jsonString() -> String {
+        let data = try! JSONEncoder().encode(self)
+        return String(data: data, encoding: .utf8) ?? "{}"
+    }
+}
 
 // MARK: - Sync Models
 
@@ -6,7 +16,7 @@ enum SyncStatus: Codable {
     case unknown
     case synced           // Present in all enabled services
     case partial          // Not in all enabled services
-    
+
     var icon: String {
         switch self {
         case .unknown: return "questionmark.circle"
@@ -14,7 +24,7 @@ enum SyncStatus: Codable {
         case .partial: return "xmark.circle.fill"
         }
     }
-    
+
     /// Calculate sync status based on which services have the track
     static func calculate(
         presentInServices: Set<ScrobbleService>,
@@ -30,18 +40,80 @@ struct ServiceTrackData: Codable, Equatable {
     var id: String?         // ListenBrainz recording_msid (for deletion) or recording_mbid
     var artistMbid: String? // ListenBrainz artist MBID (for URLs)
     var releaseMbid: String? // ListenBrainz release MBID (for URLs)
-    
+
     // Factory methods make intent clear
     static func lastfm(timestamp: Int) -> ServiceTrackData {
         ServiceTrackData(timestamp: timestamp, id: nil, artistMbid: nil, releaseMbid: nil)
     }
-    
+
     static func listenbrainz(recordingMsid: String, timestamp: Int) -> ServiceTrackData {
         ServiceTrackData(timestamp: timestamp, id: recordingMsid, artistMbid: nil, releaseMbid: nil)
     }
-    
+
     static func listenbrainzWithMbids(recordingMbid: String, artistMbid: String?, releaseMbid: String?, timestamp: Int) -> ServiceTrackData {
         ServiceTrackData(timestamp: timestamp, id: recordingMbid, artistMbid: artistMbid, releaseMbid: releaseMbid)
+    }
+}
+
+// MARK: - Listen Extensions for GRDB
+
+extension Listen: FetchableRecord, MutablePersistableRecord {
+    enum Columns {
+        static let id = Column(CodingKeys.id)
+        static let track = Column(CodingKeys.track)
+        static let artist = Column(CodingKeys.artist)
+        static let album = Column(CodingKeys.album)
+        static let year = Column(CodingKeys.year)
+        static let duration = Column(CodingKeys.duration)
+        static let listenedAt = Column(CodingKeys.listenedAt)
+        static let services = Column(CodingKeys.services)
+        static let loved = Column(CodingKeys.loved)
+        static let releaseMbid = Column(CodingKeys.releaseMbid)
+        static let sourceBundle = Column(CodingKeys.sourceBundle)
+        static let createdAt = Column(CodingKeys.createdAt)
+        static let updatedAt = Column(CodingKeys.updatedAt)
+    }
+
+    func encode(to container: inout PersistenceContainer) {
+        container[Columns.id] = id
+        container[Columns.track] = track
+        container[Columns.artist] = artist
+        container[Columns.album] = album
+        container[Columns.year] = year
+        container[Columns.duration] = duration
+        container[Columns.listenedAt] = listenedAt
+        container[Columns.services] = services.jsonString()
+        container[Columns.loved] = loved
+        container[Columns.releaseMbid] = releaseMbid
+        container[Columns.sourceBundle] = sourceBundle
+        container[Columns.createdAt] = createdAt
+        container[Columns.updatedAt] = updatedAt
+    }
+
+    init(row: Row) {
+        id = row[Columns.id]
+        track = row[Columns.track]
+        artist = row[Columns.artist]
+        album = row[Columns.album]
+        year = row[Columns.year]
+        duration = row[Columns.duration]
+        listenedAt = row[Columns.listenedAt]
+        // Decode JSON services from TEXT column
+        if let jsonString: String = row[Columns.services] {
+            let data = jsonString.data(using: .utf8) ?? Data()
+            services = (try? JSONDecoder().decode([String: ServiceSyncState].self, from: data)) ?? [:]
+        } else {
+            services = [:]
+        }
+        loved = row[Columns.loved]
+        releaseMbid = row[Columns.releaseMbid]
+        sourceBundle = row[Columns.sourceBundle]
+        createdAt = row[Columns.createdAt]
+        updatedAt = row[Columns.updatedAt]
+    }
+
+    mutating func didInsert(with rowID: Int64, for column: String?) {
+        id = rowID
     }
 }
 
@@ -92,7 +164,7 @@ enum ScrobbleService: String, CaseIterable, Codable, Identifiable {
     case lastfm = "Last.fm"
     case librefm = "Libre.fm"
     case listenbrainz = "ListenBrainz"
-    
+
     var id: String { rawValue }
     var displayName: String { rawValue }
 }

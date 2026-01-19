@@ -2,23 +2,22 @@ import SwiftUI
 
 struct LoveButton: View {
     @EnvironmentObject var defaults: Defaults
-    @ObservedObject private var trackStore = TrackStore.shared
-    @ObservedObject private var trackService = TrackService.shared
-    
+    @ObservedObject private var listenStore = ListenStore.shared
+
     let artist: String
     let trackName: String
     let fontSize: CGFloat
-    
+
     @State private var isAnimating: Bool = false
-    
+
     private var loved: Bool {
-        trackStore.isLoved(artist: artist, track: trackName)
+        listenStore.isLoved(artist: artist, track: trackName)
     }
-    
+
     private var hasEnabledServices: Bool {
         !defaults.enabledServices.isEmpty
     }
-    
+
     var body: some View {
         Button(action: toggleLove) {
             Image(systemName: loved ? "heart.fill" : "heart")
@@ -33,25 +32,30 @@ struct LoveButton: View {
         .opacity(hasEnabledServices ? 1.0 : 0.4)
         .help(hasEnabledServices ? (loved ? "Unlove track" : "Love track") : "No services logged in")
     }
-    
+
     func toggleLove() {
         guard defaults.primaryService != nil else {
             Logger.error("No primary service configured", log: Logger.scrobbling)
             return
         }
-        
+
         withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
             isAnimating = true
         }
-        
+
         Task {
-            _ = await trackService.toggleLove(artist: artist, track: trackName)
-            
+            // Toggle love state locally
             await MainActor.run {
+                listenStore.updateListen(artist: artist, track: trackName) { listen in
+                    listen.loved.toggle()
+                }
+
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                     isAnimating = false
                 }
             }
+
+            // TODO: Sync with services via OfflineQueue
         }
     }
 }

@@ -22,78 +22,77 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         case invalidToken
         case serverError(String)
     }
-    
+
     // Cache for recording playcounts
     private struct PaginationState {
         var paginationState: [String: Int] = [:] // username -> last timestamp for pagination
     }
-    
+
     private let paginationState = Locked(PaginationState())
-    private let cache = ListenBrainzCache()
     private let rateLimiter = ListenBrainzRateLimiter()
-    
+
     // Stored credentials (set during authentication)
     private var username: String?
     private var token: String?
-    
+
     var baseURL: URL { URL(string: "https://api.listenbrainz.org/1/")! }
     var authURL: String { "https://listenbrainz.org/settings/" }
     var linkColor: Color { Color(hue: 0.08, saturation: 0.80, brightness: 0.85) }
-    
+
     // MARK: - Authentication
-    
+
     func authenticate() async throws -> (token: String, authURL: URL) {
         return ("", URL(string: authURL)!)
     }
-    
+
     func completeAuthentication(token: String) async throws -> (username: String, sessionKey: String, profileUrl: String?, isSubscriber: Bool) {
         let trimmedToken = token.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedToken.isEmpty else {
             throw Error.invalidToken
         }
-        
+
         var request = URLRequest(url: baseURL.appendingPathComponent("validate-token"))
         request.httpMethod = "GET"
         request.setValue("Token \(trimmedToken)", forHTTPHeaderField: "Authorization")
-        
+
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw Error.serverError("Invalid response from validate-token endpoint")
         }
-        
+
         guard httpResponse.statusCode == 200 else {
             let errorMsg = String(data: data, encoding: .utf8) ?? "Unknown error"
             throw Error.serverError("Token validation failed (HTTP \(httpResponse.statusCode)): \(errorMsg)")
         }
-        
+
         let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         guard let valid = json?["valid"] as? Bool, valid,
               let username = json?["user_name"] as? String else {
             throw Error.invalidToken
         }
-        
+
         // Store credentials
         self.username = username
         self.token = trimmedToken
-        
+
         let profileUrl = "https://listenbrainz.org/user/\(username)/"
         return (username, token, profileUrl, false)
     }
-    
+
     // Restore credentials (called when app restarts)
     func setCredentials(username: String, sessionKey: String) {
         self.username = username
         self.token = sessionKey
         Logger.info("✅ ListenBrainz credentials set: username=\(username)", log: Logger.authentication)
     }
-    
+
     // MARK: - Scrobbling
-    
+
     func updateNowPlaying(track: Track) async throws {
         guard let token = self.token else {
             throw Error.invalidToken
         }
-        
+
         let payload: [String: Any] = [
             "listen_type": "playing_now",
             "payload": [[
@@ -106,12 +105,12 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         ]
         try await sendRequest(endpoint: "submit-listens", token: token, payload: payload)
     }
-    
+
     func scrobble(track: Track) async throws {
         guard let token = self.token else {
             throw Error.invalidToken
         }
-        
+
         let payload: [String: Any] = [
             "listen_type": "single",
             "payload": [[
@@ -125,22 +124,22 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         ]
         try await sendRequest(endpoint: "submit-listens", token: token, payload: payload)
     }
-    
+
     func updateLove(artist: String, track: String, loved: Bool) async throws {
         guard let token = self.token else {
             throw Error.invalidToken
         }
-        
+
         guard let mbid = try await lookupRecordingMBID(artist: artist, track: track) else {
             Logger.info("Could not find MusicBrainz ID for track, skipping love update on ListenBrainz", log: Logger.scrobbling)
             return
         }
-        
+
         let payload: [String: Any] = [
             "recording_mbid": mbid,
             "score": loved ? 1 : 0
         ]
-        
+
         do {
             try await sendRequest(endpoint: "feedback/recording-feedback", token: token, payload: payload)
             Logger.info("ListenBrainz love status updated: \(loved ? "loved" : "unloved")", log: Logger.scrobbling)
@@ -149,30 +148,30 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
             throw error
         }
     }
-    
+
     func deleteScrobble(identifier: ScrobbleIdentifier) async throws {
         guard let token = self.token else {
             Logger.error("LB_DELETE: No token available", log: Logger.scrobbling)
             throw Error.invalidToken
         }
-        
+
         Logger.info("LB_DELETE: 🔍 Attempting delete for '\(identifier.artist) - \(identifier.track)'", log: Logger.scrobbling)
         Logger.debug("LB_DELETE: identifier.timestamp = \(identifier.timestamp ?? 0)", log: Logger.scrobbling)
         Logger.debug("LB_DELETE: identifier.serviceId = \(identifier.serviceId ?? "nil")", log: Logger.scrobbling)
-        
+
         guard let timestamp = identifier.timestamp, let msid = identifier.serviceId else {
             Logger.error("LB_DELETE: ❌ MISSING DATA - timestamp: \(identifier.timestamp != nil ? "✓" : "✗"), recording_msid: \(identifier.serviceId != nil ? "✓" : "✗")", log: Logger.scrobbling)
             Logger.error("LB_DELETE: Cannot delete from ListenBrainz - requires BOTH timestamp AND recording_msid", log: Logger.scrobbling)
             return
         }
-        
+
         let payload: [String: Any] = [
             "listened_at": timestamp,
             "recording_msid": msid
         ]
-        
+
         Logger.info("LB_DELETE: 🚀 Sending delete request with timestamp=\(timestamp), recording_msid=\(msid)", log: Logger.scrobbling)
-        
+
         do {
             try await sendRequest(endpoint: "delete-listen", token: token, payload: payload)
             Logger.info("LB_DELETE: ✅ Successfully deleted from ListenBrainz", log: Logger.scrobbling)
@@ -181,23 +180,23 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
             throw error
         }
     }
-    
+
     private func lookupRecordingMBID(artist: String, track: String) async throws -> String? {
         // Try MBID Mapper 2.0 first (fast fuzzy matching)
         if let mbid = try? await lookupMBIDFromMapper(artist: artist, track: track, album: nil) {
             return mbid.recordingMbid
         }
-        
+
         // Fallback to direct MusicBrainz search
         let query = "artist:\(artist) AND recording:\(track)"
         guard let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
               let url = URL(string: "https://musicbrainz.org/ws/2/recording/?query=\(encodedQuery)&limit=1&fmt=json") else {
             return nil
         }
-        
+
         var request = URLRequest(url: url)
         request.setValue("ScrobleblerApp/1.0 (contact@example.com)", forHTTPHeaderField: "User-Agent")
-        
+
         do {
             let (data, _) = try await URLSession.shared.data(for: request)
             let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
@@ -208,18 +207,18 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
             return nil
         }
     }
-    
+
     struct MapperResult {
         let artistMbid: String?
         let releaseMbid: String?
         let recordingMbid: String?
         let confidence: Double
     }
-    
+
     func lookupMBIDsForTrack(artist: String, track: String, album: String?) async throws -> MapperResult? {
         return try await lookupMBIDFromMapper(artist: artist, track: track, album: album)
     }
-    
+
     private func lookupMBIDFromMapper(artist: String, track: String, album: String?) async throws -> MapperResult? {
         var components = URLComponents(string: "https://mapper.listenbrainz.org/mapping/lookup")!
         var queryItems = [
@@ -230,9 +229,9 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
             queryItems.append(URLQueryItem(name: "release_name", value: album))
         }
         components.queryItems = queryItems
-        
+
         guard let url = components.url else { return nil }
-        
+
         do {
             return try await NetworkClient.executeWithRetry(maxRetries: 3) {
                 let (data, response) = try await URLSession.shared.data(from: url)
@@ -241,30 +240,30 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
                     Logger.error("MBID Mapper: HTTP \((response as? HTTPURLResponse)?.statusCode ?? -1) for '\(artist) - \(track)'", log: Logger.network)
                     return nil
                 }
-                
+
                 let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-                
+
                 // Log raw JSON to see all available fields
                 if let jsonData = try? JSONSerialization.data(withJSONObject: json ?? [:], options: .prettyPrinted),
                    let jsonString = String(data: jsonData, encoding: .utf8) {
                     Logger.debug("MBID Mapper raw JSON for '\(artist) - \(track)':\n\(jsonString)", log: Logger.network)
                 }
-                
+
                 let confidence = json?["confidence"] as? Double ?? 0.0
-                
+
                 guard confidence > 0.5 else {
                     Logger.debug("MBID Mapper: Low confidence (\(String(format: "%.2f", confidence))) for '\(artist) - \(track)'", log: Logger.network)
                     return nil
                 }
-                
+
                 let artistMbids = json?["artist_credit_mbids"] as? [String]
                 let releaseMbid = json?["release_mbid"] as? String
                 let releaseGroupMbid = json?["release_group_mbid"] as? String
                 let recordingMbid = json?["recording_mbid"] as? String
-                
+
                 Logger.debug("MBID Mapper: Matched '\(artist) - \(track)' (confidence: \(String(format: "%.2f", confidence)))", log: Logger.network)
                 Logger.debug("  release_mbid: \(releaseMbid ?? "none"), release_group_mbid: \(releaseGroupMbid ?? "none")", log: Logger.network)
-                
+
                 return MapperResult(
                     artistMbid: artistMbids?.first,
                     releaseMbid: releaseMbid,
@@ -277,32 +276,32 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
             return nil
         }
     }
-    
+
     // MARK: - Profile Data
-    
+
     func getRecentTracks(limit: Int, page: Int) async throws -> [Track] {
         guard let username = self.username else {
             Logger.error("❌ ListenBrainz getRecentTracks - NO USERNAME (not authenticated)", log: Logger.api)
             throw Error.invalidToken
         }
-        
+
         Logger.info("📄 ListenBrainz getRecentTracks - user: \(username), page: \(page), limit: \(limit)", log: Logger.api)
-        
+
         // Populate cache first (only on first page)
         if page == 1 {
             _ = paginationState.withLock { state in
                 state.paginationState.removeValue(forKey: username)
             }
             Logger.debug("ListenBrainz page 1 - reset pagination state", log: Logger.api)
-            await cache.populatePlayCountCache(username: username)
+            // Cache removed - playcount now computed from local listens
         }
-        
+
         // ListenBrainz uses timestamp-based pagination
         let encodedUsername = username.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? username
         var components = URLComponents(url: baseURL.appendingPathComponent("user/\(encodedUsername)/listens"), resolvingAgainstBaseURL: false)!
-        
+
         var queryItems = [URLQueryItem(name: "count", value: "\(limit)")]
-        
+
         if page > 1 {
             let maxTs = paginationState.withLock { state in
                 state.paginationState[username]
@@ -315,16 +314,16 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
                 Logger.error("❌ Pagination will fail - page 1 must be called first to set pagination state", log: Logger.api)
             }
         }
-        
+
         components.queryItems = queryItems
-        
+
         let (data, _) = try await URLSession.shared.data(from: components.url!)
         let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         let payload = json?["payload"] as? [String: Any]
         let listens = payload?["listens"] as? [[String: Any]] ?? []
-        
+
         Logger.debug("ListenBrainz received \(listens.count) listens for page \(page)", log: Logger.api)
-        
+
         // Store the last timestamp for next page
         if !listens.isEmpty {
             if let lastListen = listens.last,
@@ -341,21 +340,21 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
             // No tracks returned - reached end of history (normal)
             Logger.debug("ListenBrainz page \(page) returned 0 tracks - end of history reached", log: Logger.api)
         }
-        
+
         // First pass: extract data from ListenBrainz response
         let tracks = listens.compactMap { listen -> (metadata: [String: Any], artist: String, name: String, album: String, msid: String?, timestamp: Int?, existingMbids: (String?, String?, String?))? in
             guard let metadata = listen["track_metadata"] as? [String: Any],
                   let artist = metadata["artist_name"] as? String,
                   let name = metadata["track_name"] as? String else { return nil }
-            
+
             let album = metadata["release_name"] as? String ?? ""
             let mbids = extractMbids(from: metadata)
             let msid = listen["recording_msid"] as? String
             let timestamp = listen["listened_at"] as? Int
-            
+
             return (metadata, artist, name, album, msid, timestamp, mbids)
         }
-        
+
         // Second pass: enrich missing MBIDs using MBID Mapper 2.0
         var enrichedCount = 0
         var tracksNeedingLookup = 0
@@ -364,13 +363,13 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
                 group.addTask {
                     var (artistMbid, releaseMbid, recordingMbid) = track.existingMbids
                     var wasEnriched = false
-                    
+
                     let missingMbids = [
                         artistMbid == nil ? "artist" : nil,
                         releaseMbid == nil ? "release" : nil,
                         recordingMbid == nil ? "recording" : nil
                     ].compactMap { $0 }
-                    
+
                     // Only lookup if we're missing MBIDs from ListenBrainz
                     if recordingMbid == nil || releaseMbid == nil || artistMbid == nil {
                         Logger.debug("MBID Mapper: '\(track.artist) - \(track.name)' missing: \(missingMbids.joined(separator: ", "))", log: Logger.network)
@@ -382,20 +381,21 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
                             let hadArtist = artistMbid != nil
                             let hadRelease = releaseMbid != nil
                             let hadRecording = recordingMbid != nil
-                            
+
                             artistMbid = artistMbid ?? mapperResult.artistMbid
                             releaseMbid = releaseMbid ?? mapperResult.releaseMbid
                             recordingMbid = recordingMbid ?? mapperResult.recordingMbid
-                            
+
                             wasEnriched = (!hadArtist && artistMbid != nil) ||
                                         (!hadRelease && releaseMbid != nil) ||
                                         (!hadRecording && recordingMbid != nil)
                         }
                     }
-                    
+
                     let imageUrl = self.extractCoverArtUrl(from: track.metadata)
-                    let playcount = await self.cache.getCachedPlayCount(username: username, artist: track.artist, track: track.name)
-                    
+                    // Playcount now computed from local listens
+                    let playcount = 1
+
                     // Store MBIDs in serviceInfo for URL building later
                     var serviceData = ServiceTrackData.listenbrainz(
                         recordingMsid: track.msid ?? "",
@@ -411,7 +411,7 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
                     if let releaseMbid = releaseMbid {
                         serviceData.releaseMbid = releaseMbid
                     }
-                    
+
                     let unifiedTrack = Track(
                         id: UUID(),
                         artist: track.artist,
@@ -421,18 +421,18 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
                         duration: 0,
                         sourceService: .listenbrainz,
                         loved: false,
-                        playcount: playcount ?? 1,
+                        playcount: playcount,
                         scrobbled: true,
                         blacklisted: false,
                         serviceInfo: [.listenbrainz: serviceData],
                         artwork: nil,
                         imageUrl: imageUrl
                     )
-                    
+
                     return (index, unifiedTrack, wasEnriched)
                 }
             }
-            
+
             // Collect results and maintain original order
             var results: [(Int, Track?, Bool)] = []
             for await result in group {
@@ -440,30 +440,30 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
             }
             return results.sorted { $0.0 < $1.0 }
         }
-        
+
         enrichedCount = result.filter { $0.2 }.count
         tracksNeedingLookup = tracks.filter { track in
             let (artistMbid, releaseMbid, recordingMbid) = track.existingMbids
             return recordingMbid == nil || releaseMbid == nil || artistMbid == nil
         }.count
-        
+
         if tracksNeedingLookup > 0 {
             Logger.debug("ListenBrainz MBID Mapper: \(tracksNeedingLookup) tracks needed lookup, \(enrichedCount) enriched", log: Logger.api)
         }
-        
+
         return result.compactMap { $0.1 }
     }
-    
+
     func getRecentTracksByTimeRange(minTs: Int?, maxTs: Int?, limit: Int) async throws -> [Track]? {
         guard let username = self.username else {
             throw Error.invalidToken
         }
-        
+
         Logger.debug("ListenBrainz getRecentTracksByTimeRange - minTs: \(minTs ?? 0), maxTs: \(maxTs ?? 0), limit: \(limit)", log: Logger.api)
-        
+
         let encodedUsername = username.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? username
         var components = URLComponents(url: baseURL.appendingPathComponent("user/\(encodedUsername)/listens"), resolvingAgainstBaseURL: false)!
-        
+
         var queryItems = [URLQueryItem(name: "count", value: "\(limit)")]
         if let minTs = minTs {
             queryItems.append(URLQueryItem(name: "min_ts", value: "\(minTs)"))
@@ -472,26 +472,26 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
             queryItems.append(URLQueryItem(name: "max_ts", value: "\(maxTs)"))
         }
         components.queryItems = queryItems
-        
+
         let (data, _) = try await URLSession.shared.data(from: components.url!)
         let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         let payload = json?["payload"] as? [String: Any]
         let listens = payload?["listens"] as? [[String: Any]] ?? []
-        
+
         Logger.debug("ListenBrainz received \(listens.count) listens for time range", log: Logger.api)
-        
+
         // Extract and build tracks (simplified version without cache)
         let tracks = listens.compactMap { listen -> Track? in
             guard let metadata = listen["track_metadata"] as? [String: Any],
                   let artist = metadata["artist_name"] as? String,
                   let name = metadata["track_name"] as? String else { return nil }
-            
+
             let album = metadata["release_name"] as? String ?? ""
             let mbids = extractMbids(from: metadata)
             let msid = listen["recording_msid"] as? String
             let timestamp = listen["listened_at"] as? Int
             let imageUrl = extractCoverArtUrl(from: metadata)
-            
+
             // Store MBIDs in serviceInfo for URL building later
             var serviceData = ServiceTrackData.listenbrainz(
                 recordingMsid: msid ?? "",
@@ -506,7 +506,7 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
             if let releaseMbid = mbids.releaseMbid {
                 serviceData.releaseMbid = releaseMbid
             }
-            
+
             return Track(
                 id: UUID(),
                 artist: artist,
@@ -524,22 +524,22 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
                 imageUrl: imageUrl
             )
         }
-        
+
         return tracks
     }
-    
+
     func getUserStats() async throws -> UserStats? {
         guard let username = self.username else {
             throw Error.invalidToken
         }
-        
+
         let encodedUsername = username.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? username
         let url = baseURL.appendingPathComponent("user/\(encodedUsername)/listen-count")
         let (data, _) = try await URLSession.shared.data(from: url)
         let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         let payload = json?["payload"] as? [String: Any]
         let count = payload?["count"] as? Int ?? 0
-        
+
         return UserStats(
             playcount: count,
             artistCount: 0,
@@ -554,12 +554,12 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
             playlistCount: nil
         )
     }
-    
+
     func getTopArtists(period: String, limit: Int) async throws -> [TopArtist] {
         guard let username = self.username else {
             throw Error.invalidToken
         }
-        
+
         let range = convertPeriodToRange(period)
         let encodedUsername = username.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? username
         var components = URLComponents(url: baseURL.appendingPathComponent("stats/user/\(encodedUsername)/artists"), resolvingAgainstBaseURL: false)!
@@ -567,29 +567,29 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
             URLQueryItem(name: "range", value: range),
             URLQueryItem(name: "count", value: "\(limit)")
         ]
-        
+
         let (data, _) = try await URLSession.shared.data(from: components.url!)
         let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         let payload = json?["payload"] as? [String: Any]
         let artists = payload?["artists"] as? [[String: Any]] ?? []
-        
+
         return artists.compactMap { artist in
             guard let name = artist["artist_name"] as? String,
                   let count = artist["listen_count"] as? Int else { return nil }
-            
+
             let imageUrl = (artist["artist_mbids"] as? [String])?.first.flatMap { mbid in
                 "https://coverartarchive.org/release-group/\(mbid)/front-250"
             }
-            
+
             return TopArtist(name: name, playcount: count, imageUrl: imageUrl)
         }
     }
-    
+
     func getTopAlbums(period: String, limit: Int) async throws -> [TopAlbum] {
         guard let username = self.username else {
             throw Error.invalidToken
         }
-        
+
         let range = convertPeriodToRange(period)
         let encodedUsername = username.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? username
         var components = URLComponents(url: baseURL.appendingPathComponent("stats/user/\(encodedUsername)/releases"), resolvingAgainstBaseURL: false)!
@@ -597,34 +597,34 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
             URLQueryItem(name: "range", value: range),
             URLQueryItem(name: "count", value: "\(limit)")
         ]
-        
+
         let (data, _) = try await URLSession.shared.data(from: components.url!)
         let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         let payload = json?["payload"] as? [String: Any]
         let releases = payload?["releases"] as? [[String: Any]] ?? []
-        
+
         return releases.compactMap { release in
             guard let name = release["release_name"] as? String,
                   let artist = release["artist_name"] as? String,
                   let count = release["listen_count"] as? Int else { return nil }
-            
+
             let imageUrl = (release["release_mbid"] as? String).flatMap { mbid in
                 "https://coverartarchive.org/release/\(mbid)/front-250"
             }
-            
+
             return TopAlbum(artist: artist, name: name, playcount: count, imageUrl: imageUrl)
         }
     }
-    
+
     func getTopTracks(period: String, limit: Int) async throws -> [TopTrack] {
         return try await getTopTracksWithOffset(period: period, limit: limit, offset: 0)
     }
-    
+
     private func getTopTracksWithOffset(period: String, limit: Int, offset: Int) async throws -> [TopTrack] {
         guard let username = self.username else {
             throw Error.invalidToken
         }
-        
+
         let range = convertPeriodToRange(period)
         let encodedUsername = username.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? username
         var components = URLComponents(url: baseURL.appendingPathComponent("stats/user/\(encodedUsername)/recordings"), resolvingAgainstBaseURL: false)!
@@ -633,95 +633,96 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
             URLQueryItem(name: "count", value: "\(limit)"),
             URLQueryItem(name: "offset", value: "\(offset)")
         ]
-        
+
         let (data, _) = try await URLSession.shared.data(from: components.url!)
         let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         let payload = json?["payload"] as? [String: Any]
         let recordings = payload?["recordings"] as? [[String: Any]] ?? []
-        
+
         return recordings.compactMap { recording in
             guard let name = recording["track_name"] as? String,
                   let artist = recording["artist_name"] as? String,
                   let count = recording["listen_count"] as? Int else { return nil }
-            
+
             let imageUrl = (recording["release_mbid"] as? String).flatMap { mbid in
                 "https://coverartarchive.org/release/\(mbid)/front-250"
             }
-            
+
             return TopTrack(artist: artist, name: name, playcount: count, imageUrl: imageUrl)
         }
     }
-    
+
     func getTrackPlaycount(username: String, artist: String, track: String, recordingMbid: String?) async throws -> Int? {
-        return await cache.getCachedPlayCount(username: username, artist: artist, track: track)
+        // Playcount now computed from local listens
+        return try await ListenStore.shared.playcount(artist: artist, track: track)
     }
-    
+
     func invalidateAndRebuildCache(username: String) async {
-        cache.invalidateCache(username: username)
-        await cache.populatePlayCountCache(username: username)
+        // Cache removed - playcount now computed from local listens
+        // No action needed
     }
-    
+
     func getTrackInfo(artist: String, track: String) async throws -> (loved: Bool, playcount: Int?) {
-        guard let username = self.username, self.token != nil else {
+        guard self.username != nil, self.token != nil else {
             return (false, nil)
         }
-        
-        // Get playcount from cache (populated when loading recent tracks)
-        let playcount = await cache.getCachedPlayCount(username: username, artist: artist, track: track)
-        
+
+        // Get playcount from local listens
+        let playcount = try await ListenStore.shared.playcount(artist: artist, track: track)
+
         // Get loved status from feedback API - requires recording MBID lookup
         var loved = false
         if let mbid = try? await lookupRecordingMBID(artist: artist, track: track) {
             loved = try await getTrackFeedback(recordingMbid: mbid)
         }
-        
+
         return (loved, playcount)
     }
-    
+
     private func getTrackFeedback(recordingMbid: String) async throws -> Bool {
         guard let token = self.token else { return false }
-        
+
         var components = URLComponents(url: baseURL.appendingPathComponent("feedback/user/me/get-feedback-for-recordings"), resolvingAgainstBaseURL: false)!
         components.queryItems = [
             URLQueryItem(name: "recording_mbids", value: recordingMbid)
         ]
-        
+
         var request = URLRequest(url: components.url!)
         request.httpMethod = "GET"
         request.setValue("Token \(token)", forHTTPHeaderField: "Authorization")
-        
+
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             return false
         }
-        
+
         let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         let feedback = json?["feedback"] as? [[String: Any]] ?? []
-        
+
         // Check if any feedback entry has score = 1 (loved)
         return feedback.contains { ($0["score"] as? Int) == 1 }
     }
-    
+
     // MARK: - Helpers
-    
+
     private func sendRequest(endpoint: String, token: String, payload: [String: Any]) async throws {
         // Wait for rate limiter
         await rateLimiter.waitIfNeeded()
-        
+
         var request = URLRequest(url: baseURL.appendingPathComponent(endpoint))
         request.httpMethod = "POST"
         request.setValue("Token \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: payload)
-        
+
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw Error.serverError("Invalid response")
         }
-        
+
         // Update rate limiter from response headers
         await rateLimiter.updateFromHeaders(httpResponse)
-        
+
         // Handle rate limit exceeded
         if httpResponse.statusCode == 429 {
             Logger.error("Rate limit exceeded (429) on \(endpoint), backing off", log: Logger.network)
@@ -729,13 +730,13 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
             // Retry once after backoff
             return try await sendRequest(endpoint: endpoint, token: token, payload: payload)
         }
-        
+
         guard httpResponse.statusCode == 200 else {
             let errorMsg = String(data: data, encoding: .utf8) ?? "Unknown error"
             throw Error.serverError("HTTP \(httpResponse.statusCode): \(errorMsg)")
         }
     }
-    
+
     private func convertPeriodToRange(_ period: String) -> String {
         switch period {
         case "7day": return "week"
@@ -746,32 +747,32 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         default: return "all_time"
         }
     }
-    
+
     private func extractCoverArtUrl(from metadata: [String: Any]) -> String? {
         if let additionalInfo = metadata["additional_info"] as? [String: Any],
            let releaseMbid = additionalInfo["release_mbid"] as? String {
             return "https://coverartarchive.org/release/\(releaseMbid)/front-250"
         }
-        
+
         if let mbidMapping = metadata["mbid_mapping"] as? [String: Any],
            let releaseMbid = mbidMapping["release_mbid"] as? String {
             return "https://coverartarchive.org/release/\(releaseMbid)/front-250"
         }
-        
+
         return nil
     }
-    
+
     private func extractMbids(from metadata: [String: Any]) -> (artistMbid: String?, releaseMbid: String?, recordingMbid: String?) {
         var artistMbid: String?
         var releaseMbid: String?
         var recordingMbid: String?
-        
+
         if let mbidMapping = metadata["mbid_mapping"] as? [String: Any] {
             artistMbid = (mbidMapping["artist_mbids"] as? [String])?.first
             releaseMbid = mbidMapping["release_mbid"] as? String
             recordingMbid = mbidMapping["recording_mbid"] as? String
         }
-        
+
         if let additionalInfo = metadata["additional_info"] as? [String: Any] {
             if artistMbid == nil {
                 artistMbid = (additionalInfo["artist_mbids"] as? [String])?.first
@@ -783,7 +784,7 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
                 recordingMbid = additionalInfo["recording_mbid"] as? String
             }
         }
-        
+
         return (artistMbid, releaseMbid, recordingMbid)
     }
 }

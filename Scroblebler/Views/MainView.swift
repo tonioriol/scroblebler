@@ -4,8 +4,7 @@ struct MainView: View {
     @EnvironmentObject var watcher: Watcher
     @EnvironmentObject var serviceManager: ScrobbleManager
     @EnvironmentObject var defaults: Defaults
-    @StateObject private var trackStore = TrackStore.shared
-    @StateObject private var trackService = TrackService.shared
+    @StateObject private var listenStore = ListenStore.shared
     @State private var showProfileView = false
     @State private var loginService: ScrobbleService?
     @State private var tokenInput = ""
@@ -19,9 +18,9 @@ struct MainView: View {
     @State private var loginState: WaitingLogin.Status = .generatingToken
     @State private var isPlaying = false
     @State private var showServicesSection = false
-    
-    private var historyTracks: [Track] {
-        trackStore.history
+
+    private var historyTracks: [Listen] {
+        listenStore.history
     }
 
     var body: some View {
@@ -30,9 +29,9 @@ struct MainView: View {
                 mainContent
                     .frame(height: historyTracks.isEmpty ? nil : 600, alignment: .top)
                     .frame(maxHeight: historyTracks.isEmpty ? .infinity : 600)
-                
+
                 Divider()
-                
+
                 if !showProfileView {
                     Header(showProfileView: $showProfileView, showServicesSection: $showServicesSection)
                         .environmentObject(defaults)
@@ -42,13 +41,13 @@ struct MainView: View {
             .frame(height: historyTracks.isEmpty ? nil : 655)
             .fixedSize(horizontal: false, vertical: historyTracks.isEmpty)
             .offset(y: showProfileView ? (historyTracks.isEmpty ? -655 : -655) : 0)
-            
+
             if showProfileView {
                 VStack(spacing: 0) {
                     Header(showProfileView: $showProfileView, showServicesSection: $showServicesSection)
                         .environmentObject(defaults)
                         .zIndex(10)
-                    
+
                     ProfileView(isPresented: $showProfileView)
                         .frame(height: 600)
                 }
@@ -105,125 +104,15 @@ struct MainView: View {
             )
         }
     }
-    
+
     var mainContent: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Focus trap
-            TextField("", text: .constant(""))
-                .frame(width: 0, height: 0)
-                .opacity(0)
-                .accessibilityHidden(true)
-            
-            if trackStore.currentTrack != nil {
-                NowPlaying(currentPosition: $watcher.currentPosition, isPlaying: $isPlaying)
-            } else {
-                HStack(alignment: .top, spacing: 16) {
-                    Image("nocover")
-                        .resizable()
-                        .cornerRadius(6)
-                        .frame(width: 92, height: 92)
-                    VStack(alignment: .leading) {
-                        Text("It's silent here... There's nothing playing.")
-                    }
-                }
-                .padding()
-            }
-            
+            focusTrap
+            nowPlayingSection
             Divider()
-            
-            // Pending operations indicator
             PendingOperationsView()
-            
-            // History section
-            if !historyTracks.isEmpty {
-                VStack(alignment: .leading, spacing: 0) {
-                    HStack {
-                        Text("Recently Scrobbled")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(.secondary)
-                        
-                        Spacer()
-                        
-                        // Cache rebuild button (ListenBrainz only)
-                        if defaults.primaryService?.service == .listenbrainz {
-                            Button(action: invalidateCache) {
-                                Image(systemName: "arrow.clockwise")
-                                    .font(.system(size: 10))
-                                    .foregroundColor(.secondary)
-                            }
-                            .buttonStyle(.plain)
-                            .help("Rebuild playcount cache")
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 12)
-                    .padding(.bottom, 8)
-                    
-                    ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 0) {
-                            ForEach(Array(historyTracks.enumerated()), id: \.element.id) { index, track in
-                                HistoryItem(track: track)
-                                    .onAppear {
-                                        let isLastItem = index == historyTracks.count - 1
-                                        if isLastItem && !isLoadingMore && hasMoreTracks {
-                                            loadMoreTracks()
-                                        }
-                                    }
-                                if index < historyTracks.count - 1 {
-                                    Divider()
-                                        .padding(.horizontal, 16)
-                                }
-                            }
-                            
-                            if isLoadingMore {
-                                HStack {
-                                    Spacer()
-                                    ProgressView()
-                                        .scaleEffect(0.7)
-                                        .padding(.vertical, 8)
-                                    Spacer()
-                                }
-                            }
-                        }
-                    }
-                }
-                Divider()
-            }
-            
-            // Service management
-            if showServicesSection {
-                VStack(spacing: 8) {
-                    ForEach(ScrobbleService.allCases) { service in
-                        ServiceRow(
-                            service: service,
-                            credentials: defaults.credentials(for: service),
-                            isMainService: defaults.mainServicePreference == service,
-                            onLogin: {
-                                loginService = service
-                                loginState = .generatingToken
-                                Task { await doServiceLogin(service: service) }
-                            },
-                            onLogout: {
-                                defaults.removeCredentials(for: service)
-                            },
-                            onToggle: { enabled in
-                                defaults.toggleService(service, enabled: enabled)
-                            },
-                            onSetMain: {
-                                defaults.mainServicePreference = service
-                            },
-                            onSetupWebClient: service == .lastfm ? {
-                                pendingLastFmUsername = defaults.credentials(for: .lastfm)?.username
-                                showWebClientPasswordSheet = true
-                            } : nil
-                        )
-                    }
-                }
-                .padding(.horizontal)
-                .padding(.top)
-                .padding(.bottom)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
+            historySection
+            servicesSection
         }
         .onAppear {
             loadRecentTracks()
@@ -242,18 +131,136 @@ struct MainView: View {
             loadRecentTracks()
         }
     }
-    
+
+    private var focusTrap: some View {
+        TextField("", text: .constant(""))
+            .frame(width: 0, height: 0)
+            .opacity(0)
+            .accessibilityHidden(true)
+    }
+
+    @ViewBuilder
+    private var nowPlayingSection: some View {
+        if listenStore.currentListen != nil {
+            NowPlaying(currentPosition: $watcher.currentPosition, isPlaying: $isPlaying)
+        } else {
+            HStack(alignment: .top, spacing: 16) {
+                Image("nocover")
+                    .resizable()
+                    .cornerRadius(6)
+                    .frame(width: 92, height: 92)
+                VStack(alignment: .leading) {
+                    Text("It's silent here... There's nothing playing.")
+                }
+            }
+            .padding()
+        }
+    }
+
+    @ViewBuilder
+    private var historySection: some View {
+        if !historyTracks.isEmpty {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack {
+                    Text("Recently Scrobbled")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.secondary)
+
+                    Spacer()
+
+                    // Cache rebuild button (ListenBrainz only)
+                    if defaults.primaryService?.service == .listenbrainz {
+                        Button(action: invalidateCache) {
+                            Image(systemName: "arrow.clockwise")
+                                .font(.system(size: 10))
+                                .foregroundColor(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Rebuild playcount cache")
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+                .padding(.bottom, 8)
+
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        ForEach(Array(historyTracks.enumerated()), id: \.element.id) { index, track in
+                            HistoryItem(track: track)
+                                .onAppear {
+                                    let isLastItem = index == historyTracks.count - 1
+                                    if isLastItem && !isLoadingMore && hasMoreTracks {
+                                        loadMoreTracks()
+                                    }
+                                }
+                            if index < historyTracks.count - 1 {
+                                Divider()
+                                    .padding(.horizontal, 16)
+                            }
+                        }
+
+                        if isLoadingMore {
+                            HStack {
+                                Spacer()
+                                ProgressView()
+                                    .scaleEffect(0.7)
+                                    .padding(.vertical, 8)
+                                Spacer()
+                            }
+                        }
+                    }
+                }
+            }
+            Divider()
+        }
+    }
+
+    @ViewBuilder
+    private var servicesSection: some View {
+        if showServicesSection {
+            VStack(spacing: 8) {
+                ForEach(ScrobbleService.allCases) { service in
+                    ServiceRow(
+                        service: service,
+                        credentials: defaults.credentials(for: service),
+                        isMainService: defaults.mainServicePreference == service,
+                        onLogin: {
+                            loginService = service
+                            loginState = .generatingToken
+                            Task { await doServiceLogin(service: service) }
+                        },
+                        onLogout: {
+                            defaults.removeCredentials(for: service)
+                        },
+                        onToggle: { enabled in
+                            defaults.toggleService(service, enabled: enabled)
+                        },
+                        onSetMain: {
+                            defaults.mainServicePreference = service
+                        },
+                        onSetupWebClient: service == .lastfm ? {
+                            pendingLastFmUsername = defaults.credentials(for: .lastfm)?.username
+                            showWebClientPasswordSheet = true
+                        } : nil
+                    )
+                }
+            }
+            .padding(.horizontal)
+            .padding(.top)
+            .padding(.bottom)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+        }
+    }
+
     private func loadRecentTracks() {
         currentPage = 1
         hasMoreTracks = true
-        
+
         Task {
-            guard let primary = defaults.primaryService else { return }
-            
             do {
-                let fetchedCount = try await trackService.loadHistory(from: primary, limit: 20, page: 1)
+                try await listenStore.refreshHistory(limit: 20)
                 await MainActor.run {
-                    hasMoreTracks = fetchedCount >= 20
+                    hasMoreTracks = historyTracks.count >= 20
                 }
                 // Preload in background without blocking
                 Task.detached {
@@ -264,7 +271,7 @@ struct MainView: View {
             }
         }
     }
-    
+
     /// Load more tracks for pagination
     ///
     /// IMPORTANT: Pagination logic must use fetchedCount from API, NOT the number of tracks added to UI.
@@ -281,38 +288,33 @@ struct MainView: View {
             Logger.debug("Pagination blocked: isLoadingMore=\(isLoadingMore), hasMoreTracks=\(hasMoreTracks)", log: Logger.ui)
             return
         }
-        
+
         Logger.info("Loading more tracks - page \(currentPage + 1)", log: Logger.ui)
         isLoadingMore = true
         let nextPage = currentPage + 1
-        
+
         Task {
-            guard let primary = defaults.primaryService else {
-                await MainActor.run { isLoadingMore = false }
-                return
-            }
-            
             do {
                 let countBefore = historyTracks.count
                 Logger.debug("Before load: \(countBefore) tracks in UI", log: Logger.ui)
-                
-                // CRITICAL: Use fetchedCount (from API) not UI count for pagination logic
-                let fetchedCount = try await trackService.loadHistory(from: primary, limit: 20, page: nextPage)
-                
+
+                // Load more from local store
+                let newLimit = nextPage * 20
+                try await listenStore.refreshHistory(limit: newLimit)
+
                 await MainActor.run {
                     let countAfter = historyTracks.count
                     let addedToUI = countAfter - countBefore
-                    
-                    Logger.info("After load: \(countAfter) tracks in UI (added \(addedToUI)), fetched \(fetchedCount) from API", log: Logger.ui)
-                    
-                    if fetchedCount > 0 {
+
+                    Logger.info("After load: \(countAfter) tracks in UI (added \(addedToUI))", log: Logger.ui)
+
+                    if addedToUI > 0 {
                         currentPage = nextPage
-                        // Continue pagination if API returned full page (use API count, not UI count!)
-                        hasMoreTracks = fetchedCount >= 20
+                        hasMoreTracks = addedToUI >= 20
                         Logger.debug("Updated: currentPage=\(currentPage), hasMoreTracks=\(hasMoreTracks)", log: Logger.ui)
                     } else {
                         hasMoreTracks = false
-                        Logger.debug("No tracks fetched from API, stopping pagination", log: Logger.ui)
+                        Logger.debug("No more tracks available, stopping pagination", log: Logger.ui)
                     }
                     isLoadingMore = false
                 }
@@ -328,19 +330,20 @@ struct MainView: View {
             }
         }
     }
-    
-    private func preloadImages(for tracks: [Track]) async {
+
+    private func preloadImages(for listens: [Listen]) async {
         await withTaskGroup(of: Void.self) { group in
-            for track in tracks {
-                guard let imageUrl = track.imageUrl else { continue }
-                
+            for listen in listens {
+                guard let releaseMbid = listen.releaseMbid else { continue }
+                let imageUrl = "https://coverartarchive.org/release/\(releaseMbid)/front-250"
+
                 group.addTask {
                     // Check if already cached
                     let cached = await MainActor.run { ImageCache.shared.get(imageUrl) }
                     if cached != nil {
                         return
                     }
-                    
+
                     // Load from network
                     guard let url = URL(string: imageUrl) else { return }
                     do {
@@ -355,25 +358,33 @@ struct MainView: View {
             }
         }
     }
-    
+
     private func handleBackfillEvent(_ event: BackfillEvent) {
         Logger.info("🔄 UI: Handling backfill event for '\(event.artist) - \(event.track)' to \(event.service.displayName)", log: Logger.ui)
-        // Update track in store
-        trackStore.updateTrack(artist: event.artist, track: event.track) { track in
-            Logger.debug("  Before update - serviceInfo keys: \(track.serviceInfo.keys.map { $0.rawValue }.joined(separator: ", "))", log: Logger.ui)
-            track.serviceInfo[event.service] = ServiceTrackData(
-                timestamp: event.timestamp,
-                id: nil,
-                artistMbid: nil,
-                releaseMbid: nil
-            )
-            Logger.debug("  After update - serviceInfo keys: \(track.serviceInfo.keys.map { $0.rawValue }.joined(separator: ", "))", log: Logger.ui)
+        // Update listen in store
+        Task {
+            await MainActor.run {
+                listenStore.updateListen(artist: event.artist, track: event.track) { listen in
+                    Logger.debug("  Before update - service keys: \(listen.services.keys.joined(separator: ", "))", log: Logger.ui)
+                    listen.services[event.service.rawValue] = ServiceSyncState(
+                        status: .synced,
+                        timestamp: event.timestamp,
+                        recordingMsid: nil,
+                        artistMbid: nil,
+                        releaseMbid: nil,
+                        error: nil,
+                        retryCount: 0,
+                        lastAttemptAt: nil
+                    )
+                    Logger.debug("  After update - service keys: \(listen.services.keys.joined(separator: ", "))", log: Logger.ui)
+                }
+            }
         }
     }
-    
+
     private func doServiceLogin(service: ScrobbleService) async {
         guard service != .listenbrainz else { return }
-        
+
         let token: String
         let targetURL: URL
         do {
@@ -384,9 +395,9 @@ struct MainView: View {
             Logger.error("Error preparing \(service.displayName) authentication: \(error)", log: Logger.authentication)
             return
         }
-        
+
         await MainActor.run { loginState = .waitingForLogin }
-        
+
         var credentials: ServiceCredentials?
         while loginService != nil {
             guard ((try? await Task.sleep(nanoseconds: 2_000_000_000)) != nil) else { return }
@@ -401,19 +412,19 @@ struct MainView: View {
                 return
             }
         }
-        
+
         guard loginService != nil, let credentials = credentials else { return }
-        
+
         await MainActor.run {
             loginState = .finishingUp
             defaults.addOrUpdateCredentials(credentials)
-            
+
             // Auto-set as main if no main service configured
             if defaults.mainServicePreference == nil {
                 defaults.mainServicePreference = service
             }
         }
-        
+
         // Show the popover when auth succeeds
         if let appDelegate = NSApplication.shared.delegate as? AppDelegate,
            let button = appDelegate.statusBarItem.button,
@@ -428,7 +439,7 @@ struct MainView: View {
                 NSApp.activate(ignoringOtherApps: true)
             }
         }
-        
+
         // Fetch profile picture for Last.fm
         if service == .lastfm, let client = serviceManager.client(for: .lastfm) as? LastFmClient {
             if let imageData = try? await client.getUserImage(username: credentials.username) {
@@ -436,7 +447,7 @@ struct MainView: View {
                     defaults.picture = imageData
                 }
             }
-            
+
             // Prompt for password to enable web deletion
             await MainActor.run {
                 pendingLastFmUsername = credentials.username
@@ -449,22 +460,22 @@ struct MainView: View {
             }
         }
     }
-    
+
     private func submitListenBrainzToken() async {
         guard loginService == .listenbrainz else { return }
-        
+
         let token = tokenInput.trimmingCharacters(in: .whitespacesAndNewlines)
-        
+
         do {
             let credentials = try await serviceManager.completeAuthentication(service: .listenbrainz, token: token)
             await MainActor.run {
                 defaults.addOrUpdateCredentials(credentials)
-                
+
                 // Auto-set as main if no main service configured
                 if defaults.mainServicePreference == nil {
                     defaults.mainServicePreference = .listenbrainz
                 }
-                
+
                 loginService = nil
                 tokenInput = ""
             }
@@ -476,7 +487,7 @@ struct MainView: View {
             Logger.error("Error during ListenBrainz token validation: \(error)", log: Logger.authentication)
         }
     }
-    
+
     private func submitPassword() async {
         let password = passwordInput.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !password.isEmpty, let username = pendingLastFmUsername else {
@@ -487,14 +498,14 @@ struct MainView: View {
             }
             return
         }
-        
+
         do {
             try await serviceManager.setupLastFmWebClient(password: password)
-            
+
             // Store password in Keychain for future use
             try KeychainHelper.shared.savePassword(username: username, password: password)
             Logger.info("Last.fm web client setup successful - undo functionality enabled", log: Logger.authentication)
-            
+
             await MainActor.run {
                 showPasswordSheet = false
                 pendingLastFmUsername = nil
@@ -509,7 +520,7 @@ struct MainView: View {
             }
         }
     }
-    
+
     private func submitWebClientPassword() async {
         let password = passwordInput.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !password.isEmpty, let username = pendingLastFmUsername else {
@@ -520,14 +531,14 @@ struct MainView: View {
             }
             return
         }
-        
+
         do {
             try await serviceManager.setupLastFmWebClient(password: password)
-            
+
             // Store password in Keychain for future use
             try KeychainHelper.shared.savePassword(username: username, password: password)
             Logger.info("Last.fm web client setup successful - undo functionality enabled", log: Logger.authentication)
-            
+
             await MainActor.run {
                 showWebClientPasswordSheet = false
                 pendingLastFmUsername = nil
@@ -542,14 +553,14 @@ struct MainView: View {
             }
         }
     }
-    
+
     private func invalidateCache() {
         guard let primary = defaults.primaryService,
               primary.service == .listenbrainz,
               let client = serviceManager.client(for: .listenbrainz) as? ListenBrainzClient else {
             return
         }
-        
+
         Logger.info("Cache rebuild triggered", log: Logger.ui)
         Task {
             await client.invalidateAndRebuildCache(username: primary.username)
@@ -566,7 +577,7 @@ struct ServiceRow: View {
     let onToggle: (Bool) -> Void
     let onSetMain: () -> Void
     let onSetupWebClient: (() -> Void)?
-    
+
     var body: some View {
         HStack {
             Button(action: {
@@ -580,24 +591,24 @@ struct ServiceRow: View {
             .buttonStyle(.plain)
             .disabled(credentials == nil)
             .help("Set as main client for profile view")
-            
+
             Toggle("", isOn: Binding(
                 get: { credentials?.isEnabled ?? false },
                 set: { onToggle($0) }
             ))
             .toggleStyle(.switch)
             .disabled(credentials == nil)
-            
+
             Text("Scrobble to \(service.displayName)")
                 .foregroundColor(credentials == nil ? .secondary : .primary)
-            
+
             Spacer()
-            
+
             if let credentials = credentials {
                 Text(credentials.username)
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
-                
+
                 // Show web client setup button for Last.fm
                 if let setupAction = onSetupWebClient {
                     Button(action: setupAction) {
@@ -607,7 +618,7 @@ struct ServiceRow: View {
                     .buttonStyle(.plain)
                     .help("Setup password for undo functionality")
                 }
-                
+
                 Button("Logout") { onLogout() }
                     .buttonStyle(.link)
             } else {

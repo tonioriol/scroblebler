@@ -3,31 +3,30 @@ import SwiftUI
 struct BlacklistButton: View {
     let artist: String
     let track: String
-    
-    @StateObject private var trackStore = TrackStore.shared
-    @StateObject private var trackService = TrackService.shared
+
     @State private var isBlacklisted = false
     @State private var isAnimating = false
-    
+    private let blacklist = LocalBlacklist.shared
+
     // Unique identifier for this artist+track combination
     private var trackId: String {
         "\(artist)|\(track)"
     }
-    
+
     var body: some View {
         Button {
             Task {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
                     isAnimating = true
                 }
-                
-                // Toggle via TrackService
-                let newState = await trackService.toggleBlacklist(artist: artist, track: track)
-                
+
+                // Toggle via LocalBlacklist
+                let newState = await toggleBlacklistStatus()
+
                 await MainActor.run {
                     isBlacklisted = newState
                 }
-                
+
                 try? await Task.sleep(nanoseconds: 300_000_000)
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                     isAnimating = false
@@ -61,10 +60,25 @@ struct BlacklistButton: View {
             }
         }
     }
-    
+
     @MainActor
     private func updateBlacklistStatus() async {
-        let status = await trackService.isBlacklisted(artist: artist, track: track)
-        isBlacklisted = status
+        isBlacklisted = await blacklist.contains(artist: artist, track: track)
+    }
+
+    private func toggleBlacklistStatus() async -> Bool {
+        do {
+            let currentlyBlacklisted = await blacklist.contains(artist: artist, track: track)
+            if currentlyBlacklisted {
+                try await blacklist.remove(artist: artist, track: track)
+                return false
+            } else {
+                try await blacklist.add(artist: artist, track: track)
+                return true
+            }
+        } catch {
+            Logger.error("Failed to toggle blacklist: \(error)", log: Logger.ui)
+            return false
+        }
     }
 }

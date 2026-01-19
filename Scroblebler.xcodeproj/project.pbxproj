@@ -7,9 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1642B729205FE028EE8C5A9F /* Listen.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC0011FE1A7CFD0F6D60B113 /* Listen.swift */; };
+		16766413902D56A80A25CD43 /* SyncEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7376CABC68290FC7A18B45D0 /* SyncEngine.swift */; };
 		214BE49AEB926CFA16D44F62 /* LoveButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0F361811AED80EF7ACDCA43 /* LoveButton.swift */; };
 		54EF5BB490E7B7CAEA23F3C5 /* ListenBrainzService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEC77CD2AD564E2DF10EF98C /* ListenBrainzService.swift */; };
-		9F5A3B2AB149F9C755694E25 /* TrackService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 180D3DE66CB8D321ADFAFCEC /* TrackService.swift */; };
+		55299BF7CBA1D9466CF5364E /* ListenStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53E6B6510EF81F671C30594D /* ListenStore.swift */; };
+		5B87BA04A23A1AB8A3C8EC52 /* ListenIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAE2742F3DAE60CA28B565E4 /* ListenIdentity.swift */; };
 		AA1111111111111111111111 /* AlbumArtwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB1111111111111111111111 /* AlbumArtwork.swift */; };
 		AA1347A4BB2B1A01297C8A41 /* LibreFmService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEC89C26C447DC50A931C564 /* LibreFmService.swift */; };
 		AA2222222222222222222222 /* PlayCountBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB2222222222222222222222 /* PlayCountBadge.swift */; };
@@ -17,6 +20,7 @@
 		AA5555555555555555555555 /* MarqueeText.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB5555555555555555555555 /* MarqueeText.swift */; };
 		BL0000000000000000000002 /* BlacklistButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = BL0000000000000000000001 /* BlacklistButton.swift */; };
 		BLENT000000000000000002 /* BlacklistEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = BLENT000000000000000001 /* BlacklistEntry.swift */; };
+		CBD572569B6EBAA129C1F6EE /* ListenMatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2A90CA1DD115662DEF41665 /* ListenMatcher.swift */; };
 		CC6666666666666666666666 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD6666666666666666666666 /* ProfileView.swift */; };
 		CC7777777777777777777777 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD7777777777777777777777 /* ContentView.swift */; };
 		CE03AB3AD8E1A85EFDB1F9E7 /* LastFmService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0390C611586C209B0D20291B /* LastFmService.swift */; };
@@ -52,9 +56,6 @@
 		FF9999999999999999999999 /* PasteableTextFields.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE9999999999999999999999 /* PasteableTextFields.swift */; };
 		IMGCACHE000000000000002 /* ImageCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = IMGCACHE000000000000001 /* ImageCache.swift */; };
 		KEYC0000000000000000002 /* KeychainHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = KEYC0000000000000000001 /* KeychainHelper.swift */; };
-		LBCACHE0000000000000002 /* ListenBrainzCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = LBCACHE0000000000000001 /* ListenBrainzCache.swift */; };
-		LBCENT00000000000000002 /* ListenBrainzCacheEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = LBCENT00000000000000001 /* ListenBrainzCacheEntry.swift */; };
-		LBCMET00000000000000002 /* ListenBrainzCacheMeta.swift in Sources */ = {isa = PBXBuildFile; fileRef = LBCMET00000000000000001 /* ListenBrainzCacheMeta.swift */; };
 		LBLIST00000000000000002 /* LocalBlacklist.swift in Sources */ = {isa = PBXBuildFile; fileRef = LBLIST00000000000000001 /* LocalBlacklist.swift */; };
 		LBRLIM00000000000000002 /* ListenBrainzRateLimiter.swift in Sources */ = {isa = PBXBuildFile; fileRef = LBRLIM00000000000000001 /* ListenBrainzRateLimiter.swift */; };
 		LDBAS000000000000000002 /* LocalDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = LDBAS000000000000000001 /* LocalDatabase.swift */; };
@@ -94,8 +95,9 @@
 
 /* Begin PBXFileReference section */
 		0390C611586C209B0D20291B /* LastFmService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LastFmService.swift; path = Scroblebler/Services/LastFmService.swift; sourceTree = "<group>"; };
-		180D3DE66CB8D321ADFAFCEC /* TrackService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TrackService.swift; path = TrackService.swift; sourceTree = "<group>"; };
 		2FE900854B26848E1F16665A /* Service.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = Service.swift; path = Scroblebler/Protocols/Service.swift; sourceTree = "<group>"; };
+		53E6B6510EF81F671C30594D /* ListenStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ListenStore.swift; sourceTree = "<group>"; };
+		7376CABC68290FC7A18B45D0 /* SyncEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SyncEngine.swift; sourceTree = "<group>"; };
 		945B0AE950C577F39A8982D7 /* HistoryPlay.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HistoryPlay.swift; path = Scroblebler/HistoryPlay.swift; sourceTree = "<group>"; };
 		A0F361811AED80EF7ACDCA43 /* LoveButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoveButton.swift; sourceTree = "<group>"; };
 		BB1111111111111111111111 /* AlbumArtwork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlbumArtwork.swift; sourceTree = "<group>"; };
@@ -105,6 +107,7 @@
 		BEC89C26C447DC50A931C564 /* LibreFmService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LibreFmService.swift; path = Scroblebler/Services/LibreFmService.swift; sourceTree = "<group>"; };
 		BL0000000000000000000001 /* BlacklistButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlacklistButton.swift; sourceTree = "<group>"; };
 		BLENT000000000000000001 /* BlacklistEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlacklistEntry.swift; sourceTree = "<group>"; };
+		CAE2742F3DAE60CA28B565E4 /* ListenIdentity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ListenIdentity.swift; sourceTree = "<group>"; };
 		CEC77CD2AD564E2DF10EF98C /* ListenBrainzService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ListenBrainzService.swift; path = Scroblebler/Services/ListenBrainzService.swift; sourceTree = "<group>"; };
 		DA6859CA292FDE67009143B3 /* HistoryItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryItem.swift; sourceTree = "<group>"; };
 		DA6859CB292FDE66009143B3 /* NowPlaying.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlaying.swift; sourceTree = "<group>"; };
@@ -129,6 +132,7 @@
 		DD000001000000000000001 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		DD6666666666666666666666 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		DD7777777777777777777777 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		E2A90CA1DD115662DEF41665 /* ListenMatcher.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ListenMatcher.swift; sourceTree = "<group>"; };
 		EE1111111111111111111111 /* LastFmClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LastFmClient.swift; sourceTree = "<group>"; };
 		EE2222222222222222222222 /* LibreFmClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibreFmClient.swift; sourceTree = "<group>"; };
 		EE3333333333333333333333 /* ListenBrainzClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListenBrainzClient.swift; sourceTree = "<group>"; };
@@ -138,11 +142,9 @@
 		EE7777777777777777777777 /* TokenInputSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenInputSheet.swift; sourceTree = "<group>"; };
 		EE8888888888888888888889 /* PasswordInputSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasswordInputSheet.swift; sourceTree = "<group>"; };
 		EE9999999999999999999999 /* PasteableTextFields.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasteableTextFields.swift; sourceTree = "<group>"; };
+		FC0011FE1A7CFD0F6D60B113 /* Listen.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Listen.swift; sourceTree = "<group>"; };
 		IMGCACHE000000000000001 /* ImageCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageCache.swift; sourceTree = "<group>"; };
 		KEYC0000000000000000001 /* KeychainHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelper.swift; sourceTree = "<group>"; };
-		LBCACHE0000000000000001 /* ListenBrainzCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListenBrainzCache.swift; sourceTree = "<group>"; };
-		LBCENT00000000000000001 /* ListenBrainzCacheEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListenBrainzCacheEntry.swift; sourceTree = "<group>"; };
-		LBCMET00000000000000001 /* ListenBrainzCacheMeta.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListenBrainzCacheMeta.swift; sourceTree = "<group>"; };
 		LBLIST00000000000000001 /* LocalBlacklist.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalBlacklist.swift; sourceTree = "<group>"; };
 		LBRLIM00000000000000001 /* ListenBrainzRateLimiter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListenBrainzRateLimiter.swift; sourceTree = "<group>"; };
 		LDBAS000000000000000001 /* LocalDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalDatabase.swift; sourceTree = "<group>"; };
@@ -196,7 +198,6 @@
 				LFWC0000000000000000001 /* LastFmWebClient.swift */,
 				EE2222222222222222222222 /* LibreFmClient.swift */,
 				EE3333333333333333333333 /* ListenBrainzClient.swift */,
-				LBCACHE0000000000000001 /* ListenBrainzCache.swift */,
 			);
 			path = Clients;
 			sourceTree = "<group>";
@@ -324,6 +325,7 @@
 			isa = PBXGroup;
 			children = (
 				UNTRACK0000000000000001 /* Track.swift */,
+				FC0011FE1A7CFD0F6D60B113 /* Listen.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -342,8 +344,6 @@
 		STORMODL000000000000001 /* Models */ = {
 			isa = PBXGroup;
 			children = (
-				LBCENT00000000000000001 /* ListenBrainzCacheEntry.swift */,
-				LBCMET00000000000000001 /* ListenBrainzCacheMeta.swift */,
 				BLENT000000000000000001 /* BlacklistEntry.swift */,
 				QOPER000000000000000001 /* QueuedOperation.swift */,
 			);
@@ -355,7 +355,8 @@
 			children = (
 				SYNCSVC0000000000000001 /* SyncService.swift */,
 				TRKREP00000000000000001 /* TrackStore.swift */,
-				180D3DE66CB8D321ADFAFCEC /* TrackService.swift */,
+				53E6B6510EF81F671C30594D /* ListenStore.swift */,
+				7376CABC68290FC7A18B45D0 /* SyncEngine.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -369,6 +370,8 @@
 				LBRLIM00000000000000001 /* ListenBrainzRateLimiter.swift */,
 				REACH000000000000000001 /* Reachability.swift */,
 				TRKID000000000000000001 /* TrackIdentity.swift */,
+				CAE2742F3DAE60CA28B565E4 /* ListenIdentity.swift */,
+				E2A90CA1DD115662DEF41665 /* ListenMatcher.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -487,7 +490,6 @@
 				FF8888888888888888888889 /* PasswordInputSheet.swift in Sources */,
 				KEYC0000000000000000002 /* KeychainHelper.swift in Sources */,
 				LFWC0000000000000000002 /* LastFmWebClient.swift in Sources */,
-				LBCACHE0000000000000002 /* ListenBrainzCache.swift in Sources */,
 				IMGCACHE000000000000002 /* ImageCache.swift in Sources */,
 				SYNCBADGE00000000000002 /* SyncStatusBadge.swift in Sources */,
 				LOGGER00000000000000002 /* Logger.swift in Sources */,
@@ -499,8 +501,6 @@
 				LBRLIM00000000000000002 /* ListenBrainzRateLimiter.swift in Sources */,
 				SYNCSVC0000000000000002 /* SyncService.swift in Sources */,
 				LDBAS000000000000000002 /* LocalDatabase.swift in Sources */,
-				LBCENT00000000000000002 /* ListenBrainzCacheEntry.swift in Sources */,
-				LBCMET00000000000000002 /* ListenBrainzCacheMeta.swift in Sources */,
 				BLENT000000000000000002 /* BlacklistEntry.swift in Sources */,
 				QOPER000000000000000002 /* QueuedOperation.swift in Sources */,
 				LBLIST00000000000000002 /* LocalBlacklist.swift in Sources */,
@@ -514,8 +514,12 @@
 				CE03AB3AD8E1A85EFDB1F9E7 /* LastFmService.swift in Sources */,
 				AA1347A4BB2B1A01297C8A41 /* LibreFmService.swift in Sources */,
 				54EF5BB490E7B7CAEA23F3C5 /* ListenBrainzService.swift in Sources */,
-				9F5A3B2AB149F9C755694E25 /* TrackService.swift in Sources */,
 				F640CF9174416B30FADDE1C5 /* HistoryPlay.swift in Sources */,
+				1642B729205FE028EE8C5A9F /* Listen.swift in Sources */,
+				55299BF7CBA1D9466CF5364E /* ListenStore.swift in Sources */,
+				16766413902D56A80A25CD43 /* SyncEngine.swift in Sources */,
+				5B87BA04A23A1AB8A3C8EC52 /* ListenIdentity.swift in Sources */,
+				CBD572569B6EBAA129C1F6EE /* ListenMatcher.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -11,8 +11,7 @@ struct ContentView: View {
     @StateObject var watcher = Watcher()
     @StateObject var serviceManager = ScrobbleManager.shared
     @StateObject var defaults = Defaults.shared
-    @StateObject var trackStore = TrackStore.shared
-    @StateObject var trackService = TrackService.shared
+    @StateObject var listenStore = ListenStore.shared
 
     var body: some View {
         VStack {
@@ -21,25 +20,24 @@ struct ContentView: View {
                 .environmentObject(serviceManager)
                 .environmentObject(defaults)
         }.onLoad {
-            watcher.onTrackChanged = { track in
+            watcher.onTrackChanged = { listen in
                 Task {
-                    let enrichedTrack = await serviceManager.updateNowPlayingAll(track: track)
+                    let enrichedListen = await serviceManager.updateNowPlayingAll(listen: listen)
                     await MainActor.run {
-                        trackStore.setCurrentTrack(enrichedTrack)
-                        // Enrich current track in background
-                        Task {
-                            await trackService.enrichCurrentTrack()
-                        }
+                        listenStore.setCurrentListen(enrichedListen)
                     }
                 }
             }
-            watcher.onScrobbleWanted = { track in
+            watcher.onScrobbleWanted = { listen in
                 Task {
-                    await trackService.scrobble(track)
+                    await MainActor.run {
+                        let syncEngine = SyncEngine.makeDefault()
+                        Task { await syncEngine.scrobble(listen) }
+                    }
                 }
             }
             watcher.start()
-            
+
             // Check if track info arrived before callbacks were set
             watcher.refreshCurrentState()
         }
