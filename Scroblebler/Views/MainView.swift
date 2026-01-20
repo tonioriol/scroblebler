@@ -19,6 +19,10 @@ struct MainView: View {
     @State private var isPlaying = false
     @State private var showServicesSection = false
 
+    // History backfill state (remote → local)
+    @State private var backfillTask: Task<Void, Never>?
+    @State private var isBackfillingHistory = false
+
     private var historyTracks: [Listen] {
         listenStore.history
     }
@@ -259,9 +263,21 @@ struct MainView: View {
         Task {
             do {
                 try await listenStore.refreshHistory(limit: 20)
-                await MainActor.run {
-                    hasMoreTracks = historyTracks.count >= 20
+
+                // If the local DB is empty, import page 1 from ALL enabled services, then start a
+                // background backfill to walk all the way to the beginning.
+                let total = try await listenStore.countListens()
+                if total == 0 {
+                    _ = try await importAndMergeHistoryPage(page: 1, limit: 20)
+                    try await listenStore.refreshHistory(limit: 20)
+                    startHistoryBackfillIfNeeded(startPage: 2, limitPerPage: 50)
                 }
+
+                let newTotal = try await listenStore.countListens()
+                await MainActor.run {
+                    hasMoreTracks = newTotal > historyTracks.count || isBackfillingHistory
+                }
+
                 // Preload in background without blocking
                 Task.detached {
                     await self.preloadImages(for: self.historyTracks)
@@ -270,6 +286,144 @@ struct MainView: View {
                 Logger.error("Failed to load recent tracks: \(error)", log: Logger.ui)
             }
         }
+    }
+
+    @MainActor
+    private func startHistoryBackfillIfNeeded(startPage: Int, limitPerPage: Int) {
+        guard !isBackfillingHistory else { return }
+        if let task = backfillTask, !task.isCancelled {
+            return
+        }
+
+        isBackfillingHistory = true
+        backfillTask = Task {
+            defer {
+                Task { @MainActor in
+                    self.isBackfillingHistory = false
+                }
+            }
+
+            do {
+                try await backfillAllHistory(startPage: startPage, limitPerPage: limitPerPage)
+            } catch {
+                Logger.error("History backfill failed: \(error)", log: Logger.sync)
+            }
+        }
+    }
+
+    /// Import+merge history from ALL enabled services, page-by-page, until we hit the beginning.
+    /// This runs in the background; the UI always reads from SQLite.
+    @MainActor
+    private func backfillAllHistory(startPage: Int, limitPerPage: Int) async throws {
+        var page = startPage
+
+        while true {
+            let fetchedCount = try await importAndMergeHistoryPage(page: page, limit: limitPerPage)
+
+            // Keep UI in sync without shrinking the list.
+            let visibleLimit = max(20, currentPage * 20)
+            try? await listenStore.refreshHistory(limit: visibleLimit)
+            let total = try? await listenStore.countListens()
+            if let total {
+                hasMoreTracks = total > historyTracks.count
+            }
+
+            if fetchedCount < limitPerPage {
+                break
+            }
+
+            page += 1
+
+            // Gentle pacing to avoid hammering APIs.
+            try await Task.sleep(nanoseconds: 300_000_000)
+        }
+    }
+
+    /// Fetch one history page from all enabled services, merge/dedup into SQLite, and return the
+    /// maximum fetched count (pre-dedup) across services.
+    @MainActor
+    private func importAndMergeHistoryPage(page: Int, limit: Int) async throws -> Int {
+        let enabledServices = defaults.enabledServices
+        guard !enabledServices.isEmpty else {
+            Logger.debug("No enabled services; skipping history import", log: Logger.sync)
+            return 0
+        }
+
+        var remoteListens: [Listen] = []
+        var maxFetchedCount = 0
+
+        // Simple + predictable: fetch sequentially. (Avoids Swift 6 Sendable issues when capturing
+        // non-Sendable ObservableObjects inside concurrent task groups.)
+        for credentials in enabledServices {
+            let service = credentials.service
+            let tracks = try await serviceManager.fetchRecentTracks(service: service, limit: limit, page: page)
+            maxFetchedCount = max(maxFetchedCount, tracks.count)
+
+            for track in tracks {
+                let info = track.serviceInfo[service]
+                var services: [String: ServiceSyncState] = [:]
+                services[service.rawValue] = ServiceSyncState(
+                    status: .synced,
+                    timestamp: info?.timestamp ?? track.timestamp,
+                    recordingMsid: info?.id,
+                    artistMbid: info?.artistMbid,
+                    releaseMbid: info?.releaseMbid,
+                    error: nil,
+                    retryCount: 0,
+                    lastAttemptAt: nil
+                )
+
+                remoteListens.append(
+                    Listen.fromAPI(
+                        artist: track.artist,
+                        album: track.album,
+                        track: track.name,
+                        year: nil,
+                        duration: track.duration,
+                        listenedAt: track.timestamp,
+                        loved: track.loved,
+                        releaseMbid: info?.releaseMbid,
+                        sourceBundle: nil,
+                        services: services
+                    )
+                )
+            }
+        }
+
+        // Merge/dedup into SQLite
+        for listen in remoteListens {
+            do {
+                if let existing = try await listenStore.findByTimestamp(
+                    artist: listen.artist,
+                    track: listen.track,
+                    timestamp: listen.listenedAt
+                ) {
+                    var updated = existing
+
+                    // Merge per-service states
+                    for (service, state) in listen.services {
+                        updated.services[service] = state
+                    }
+
+                    // Conflict rule: remote wins for love state
+                    updated.loved = listen.loved
+
+                    // Prefer first non-nil MBID for cover art
+                    if updated.releaseMbid == nil {
+                        updated.releaseMbid = listen.releaseMbid
+                    }
+
+                    updated.updatedAt = Date.nowISO8601()
+                    try await listenStore.update(updated)
+                } else {
+                    _ = try await listenStore.insert(listen)
+                }
+            } catch {
+                Logger.debug("History merge skipped for '\(listen.artist) - \(listen.track)': \(error)", log: Logger.sync)
+            }
+        }
+
+        return maxFetchedCount
     }
 
     /// Load more tracks for pagination
@@ -302,6 +456,8 @@ struct MainView: View {
                 let newLimit = nextPage * 20
                 try await listenStore.refreshHistory(limit: newLimit)
 
+                let total = try await listenStore.countListens()
+
                 await MainActor.run {
                     let countAfter = historyTracks.count
                     let addedToUI = countAfter - countBefore
@@ -310,10 +466,10 @@ struct MainView: View {
 
                     if addedToUI > 0 {
                         currentPage = nextPage
-                        hasMoreTracks = addedToUI >= 20
+                        hasMoreTracks = total > countAfter || isBackfillingHistory
                         Logger.debug("Updated: currentPage=\(currentPage), hasMoreTracks=\(hasMoreTracks)", log: Logger.ui)
                     } else {
-                        hasMoreTracks = false
+                        hasMoreTracks = isBackfillingHistory
                         Logger.debug("No more tracks available, stopping pagination", log: Logger.ui)
                     }
                     isLoadingMore = false
@@ -628,4 +784,3 @@ struct ServiceRow: View {
         }
     }
 }
-

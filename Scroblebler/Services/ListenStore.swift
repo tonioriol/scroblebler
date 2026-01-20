@@ -189,6 +189,13 @@ class ListenStore: ObservableObject {
         }
     }
 
+    /// Total listens in local database
+    func countListens() async throws -> Int {
+        try await db.asyncRead { db in
+            try Listen.fetchCount(db)
+        }
+    }
+
     /// Get pending listens for a service
     func getPending(service: String) async throws -> [Listen] {
         try await db.asyncRead { db in

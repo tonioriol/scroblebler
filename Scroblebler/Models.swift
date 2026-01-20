@@ -58,20 +58,23 @@ struct ServiceTrackData: Codable, Equatable {
 // MARK: - Listen Extensions for GRDB
 
 extension Listen: FetchableRecord, MutablePersistableRecord {
+    static var databaseTableName: String { "listens" }
+
     enum Columns {
-        static let id = Column(CodingKeys.id)
-        static let track = Column(CodingKeys.track)
-        static let artist = Column(CodingKeys.artist)
-        static let album = Column(CodingKeys.album)
-        static let year = Column(CodingKeys.year)
-        static let duration = Column(CodingKeys.duration)
-        static let listenedAt = Column(CodingKeys.listenedAt)
-        static let services = Column(CodingKeys.services)
-        static let loved = Column(CodingKeys.loved)
-        static let releaseMbid = Column(CodingKeys.releaseMbid)
-        static let sourceBundle = Column(CodingKeys.sourceBundle)
-        static let createdAt = Column(CodingKeys.createdAt)
-        static let updatedAt = Column(CodingKeys.updatedAt)
+        // NOTE: Column names must match the SQLite schema (snake_case)
+        static let id = Column("id")
+        static let track = Column("track")
+        static let artist = Column("artist")
+        static let album = Column("album")
+        static let year = Column("year")
+        static let duration = Column("duration")
+        static let listenedAt = Column("listened_at")
+        static let services = Column("services")
+        static let loved = Column("loved")
+        static let releaseMbid = Column("release_mbid")
+        static let sourceBundle = Column("source_bundle")
+        static let createdAt = Column("created_at")
+        static let updatedAt = Column("updated_at")
     }
 
     func encode(to container: inout PersistenceContainer) {

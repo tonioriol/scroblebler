@@ -145,6 +145,27 @@ See detailed plan: [plan.md](./plan.md)
     - Fixed getPending() SQL syntax for JSON extraction
   * Build verification: `swift build` completed with 0 errors
 
+* **2026-01-20 - Fixed history regression (SQLite table/column mismatch) + added multi-service local history backfill**
+  * Reported regression: UI showed absolutely no history; logs included:
+    - `SQLite error 1: no such table: listen` while executing `SELECT * FROM "listen" ORDER BY "listenedAt" DESC LIMIT 20`
+  * Root cause #1 (table naming):
+    - Migration creates `listens` table in `/Users/tr0n/Code/scroblebler/Scroblebler/Storage/LocalDatabase.swift` (`v4_listens`), but GRDB default table naming used singular `listen`.
+    - Fix: explicitly set `Listen.databaseTableName = "listens"` in `/Users/tr0n/Code/scroblebler/Scroblebler/Models.swift`.
+  * Root cause #2 (column naming):
+    - SQLite schema uses snake_case (`listened_at`, `created_at`, etc.) but GRDB columns were derived from `CodingKeys` (camelCase), producing invalid SQL like `ORDER BY "listenedAt"`.
+    - Fix: mapped GRDB columns to the actual SQLite column names in `/Users/tr0n/Code/scroblebler/Scroblebler/Models.swift`.
+  * After schema fixes, history still showed `Set history: 0 listens`:
+    - Reason: UI reads history purely from SQLite via `/Users/tr0n/Code/scroblebler/Scroblebler/Services/ListenStore.swift::refreshHistory()`, but there was no initial “remote → local” import.
+  * Implemented local-first backfill pipeline (remote → local → UI):
+    - Added multi-service import+merge+dedup into SQLite in `/Users/tr0n/Code/scroblebler/Scroblebler/Views/MainView.swift`.
+    - Fetches recent history from **all enabled services**, converts `Track → Listen`, matches by canonical key + timestamp window, and merges per-service sync state into `Listen.services`.
+    - Added background page-by-page backfill to walk back in time until the beginning, without blocking initial UI render.
+    - Key behavioral fix: prevent ListenBrainz pagination errors by ensuring page 1 is imported before page 2 (ListenBrainz requires `max_ts` state initialized on page 1).
+  * Added DB utility to drive pagination from local reality:
+    - `/Users/tr0n/Code/scroblebler/Scroblebler/Services/ListenStore.swift`: added `countListens()` to compute local total and derive `hasMoreTracks` without relying on UI-added count.
+  * Build verification: `swift build` completed successfully.
+
 ## Next Steps
 
-- COMPLETED
+- [ ] Validate full history backfill completes (all pages until the beginning) for Last.fm + ListenBrainz without rate-limit issues
+- [ ] Consider adding a small UI indicator for `isBackfillingHistory` (optional) so users know history is still loading
