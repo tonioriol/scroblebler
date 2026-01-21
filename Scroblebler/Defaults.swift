@@ -6,6 +6,12 @@ class Defaults: ObservableObject {
 
     private let defaults = UserDefaults.standard
 
+    private enum Keys {
+        static let historyBackfillLastAttemptAt = "historyBackfillLastAttemptAt"
+        static let historyBackfillLastSuccessAt = "historyBackfillLastSuccessAt"
+        static let historyBackfillLastError = "historyBackfillLastError"
+    }
+
     @Published var firstRun: Bool {
         didSet {
             if firstRun {
@@ -187,6 +193,44 @@ class Defaults: ObservableObject {
     var importRemoteListens: Bool {
         get { defaults.bool(forKey: "importRemoteListens") }
         set { defaults.set(newValue, forKey: "importRemoteListens") }
+    }
+
+    // MARK: - History Backfill Tracking
+
+    /// Timestamp (ISO8601) of the last time we *attempted* to run the history backfill job.
+    var historyBackfillLastAttemptAt: String? {
+        get { defaults.string(forKey: Keys.historyBackfillLastAttemptAt) }
+        set {
+            if let newValue {
+                defaults.set(newValue, forKey: Keys.historyBackfillLastAttemptAt)
+            } else {
+                defaults.removeObject(forKey: Keys.historyBackfillLastAttemptAt)
+            }
+        }
+    }
+
+    /// Timestamp (ISO8601) of the last time the history backfill job finished successfully.
+    var historyBackfillLastSuccessAt: String? {
+        get { defaults.string(forKey: Keys.historyBackfillLastSuccessAt) }
+        set {
+            if let newValue {
+                defaults.set(newValue, forKey: Keys.historyBackfillLastSuccessAt)
+            } else {
+                defaults.removeObject(forKey: Keys.historyBackfillLastSuccessAt)
+            }
+        }
+    }
+
+    /// Last error message (if any) from a history backfill attempt.
+    var historyBackfillLastError: String? {
+        get { defaults.string(forKey: Keys.historyBackfillLastError) }
+        set {
+            if let newValue {
+                defaults.set(newValue, forKey: Keys.historyBackfillLastError)
+            } else {
+                defaults.removeObject(forKey: Keys.historyBackfillLastError)
+            }
+        }
     }
 
     // Legacy properties for backward compatibility with views

@@ -10,48 +10,48 @@ class LastFmClient: ObservableObject, ScrobbleClient {
         case responseMissingKey(String)
         case apiError(Int, String)
     }
-    
+
     private let apiKey = "22a3fbbb7d1a1d6a16998ae02556dad2"
     private let sharedSecret = "d79bc2a00d765e408b3ee33fd713f528"
-    
+
     var baseURL: URL { URL(string: "https://ws.audioscrobbler.com/2.0/")! }
     var authURL: String { "https://www.last.fm/api/auth/" }
     var linkColor: Color { Color(hue: 0, saturation: 0.70, brightness: 0.75) }
-    
+
     // Stored credentials (set during authentication)
     private var username: String?
     private var sessionKey: String?
-    
+
     // Web client for operations that require web session
     private var webClient: LastFmWebClient?
-    
+
     // URL building helpers
     private func artistURL(artist: String, mbid: String?) -> URL {
         let encoded = artist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
         return URL(string: "https://www.last.fm/music/\(encoded)")!
     }
-    
+
     private func albumURL(artist: String, album: String, mbid: String?) -> URL {
         let encodedArtist = artist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
         let encodedAlbum = album.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
         return URL(string: "https://www.last.fm/music/\(encodedArtist)/\(encodedAlbum)")!
     }
-    
+
     private func trackURL(artist: String, track: String, mbid: String?) -> URL {
         let encodedArtist = artist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
         let encodedTrack = track.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
         return URL(string: "https://www.last.fm/music/\(encodedArtist)/_/\(encodedTrack)")!
     }
-    
+
     // MARK: - Authentication
-    
+
     func authenticate() async throws -> (token: String, authURL: URL) {
         let data = try await executeRequest(method: "auth.gettoken")
         let json: [String: String] = try parseJSON(data)
         guard let token = json["token"] else {
             throw Error.responseMissingKey("token")
         }
-        
+
         var url = URLComponents(string: authURL)!
         url.queryItems = [
             URLQueryItem(name: "api_key", value: apiKey),
@@ -59,35 +59,35 @@ class LastFmClient: ObservableObject, ScrobbleClient {
         ]
         return (token, url.url!)
     }
-    
+
     func completeAuthentication(token: String) async throws -> (username: String, sessionKey: String, profileUrl: String?, isSubscriber: Bool) {
         let data = try await executeRequest(method: "auth.getSession", args: ["token": token])
         let result = try JSONDecoder().decode(AuthResponse.self, from: data)
-        
+
         let userInfoData = try await executeRequest(method: "user.getInfo", args: ["sk": result.session.key])
         let userInfo = try JSONDecoder().decode(UserInfoResponse.self, from: userInfoData)
-        
+
         // Store credentials
         self.username = result.session.name
         self.sessionKey = result.session.key
-        
+
         return (result.session.name, result.session.key, userInfo.user.url, result.session.subscriber == 1)
     }
-    
+
     // Restore credentials (called when app restarts)
     func setCredentials(username: String, sessionKey: String) {
         self.username = username
         self.sessionKey = sessionKey
         Logger.info("✅ Last.fm credentials set: username=\(username)", log: Logger.authentication)
     }
-    
+
     // MARK: - Scrobbling
-    
+
     func updateNowPlaying(track: Track) async throws {
         guard let sessionKey = self.sessionKey else {
             throw Error.apiError(9, "Not authenticated")
         }
-        
+
         _ = try await executeRequest(method: "track.updateNowPlaying", args: [
             "artist": track.artist,
             "track": track.name,
@@ -96,12 +96,12 @@ class LastFmClient: ObservableObject, ScrobbleClient {
             "sk": sessionKey
         ])
     }
-    
+
     func scrobble(track: Track) async throws {
         guard let sessionKey = self.sessionKey else {
             throw Error.apiError(9, "Not authenticated")
         }
-        
+
         // Build args - only include duration if > 0 (Last.fm rejects 0 duration)
         var args: [String: String] = [
             "artist": track.artist,
@@ -110,16 +110,16 @@ class LastFmClient: ObservableObject, ScrobbleClient {
             "timestamp": String(format: "%d", track.startedAt),
             "sk": sessionKey
         ]
-        
+
         // Only include duration if we have it (Last.fm ignores scrobbles with 0 duration)
         if track.length > 0 {
             args["duration"] = String(format: "%.0f", track.length)
         }
-        
+
         Logger.debug("Last.fm scrobbling: '\(track.artist) - \(track.name)' (timestamp: \(track.startedAt))", log: Logger.scrobbling)
-        
+
         let responseData = try await executeRequest(method: "track.scrobble", args: args)
-        
+
         // Check for ignored scrobbles in response
         if let json = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any],
            let scrobbles = json["scrobbles"] as? [String: Any],
@@ -143,12 +143,12 @@ class LastFmClient: ObservableObject, ScrobbleClient {
             }
         }
     }
-    
+
     func updateLove(artist: String, track: String, loved: Bool) async throws {
         guard let sessionKey = self.sessionKey else {
             throw Error.apiError(9, "Not authenticated")
         }
-        
+
         let method = loved ? "track.love" : "track.unlove"
         do {
             _ = try await executeRequest(method: method, args: [
@@ -162,16 +162,16 @@ class LastFmClient: ObservableObject, ScrobbleClient {
             throw error
         }
     }
-    
+
     func deleteScrobble(identifier: ScrobbleIdentifier) async throws {
         guard let sessionKey = self.sessionKey else {
             throw Error.apiError(9, "Not authenticated")
         }
-        
+
         guard let timestamp = identifier.timestamp else {
             throw Error.apiError(6, "Missing timestamp for scrobble deletion")
         }
-        
+
         // Try API method first
         do {
             _ = try await executeRequest(method: "library.removeScrobble", args: [
@@ -183,7 +183,7 @@ class LastFmClient: ObservableObject, ScrobbleClient {
             Logger.info("Deleted scrobble via API: \(identifier.artist) - \(identifier.track)", log: Logger.scrobbling)
         } catch {
             Logger.error("Last.fm API deletion failed: \(error)", log: Logger.scrobbling)
-            
+
             // If API fails and web client is authenticated, try web deletion
             if let webClient = webClient, webClient.isAuthenticated,
                let username = self.username {
@@ -202,9 +202,9 @@ class LastFmClient: ObservableObject, ScrobbleClient {
             }
         }
     }
-    
+
     // MARK: - Web Client Management
-    
+
     /// Initialize and authenticate web client for operations requiring web session
     /// Note: This requires username and password which are not available from API session
     func authenticateWebClient(username: String, password: String) async throws {
@@ -214,7 +214,7 @@ class LastFmClient: ObservableObject, ScrobbleClient {
         self.username = username
         Logger.info("Last.fm web client authenticated for user: \(username)", log: Logger.authentication)
     }
-    
+
     /// Set web client credentials manually (for testing or when obtained from browser)
     func setWebClientCredentials(username: String, csrfToken: String, sessionId: String) {
         let client = LastFmWebClient(username: username)
@@ -222,34 +222,34 @@ class LastFmClient: ObservableObject, ScrobbleClient {
         self.webClient = client
         Logger.info("Last.fm web client credentials set for user: \(username)", log: Logger.authentication)
     }
-    
+
     // MARK: - Profile Data
-    
+
     func getRecentTracks(limit: Int, page: Int) async throws -> [Track] {
         guard let username = self.username else {
             Logger.error("❌ Last.fm getRecentTracks - NO USERNAME (not authenticated)", log: Logger.api)
             throw Error.apiError(9, "Not authenticated")
         }
-        
+
         Logger.info("📄 Last.fm getRecentTracks - user: \(username), limit: \(limit), page: \(page)", log: Logger.api)
-        
+
         let data = try await executeRequestWithRetry(method: "user.getRecentTracks", args: [
             "user": username,
             "limit": String(limit),
             "page": String(page)
         ])
-        
+
         // Log raw response for debugging
         if let jsonString = String(data: data, encoding: .utf8) {
             Logger.debug("Last.fm raw response (first 500 chars): \(String(jsonString.prefix(500)))", log: Logger.api)
         }
-        
+
         // Check for API error response before decoding
         if let errorResponse = try? JSONDecoder().decode(APIErrorResponse.self, from: data) {
             Logger.error("Last.fm API error: [\(errorResponse.error)] \(errorResponse.message)", log: Logger.api)
             throw Error.apiError(errorResponse.error, errorResponse.message)
         }
-        
+
         let response: RecentTracksResponse
         do {
             response = try JSONDecoder().decode(RecentTracksResponse.self, from: data)
@@ -260,81 +260,80 @@ class LastFmClient: ObservableObject, ScrobbleClient {
         }
         let baseTracks = response.recenttracks.track.filter { $0.attr?.nowplaying != "true" }.map { $0.toDomain(client: self) }
         Logger.debug("Last.fm decoded \(baseTracks.count) tracks", log: Logger.api)
-        
-        // If we have a session key, fetch playcounts in parallel
-        guard self.sessionKey != nil else {
+
+        // Avoid hitting Last.fm rate limits during history backfill.
+        // Backfill calls request many pages with large limits (e.g. 50). Enriching each item via
+        // `track.getInfo` would multiply requests and easily trigger API error 29.
+        //
+        // We therefore only enrich *the first page* with a *small limit* (the visible UI page).
+        guard self.sessionKey != nil, page == 1, limit <= 20 else {
             return baseTracks
         }
-        
-        return try await withThrowingTaskGroup(of: (Int, (Bool, Int?)).self) { group in
-            for (index, track) in baseTracks.enumerated() {
-                group.addTask {
-                    let info = try await self.getTrackInfo(artist: track.artist, track: track.name)
-                    return (index, info)
-                }
+
+        // Enrich visible items with loved + playcount.
+        // Keep this sequential to stay within rate limits.
+        var tracksCopy = baseTracks
+        for index in tracksCopy.indices {
+            let (loved, count) = try await getTrackInfo(artist: tracksCopy[index].artist, track: tracksCopy[index].name)
+            tracksCopy[index].loved = loved
+            if let count {
+                tracksCopy[index].playcount = count
             }
-            
-            var tracksCopy = baseTracks
-            for try await (index, (loved, count)) in group {
-                tracksCopy[index].loved = loved
-                if let count = count {
-                    tracksCopy[index].playcount = count
-                }
-            }
-            return tracksCopy
         }
+
+        return tracksCopy
     }
-    
+
     func getRecentTracksByTimeRange(minTs: Int?, maxTs: Int?, limit: Int) async throws -> [Track]? {
         guard let username = self.username else {
             throw Error.apiError(9, "Not authenticated")
         }
-        
+
         Logger.debug("Last.fm getRecentTracksByTimeRange - minTs: \(minTs ?? 0), maxTs: \(maxTs ?? 0), limit: \(limit)", log: Logger.api)
-        
+
         // Last.fm supports 'from' and 'to' timestamp parameters
         var args: [String: String] = [
             "user": username,
             "limit": String(limit)
         ]
-        
+
         if let minTs = minTs {
             args["from"] = String(minTs)
         }
         if let maxTs = maxTs {
             args["to"] = String(maxTs)
         }
-        
+
         do {
             let data = try await executeRequestWithRetry(method: "user.getRecentTracks", args: args)
-            
+
             let response = try JSONDecoder().decode(RecentTracksResponse.self, from: data)
             let tracks = response.recenttracks.track.filter { $0.attr?.nowplaying != "true" }.map { $0.toDomain(client: self) }
-            
+
             Logger.info("Last.fm fetched \(tracks.count) tracks using timestamp range", log: Logger.api)
-            
+
             return tracks
         } catch {
             Logger.error("Last.fm timestamp query failed: \(error)", log: Logger.api)
             return nil  // Return nil to trigger fallback to page-based
         }
     }
-    
+
     func getUserStats() async throws -> UserStats? {
         guard let username = self.username else {
             throw Error.apiError(9, "Not authenticated")
         }
-        
+
         let data = try await executeRequest(method: "user.getInfo", args: ["user": username])
         let response = try JSONDecoder().decode(UserInfoResponse.self, from: data)
         return response.user.toDomain()
     }
-    
+
     func getTopArtists(period: String, limit: Int) async throws -> [TopArtist] {
         guard let username = self.username else {
             throw Error.apiError(9, "Not authenticated")
         }
-        
+
         let data = try await executeRequest(method: "user.getTopArtists", args: [
             "user": username,
             "period": period,
@@ -343,12 +342,12 @@ class LastFmClient: ObservableObject, ScrobbleClient {
         let response = try JSONDecoder().decode(TopArtistsResponse.self, from: data)
         return response.topartists.artist.map { $0.toDomain() }
     }
-    
+
     func getTopAlbums(period: String, limit: Int) async throws -> [TopAlbum] {
         guard let username = self.username else {
             throw Error.apiError(9, "Not authenticated")
         }
-        
+
         let data = try await executeRequest(method: "user.getTopAlbums", args: [
             "user": username,
             "period": period,
@@ -357,12 +356,12 @@ class LastFmClient: ObservableObject, ScrobbleClient {
         let response = try JSONDecoder().decode(TopAlbumsResponse.self, from: data)
         return response.topalbums.album.map { $0.toDomain() }
     }
-    
+
     func getTopTracks(period: String, limit: Int) async throws -> [TopTrack] {
         guard let username = self.username else {
             throw Error.apiError(9, "Not authenticated")
         }
-        
+
         let data = try await executeRequest(method: "user.getTopTracks", args: [
             "user": username,
             "period": period,
@@ -371,25 +370,25 @@ class LastFmClient: ObservableObject, ScrobbleClient {
         let response = try JSONDecoder().decode(TopTracksResponse.self, from: data)
         return response.toptracks.track.map { $0.toDomain() }
     }
-    
+
     func getTrackInfo(artist: String, track: String) async throws -> (loved: Bool, playcount: Int?) {
         guard let sessionKey = self.sessionKey else {
             return (false, nil)
         }
-        
+
         let data = try await executeRequestWithRetry(method: "track.getInfo", args: [
             "artist": artist,
             "track": track,
             "sk": sessionKey
         ])
-        
+
         // Check for API error response first
         if let errorResponse = try? JSONDecoder().decode(APIErrorResponse.self, from: data) {
             Logger.debug("track.getInfo error [\(errorResponse.error)]: \(errorResponse.message) for '\(artist) - \(track)'", log: Logger.api)
             // Return default values instead of throwing - track might not exist
             return (false, nil)
         }
-        
+
         do {
             let response = try JSONDecoder().decode(TrackInfoResponse.self, from: data)
             let loved = response.track.userloved == "1"
@@ -400,63 +399,63 @@ class LastFmClient: ObservableObject, ScrobbleClient {
             return (false, nil)
         }
     }
-    
+
     func getUserImage(username: String) async throws -> Data? {
         let data = try await executeRequest(method: "user.getInfo", args: ["user": username])
         let response = try JSONDecoder().decode(UserInfoResponse.self, from: data)
-        
+
         guard let imageUrl = response.user.image?.last(where: { !$0.text.isEmpty })?.text,
               let url = URL(string: imageUrl) else {
             return nil
         }
-        
+
         let (imageData, _) = try await URLSession.shared.data(from: url)
         return imageData
     }
-    
+
     // MARK: - Network
-    
+
     private func prepareCall(method: String, args: [String: String]) -> [String: String] {
         var args = args
         args["method"] = method
         args["api_key"] = apiKey
         args["format"] = "json"
-        
+
         let signatureBase = args.keys
             .filter { $0 != "format" }
             .sorted()
             .map { "\($0)\(args[$0]!)" }
             .joined()
-        
+
         let signatureString = "\(signatureBase)\(sharedSecret)"
         let digest = Insecure.MD5.hash(data: signatureString.data(using: .utf8) ?? Data())
             .map { String(format: "%02hhx", $0) }
             .joined()
         args["api_sig"] = digest
-        
+
         return args
     }
-    
+
     private func executeRequest(method: String, args: [String: String] = [:]) async throws -> Data {
         var request = URLRequest(url: baseURL)
         request.httpMethod = "POST"
         request.setValue("appleMusicScroblebler/1.0", forHTTPHeaderField: "User-Agent")
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-        
+
         let preparedArgs = prepareCall(method: method, args: args)
         Logger.debug("Last.fm API call: method=\(method), args=\(args)", log: Logger.network)
-        
+
         var formComponents = URLComponents()
         formComponents.queryItems = preparedArgs.map {
             URLQueryItem(name: $0, value: Self.escape($1))
         }
         request.httpBody = formComponents.query?.data(using: .utf8)
-        
+
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw Error.unexpectedResponse
         }
-        
+
         if httpResponse.statusCode >= 400 {
             if httpResponse.value(forHTTPHeaderField: "Content-Type")?.hasPrefix("application/json") ?? false,
                let apiError = try? JSONDecoder().decode(APIErrorResponse.self, from: data) {
@@ -464,29 +463,28 @@ class LastFmClient: ObservableObject, ScrobbleClient {
             }
             throw Error.httpError(data, httpResponse)
         }
-        
+
         return data
     }
-    
+
     private func executeRequestWithRetry(method: String, args: [String: String] = [:], maxRetries: Int = 3) async throws -> Data {
         return try await NetworkClient.executeWithRetry(maxRetries: maxRetries, shouldRetry: { error in
-            // Only retry on API error 8 (rate limiting)
-            if case Error.apiError(8, _) = error {
-                return true
-            }
+            // Retry on known Last.fm rate limiting errors.
+            if case Error.apiError(8, _) = error { return true }
+            if case Error.apiError(29, _) = error { return true }
             return false
         }) {
             try await self.executeRequest(method: method, args: args)
         }
     }
-    
+
     private func parseJSON<T>(_ data: Data) throws -> T {
         guard let result = try JSONSerialization.jsonObject(with: data) as? T else {
             throw Error.invalidResponseType
         }
         return result
     }
-    
+
     private static func escape(_ str: String) -> String {
         var allowed = CharacterSet.urlQueryAllowed
         allowed.insert(" ")
@@ -494,7 +492,7 @@ class LastFmClient: ObservableObject, ScrobbleClient {
         allowed.remove("/")
         allowed.remove("?")
         allowed.remove("&")
-        
+
         return str.replacingOccurrences(of: "\n", with: "\r\n")
             .addingPercentEncoding(withAllowedCharacters: allowed)!
             .replacingOccurrences(of: " ", with: "+")
@@ -508,7 +506,7 @@ private extension LastFmClient {
         let error: Int
         let message: String
     }
-    
+
     struct AuthResponse: Decodable {
         let session: Session
         struct Session: Decodable {
@@ -517,7 +515,7 @@ private extension LastFmClient {
             let subscriber: Int
         }
     }
-    
+
     struct UserInfoResponse: Decodable {
         let user: User
         struct User: Decodable {
@@ -533,22 +531,22 @@ private extension LastFmClient {
             let age: String?
             let playlists: String?
             let image: [Image]?
-            
+
             struct Registered: Decodable {
                 let unixtime: String
             }
-            
+
             struct Image: Decodable {
                 let text: String
                 enum CodingKeys: String, CodingKey { case text = "#text" }
             }
-            
+
             func toDomain() -> UserStats {
                 let timestamp = Int(registered.unixtime) ?? 0
                 let date = Date(timeIntervalSince1970: TimeInterval(timestamp))
                 let formatter = DateFormatter()
                 formatter.dateStyle = .medium
-                
+
                 return UserStats(
                     playcount: Int(playcount) ?? 0,
                     artistCount: Int(artist_count) ?? 0,
@@ -565,7 +563,7 @@ private extension LastFmClient {
             }
         }
     }
-    
+
     struct RecentTracksResponse: Decodable {
         let recenttracks: RecentTracks
         struct RecentTracks: Decodable {
@@ -579,7 +577,7 @@ private extension LastFmClient {
             let loved: String?
             let image: [Image]?
             let attr: Attr?
-            
+
             struct TextContainer: Decodable {
                 let text: String
                 enum CodingKeys: String, CodingKey { case text = "#text" }
@@ -590,18 +588,18 @@ private extension LastFmClient {
                 enum CodingKeys: String, CodingKey { case text = "#text" }
             }
             struct Attr: Decodable { let nowplaying: String }
-            
+
             enum CodingKeys: String, CodingKey {
                 case name, artist, album, date, loved, image, attr = "@attr"
             }
-            
+
             func toDomain(client: LastFmClient) -> Track {
                 let artistName = artist.text
                 let albumName = album.text
                 let trackName = name
-                
+
                 let dateInt = date.flatMap { Int($0.uts) } ?? 0
-                
+
                 return Track(
                     id: UUID(),
                     artist: artistName,
@@ -623,7 +621,7 @@ private extension LastFmClient {
             }
         }
     }
-    
+
     struct TopArtistsResponse: Decodable {
         let topartists: TopArtists
         struct TopArtists: Decodable {
@@ -646,7 +644,7 @@ private extension LastFmClient {
             }
         }
     }
-    
+
     struct TopAlbumsResponse: Decodable {
         let topalbums: TopAlbums
         struct TopAlbums: Decodable {
@@ -672,7 +670,7 @@ private extension LastFmClient {
             }
         }
     }
-    
+
     struct TopTracksResponse: Decodable {
         let toptracks: TopTracks
         struct TopTracks: Decodable {
@@ -693,7 +691,7 @@ private extension LastFmClient {
             }
         }
     }
-    
+
     struct TrackInfoResponse: Decodable {
         let track: Track
         struct Track: Decodable {

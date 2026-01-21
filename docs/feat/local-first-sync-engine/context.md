@@ -165,7 +165,27 @@ See detailed plan: [plan.md](./plan.md)
     - `/Users/tr0n/Code/scroblebler/Scroblebler/Services/ListenStore.swift`: added `countListens()` to compute local total and derive `hasMoreTracks` without relying on UI-added count.
   * Build verification: `swift build` completed successfully.
 
+* **2026-01-20 - Fixed history load-more stopping early (~1 week) by triggering background backfill when SQLite is exhausted**
+  * Reported regression: history pagination would stop around ~1 week old, despite repeatedly pressing/triggering "load more".
+  * Root cause: the UI was paginating **only SQLite**, but the remote backfill loop was only started when the DB was empty (`total == 0`). If the DB had *some* history (e.g. first week), reaching the end would show no more rows and the UI would never request older pages from services.
+  * Fix:
+    - Updated `/Users/tr0n/Code/scroblebler/Scroblebler/Views/MainView.swift::loadMoreTracks()` to detect when `ListenStore.countListens()` indicates we've reached the end of local history and kick off `startHistoryBackfillIfNeeded()`.
+    - This makes "infinite scroll" local-first: UI reads from SQLite; when SQLite is exhausted, we backfill older pages in the background and the user can continue scrolling.
+  * Observed in runtime logs:
+    - `Reached end of local history (total=264). Starting background backfill ...`
+    - Followed by successive `user.getRecentTracks page=N` and `ListenBrainz getRecentTracks page=N` fetches.
+
+* **2026-01-20 13:00 - Fixed Last.fm API Rate Limit (Error 29) during history backfill**
+  * Reported regression: history backfill would fail with Last.fm API error 29 (Rate Limit Exceeded) when fetching deeper pages.
+  * Root cause: `/Users/tr0n/Code/scroblebler/Scroblebler/Clients/LastFmClient.swift::getRecentTracks()` was calling `track.getInfo` for **every track** returned (to fetch loved/playcount enrichment). During backfill (many pages × limit 50), this caused N+1 API calls per page, quickly exhausting Last.fm's rate limit.
+  * Fix in `/Users/tr0n/Code/scroblebler/Scroblebler/Clients/LastFmClient.swift`:
+    - Modified `getRecentTracks()` to only enrich tracks when `page == 1 && limit <= 20` (i.e., the visible UI page).
+    - Large backfill pages (`limit > 20`) skip the `track.getInfo` enrichment entirely, reducing API calls from ~50 per page to just 1.
+    - Updated `executeRequestWithRetry()` to treat Last.fm error code 29 as retryable (with exponential backoff).
+  * Verification: `swift test` passed with 95 tests, 0 failures.
+
 ## Next Steps
 
 - [ ] Validate full history backfill completes (all pages until the beginning) for Last.fm + ListenBrainz without rate-limit issues
+- [ ] Monitor rate-limit behavior during extended backfill sessions
 - [ ] Consider adding a small UI indicator for `isBackfillingHistory` (optional) so users know history is still loading

@@ -124,7 +124,7 @@ class ListenStore: ObservableObject {
             try insertedListen.insert(db)
             return insertedListen
         }
-        Logger.info("Inserted listen: \(inserted.track) by \(inserted.artist)", log: Logger.sync)
+        Logger.debug("Inserted listen: \(inserted.track) by \(inserted.artist)", log: Logger.sync)
         return inserted
     }
 
@@ -133,7 +133,7 @@ class ListenStore: ObservableObject {
         try await db.asyncWrite { db in
             try listen.update(db)
         }
-        Logger.info("Updated listen: \(listen.track) by \(listen.artist)", log: Logger.sync)
+        Logger.debug("Updated listen: \(listen.track) by \(listen.artist)", log: Logger.sync)
     }
 
     /// Delete listen by ID
@@ -141,7 +141,7 @@ class ListenStore: ObservableObject {
         _ = try await db.asyncWrite { db in
             try Listen.deleteOne(db, key: id)
         }
-        Logger.info("Deleted listen with id: \(id)", log: Logger.sync)
+        Logger.debug("Deleted listen with id: \(id)", log: Logger.sync)
     }
 
     // MARK: - Service State Management
