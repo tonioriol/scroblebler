@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 /// Coordinates listen synchronization across services
 /// Implements optimistic updates with background sync
@@ -141,13 +142,17 @@ class SyncEngine {
     // MARK: - Private Helpers
 
     private func updateUIWithNewListen(_ listen: Listen) async {
-        // Update history
-        var currentHistory = store.history
-        currentHistory.insert(listen, at: 0)
-        store.setHistory(currentHistory)
-
-        // Clear now playing
-        store.clearCurrentListen()
+        // Update history with an animated insertion.
+        //
+        // IMPORTANT: Do NOT clear now playing here.
+        // The current listen is owned by Watcher/ListenStore as the single source of truth for
+        // playback state. Clearing it during scrobble causes the Now Playing UI to briefly
+        // disappear and then reappear with the next track, which feels jumpy.
+        withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
+            var currentHistory = store.history
+            currentHistory.insert(listen, at: 0)
+            store.setHistory(currentHistory)
+        }
     }
 
     private func processPendingForListen(_ listen: Listen) async {
