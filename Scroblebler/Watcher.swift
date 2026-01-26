@@ -38,6 +38,7 @@ class Watcher: ObservableObject {
     private var currentStatus: MediaControlStatus?
     private var positionTimer: Timer?
     private var lastSeekTime: Date?
+    private var pendingResetWorkItem: DispatchWorkItem?
     private let processingQueue = DispatchQueue(label: "com.scroblebler.watcher.processing", qos: .userInitiated)
 
     // Artwork conversion cache
@@ -57,16 +58,18 @@ class Watcher: ObservableObject {
             guard let self = self else { return }
 
             if let trackInfo = trackInfo {
+                // Cancel any pending "no media" reset – NIL events are often transient.
+                self.pendingResetWorkItem?.cancel()
+                self.pendingResetWorkItem = nil
+
                 // Process track info on serial queue to prevent race conditions
                 self.processingQueue.async {
                     self.handleTrackInfo(trackInfo)
                 }
             } else {
-                // No media playing
-                self.currentStatus = nil
-                Task { @MainActor in
-                    self.reset()
-                }
+                // MediaRemote can emit transient NIL during track transitions or PID resolution.
+                // Debounce before clearing UI state to avoid flicker / stale resets.
+                self.scheduleResetAfterNoMedia()
             }
         }
 
@@ -137,19 +140,20 @@ class Watcher: ObservableObject {
               status.playing == true,
               (status.playbackRate ?? 0) > 0,
               let lastTime = lastSnapshotTime,
-              let lastPos = lastSnapshotPosition,
-              let duration = status.duration else {
+              let lastPos = lastSnapshotPosition else {
             return
         }
 
         let now = Date()
         let elapsed = now.timeIntervalSince(lastTime)
-        let position = min(lastPos + elapsed, duration) // Cap at duration
+        let rate = status.playbackRate ?? 1.0
+        let rawPosition = lastPos + (elapsed * rate)
+        let position = status.duration.map { min(rawPosition, $0) } ?? rawPosition
 
         setState {
             self.currentPosition = position
             if self.maxPosition == nil || position > (self.maxPosition ?? 0) {
-                self.maxPosition = min(position, duration) // Cap maxPosition at duration
+                self.maxPosition = status.duration.map { min(position, $0) } ?? position
             }
         }
     }
@@ -191,6 +195,12 @@ class Watcher: ObservableObject {
     private func handleTrackInfo(_ trackInfo: MediaRemoteAdapter.TrackInfo) {
         let payload = trackInfo.payload
 
+        // MediaRemote sometimes fails to resolve the application PID/bundle id for an event.
+        // Preserve the last known bundle id so we don't reset to "nothing playing".
+        let resolvedBundleIdentifier = payload.bundleIdentifier
+            ?? currentStatus?.bundleIdentifier
+            ?? currentBundleIdentifier
+
         // Create unique identifier from artist + title + album to properly detect track changes
         let trackIdentifier = "\(payload.artist ?? "")|\(payload.title ?? "")|\(payload.album ?? "")"
         let trackChanged = currentStatus?.contentItemIdentifier != trackIdentifier
@@ -219,7 +229,7 @@ class Watcher: ObservableObject {
             contentItemIdentifier: trackIdentifier,
             trackNumber: nil,
             totalTrackCount: nil,
-            bundleIdentifier: payload.bundleIdentifier
+            bundleIdentifier: resolvedBundleIdentifier
         )
 
         // Handle missing or incomplete duration - preserve from previous if same track
@@ -253,16 +263,29 @@ class Watcher: ObservableObject {
         guard let status = currentStatus else { return }
 
         // Validate minimum required fields for a valid track
-        guard let title = status.title, !title.isEmpty,
-              let bundleId = status.bundleIdentifier, !bundleId.isEmpty,
-              let duration = status.duration, duration > 0 else {
-            Logger.debug("Skipping incomplete track data (title: \(status.title ?? "nil"), bundle: \(status.bundleIdentifier ?? "nil"), duration: \(status.duration ?? 0))", log: Logger.playback)
+        guard let title = status.title, !title.isEmpty else {
+            Logger.debug("Skipping incomplete track data (title: \(status.title ?? "nil"))", log: Logger.playback)
             return
         }
 
         Task { @MainActor in
             try? self.processStatus(status)
         }
+    }
+
+    private func scheduleResetAfterNoMedia(delay: TimeInterval = 0.75) {
+        pendingResetWorkItem?.cancel()
+
+        let item = DispatchWorkItem { [weak self] in
+            guard let self = self else { return }
+            self.currentStatus = nil
+            self.musicRunning = false
+            self.playerState = .stopped
+            self.reset()
+        }
+
+        pendingResetWorkItem = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: item)
     }
 
     private func getPlayerTrack(from status: MediaControlStatus) throws -> Listen {
@@ -326,7 +349,9 @@ class Watcher: ObservableObject {
                 $0.bundleIdentifier == bundleId
             }
         } else {
-            isRunning = false
+            // If MediaRemote couldn't resolve bundle id for this event, assume "still running".
+            // We have now-playing metadata, so clearing UI here causes frequent false negatives.
+            isRunning = true
         }
 
         guard isRunning else {
@@ -337,7 +362,10 @@ class Watcher: ObservableObject {
 
         musicRunning = true
 
-        currentBundleIdentifier = status.bundleIdentifier
+        // Only overwrite when we actually have a bundle id.
+        if let bundleId = status.bundleIdentifier, !bundleId.isEmpty {
+            currentBundleIdentifier = bundleId
+        }
 
         // Update player state
         let newState: PlayerState = (status.playing ?? false) ? .playing : .paused
@@ -357,6 +385,11 @@ class Watcher: ObservableObject {
 
             // Track changed - scrobble previous if needed
             if let listen = ListenStore.shared.currentListen, let maxPos = maxPosition {
+                guard listen.duration > 0 else {
+                    // Unknown duration (streams / some players). Don't attempt a percent-based scrobble.
+                    return
+                }
+
                 let percentPlayed = (maxPos / listen.duration) * 100
                 if percentPlayed >= 95 && listen.id == nil && listen.duration >= 30 {
                     if let fn = onScrobbleWanted {
@@ -404,11 +437,9 @@ class Watcher: ObservableObject {
                     // Position is close to expected, accept it
                     lastSnapshotTime = Date()
                     lastSnapshotPosition = snapshotPos
-                    // Cap position at duration
-                    let duration = status.duration ?? Double.infinity
-                    currentPosition = min(snapshotPos, duration)
+                    currentPosition = status.duration.map { min(snapshotPos, $0) } ?? snapshotPos
                     if maxPosition == nil || snapshotPos > (maxPosition ?? 0) {
-                        maxPosition = min(snapshotPos, duration)
+                        maxPosition = status.duration.map { min(snapshotPos, $0) } ?? snapshotPos
                     }
                 }
                 // Otherwise ignore stale update
@@ -418,11 +449,9 @@ class Watcher: ObservableObject {
                     lastSnapshotTime = Date()
                     lastSnapshotPosition = snapshotPos
 
-                    // Cap position at duration
-                    let duration = status.duration ?? Double.infinity
-                    currentPosition = min(snapshotPos, duration)
+                    currentPosition = status.duration.map { min(snapshotPos, $0) } ?? snapshotPos
                     if maxPosition == nil || snapshotPos > (maxPosition ?? 0) {
-                        maxPosition = min(snapshotPos, duration)
+                        maxPosition = status.duration.map { min(snapshotPos, $0) } ?? snapshotPos
                     }
                 }
             }
