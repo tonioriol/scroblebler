@@ -11,6 +11,15 @@ struct Listen: Identifiable, Codable, Equatable {
         ListenIdentity.key(artist: artist, track: track)
     }
 
+    /// Stable, unique identifier for UI lists.
+    ///
+    /// `id` can be nil for non-persisted listens; for history rendering we need a deterministic key
+    /// to avoid SwiftUI diffing glitches (missing rows / large blank gaps) when the backing array
+    /// is refreshed.
+    var historyIdentity: String {
+        "\(listenedAt)|\(canonicalKey)"
+    }
+
     // MARK: - Core Metadata
 
     let track: String

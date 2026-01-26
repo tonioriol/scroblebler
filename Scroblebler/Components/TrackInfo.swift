@@ -219,7 +219,6 @@ struct TrackInfo<ActionButtons: View, ArtworkOverlay: View>: View {
                             actionButtons
                         }
                         if let timestamp = timestamp {
-                            Spacer(minLength: 0)
                             Text(formatDate(timestamp))
                                 .font(.system(size: 10))
                                 .foregroundColor(.secondary)
