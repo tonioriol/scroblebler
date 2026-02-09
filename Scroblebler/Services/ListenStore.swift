@@ -52,13 +52,13 @@ class ListenStore: ObservableObject {
         // De-duplicate by canonical key
         let existingKeys = Set(history.map { $0.canonicalKey })
         let newListens = listens.filter { !existingKeys.contains($0.canonicalKey) }
-        history.append(contentsOf: newListens)
+        history = history + newListens
         Logger.info("Appended \(newListens.count) listens to history", log: Logger.sync)
     }
 
     /// Clear all history
     func clearHistory() {
-        history.removeAll()
+        history = []
         Logger.info("Cleared history", log: Logger.ui)
     }
 
@@ -72,7 +72,9 @@ class ListenStore: ObservableObject {
         if let index = history.firstIndex(where: { $0.canonicalKey == key }) {
             var updated = history[index]
             mutation(&updated)
-            history[index] = updated
+            var copy = history
+            copy[index] = updated
+            history = copy
             Logger.debug("Updated listen in history: \(artist) - \(track)", log: Logger.ui)
         }
 
@@ -122,6 +124,9 @@ class ListenStore: ObservableObject {
         let inserted = try await db.asyncWrite { db in
             var insertedListen = listen
             try insertedListen.insert(db)
+            if insertedListen.id == nil {
+                insertedListen.id = db.lastInsertedRowID
+            }
             return insertedListen
         }
         Logger.debug("Inserted listen: \(inserted.track) by \(inserted.artist)", log: Logger.sync)
@@ -148,32 +153,98 @@ class ListenStore: ObservableObject {
 
     /// Update service state for a listen
     func updateServiceState(listenId: Int64, service: String, state: ServiceSyncState) async throws {
-        try await db.asyncWrite { db in
-            if let listen = try Listen.fetchOne(db, key: listenId) {
-                var updatedListen = listen
-                updatedListen.services[service] = state
-                updatedListen.updatedAt = Date.nowISO8601()
-                try updatedListen.update(db)
+        let updatedListen: Listen? = try await db.asyncWrite { db in
+            guard var listen = try Listen.fetchOne(db, key: listenId) else {
+                return nil
+            }
+
+            listen.services[service] = state
+            listen.updatedAt = Date.nowISO8601()
+            try listen.update(db)
+            return listen
+        }
+
+        // Keep in-memory published state in sync so SwiftUI updates immediately.
+        if let updatedListen {
+            if let index = history.firstIndex(where: { $0.id == listenId }) {
+                var copy = history
+                copy[index] = updatedListen
+                history = copy
+            }
+            if currentListen?.id == listenId {
+                currentListen = updatedListen
             }
         }
+
         Logger.info("Updated service state for listen \(listenId) service \(service)", log: Logger.sync)
     }
 
     /// Mark service as synced
     func markSynced(listenId: Int64, service: String, timestamp: Int?, recordingMsid: String?) async throws {
-        let state = ServiceSyncState(status: .synced, timestamp: timestamp, recordingMsid: recordingMsid)
+        // Preserve identifiers if we already have them, but always update the status.
+        // This avoids accidentally dropping timestamp/MSID on sync completion.
+        let existingState: ServiceSyncState? = try? await db.asyncRead { db in
+            guard let listen = try Listen.fetchOne(db, key: listenId) else { return nil }
+            return listen.services[service]
+        }
+
+        var state = existingState ?? ServiceSyncState(status: .synced)
+        state.status = .synced
+        if state.timestamp == nil { state.timestamp = timestamp }
+        if state.recordingMsid == nil { state.recordingMsid = recordingMsid }
+        state.error = nil
+        state.retryCount = 0
+        state.lastAttemptAt = Date.nowISO8601()
         try await updateServiceState(listenId: listenId, service: service, state: state)
     }
 
     /// Mark service as failed
     func markFailed(listenId: Int64, service: String, error: String) async throws {
-        let state = ServiceSyncState(status: .failed, error: error, retryCount: 0)
+        let existingState: ServiceSyncState? = try? await db.asyncRead { db in
+            guard let listen = try Listen.fetchOne(db, key: listenId) else { return nil }
+            return listen.services[service]
+        }
+
+        var state = existingState ?? ServiceSyncState(status: .failed)
+        state.status = .failed
+        state.error = error
+        state.retryCount = (existingState?.retryCount ?? 0) + 1
+        state.lastAttemptAt = Date.nowISO8601()
+        try await updateServiceState(listenId: listenId, service: service, state: state)
+    }
+
+    /// Mark service as pending (used for retries)
+    func markPending(listenId: Int64, service: String) async throws {
+        let existingState: ServiceSyncState? = try? await db.asyncRead { db in
+            guard let listen = try Listen.fetchOne(db, key: listenId) else { return nil }
+            return listen.services[service]
+        }
+
+        var state = existingState ?? ServiceSyncState(status: .pending)
+        state.status = .pending
+        state.error = nil
+        state.lastAttemptAt = Date.nowISO8601()
         try await updateServiceState(listenId: listenId, service: service, state: state)
     }
 
     /// Mark service as deleted
     func markDeleted(listenId: Int64, service: String) async throws {
         let state = ServiceSyncState(status: .deleted)
+        try await updateServiceState(listenId: listenId, service: service, state: state)
+    }
+
+    /// Mark service as delete pending (used for delete retries)
+    func markDeletePending(listenId: Int64, service: String) async throws {
+        let existingState: ServiceSyncState? = try? await db.asyncRead { db in
+            guard let listen = try Listen.fetchOne(db, key: listenId) else { return nil }
+            return listen.services[service]
+        }
+
+        var state = existingState ?? ServiceSyncState(status: .deletePending)
+        state.status = .deletePending
+        state.error = nil
+        state.retryCount = (existingState?.retryCount ?? 0) + 1
+        state.lastAttemptAt = Date.nowISO8601()
         try await updateServiceState(listenId: listenId, service: service, state: state)
     }
 
@@ -201,6 +272,41 @@ class ListenStore: ObservableObject {
         try await db.asyncRead { db in
             try Listen
                 .filter(sql: "json_extract(services, '$.\"\(service)\".status') = 'pending'")
+                .order(Listen.Columns.listenedAt.desc)
+                .fetchAll(db)
+        }
+    }
+
+    /// Get delete-pending listens for a service
+    func getDeletePending(service: String, maxRetryCount: Int, retryAfterSeconds: TimeInterval) async throws -> [Listen] {
+        let cutoff = Date(timeIntervalSinceNow: -retryAfterSeconds).toISO8601()
+        let statusPath = "$.\"\(service)\".status"
+        let retryPath = "$.\"\(service)\".retryCount"
+        let lastAttemptPath = "$.\"\(service)\".lastAttemptAt"
+
+        return try await db.asyncRead { db in
+            try Listen
+                .filter(sql: "json_extract(services, '\(statusPath)') = 'deletePending'")
+                .filter(sql: "COALESCE(json_extract(services, '\(retryPath)'), 0) < ?", arguments: [maxRetryCount])
+                .filter(sql: "json_extract(services, '\(lastAttemptPath)') IS NULL OR json_extract(services, '\(lastAttemptPath)') <= ?", arguments: [cutoff])
+                .order(Listen.Columns.listenedAt.desc)
+                .fetchAll(db)
+        }
+    }
+
+    /// Get failed listens that are eligible for retry
+    func getRetryableFailed(service: String, maxRetryCount: Int, retryAfterSeconds: TimeInterval) async throws -> [Listen] {
+        let cutoff = Date(timeIntervalSinceNow: -retryAfterSeconds).toISO8601()
+        let statusPath = "$.\"\(service)\".status"
+        let retryPath = "$.\"\(service)\".retryCount"
+        let lastAttemptPath = "$.\"\(service)\".lastAttemptAt"
+
+        return try await db.asyncRead { db in
+            try Listen
+                .filter(sql: "json_extract(services, '\(statusPath)') = 'failed'")
+                .filter(sql: "COALESCE(json_extract(services, '\(retryPath)'), 0) < ?", arguments: [maxRetryCount])
+                .filter(sql: "json_extract(services, '\(lastAttemptPath)') IS NULL OR json_extract(services, '\(lastAttemptPath)') <= ?", arguments: [cutoff])
+                .order(Listen.Columns.listenedAt.desc)
                 .fetchAll(db)
         }
     }

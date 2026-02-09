@@ -57,6 +57,10 @@ struct Listen: Identifiable, Codable, Equatable {
         Set(services.filter { $0.value.status == .pending }.keys)
     }
 
+    var deletePendingServices: Set<String> {
+        Set(services.filter { $0.value.status == .deletePending }.keys)
+    }
+
     // MARK: - Equatable
 
     static func == (lhs: Listen, rhs: Listen) -> Bool {
@@ -147,6 +151,7 @@ struct ServiceSyncState: Codable, Equatable {
         case pending   // Waiting to be sent
         case synced    // Successfully sent to service
         case failed    // Max retries reached
+        case deletePending // Delete requested, retrying
         case deleted   // User deleted from this service
     }
 

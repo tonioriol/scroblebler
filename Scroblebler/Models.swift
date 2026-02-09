@@ -31,7 +31,10 @@ enum SyncStatus: Codable {
         enabledServices: Set<ScrobbleService>
     ) -> SyncStatus {
         guard !enabledServices.isEmpty else { return .unknown }
-        return presentInServices == enabledServices ? .synced : .partial
+
+        // A track can be present in *more* services than the user currently has enabled
+        // (e.g. user disables Libre.fm later). In that case we still consider it "synced".
+        return enabledServices.isSubset(of: presentInServices) ? .synced : .partial
     }
 }
 

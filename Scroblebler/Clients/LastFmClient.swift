@@ -88,10 +88,19 @@ class LastFmClient: ObservableObject, ScrobbleClient {
             throw Error.apiError(9, "Not authenticated")
         }
 
+        let artist = track.artist.trimmingCharacters(in: .whitespacesAndNewlines)
+        let name = track.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let album = track.album.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !artist.isEmpty, !name.isEmpty else {
+            Logger.debug("Last.fm updateNowPlaying skipped (missing artist/track)", log: Logger.scrobbling)
+            return
+        }
+
         _ = try await executeRequest(method: "track.updateNowPlaying", args: [
-            "artist": track.artist,
-            "track": track.name,
-            "album": track.album,
+            "artist": artist,
+            "track": name,
+            "album": album,
             "duration": String(format: "%.0f", track.length),
             "sk": sessionKey
         ])
@@ -102,11 +111,20 @@ class LastFmClient: ObservableObject, ScrobbleClient {
             throw Error.apiError(9, "Not authenticated")
         }
 
+        let artist = track.artist.trimmingCharacters(in: .whitespacesAndNewlines)
+        let name = track.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let album = track.album.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !artist.isEmpty, !name.isEmpty else {
+            Logger.debug("Last.fm scrobble skipped (missing artist/track)", log: Logger.scrobbling)
+            return
+        }
+
         // Build args - only include duration if > 0 (Last.fm rejects 0 duration)
         var args: [String: String] = [
-            "artist": track.artist,
-            "track": track.name,
-            "album": track.album,
+            "artist": artist,
+            "track": name,
+            "album": album,
             "timestamp": String(format: "%d", track.startedAt),
             "sk": sessionKey
         ]
@@ -568,6 +586,22 @@ private extension LastFmClient {
         let recenttracks: RecentTracks
         struct RecentTracks: Decodable {
             let track: [LastFmTrack]
+
+            // Last.fm returns either an array or a single object depending on the result size.
+            // Example: { "track": { ... } } vs { "track": [ { ... }, ... ] }
+            enum CodingKeys: String, CodingKey {
+                case track
+            }
+
+            init(from decoder: Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                if let many = try? container.decode([LastFmTrack].self, forKey: .track) {
+                    self.track = many
+                    return
+                }
+                let single = try container.decode(LastFmTrack.self, forKey: .track)
+                self.track = [single]
+            }
         }
         struct LastFmTrack: Decodable {
             let name: String

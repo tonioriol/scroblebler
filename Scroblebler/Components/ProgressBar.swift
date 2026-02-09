@@ -50,9 +50,13 @@ struct ProgressBar: View {
                 }
 
                 Capsule()
-                    .frame(width: self.progress(value: isDragging ? (dragPosition ?? value) : value,
-                                                maxValue: self.maxValue,
-                                                width: geometryReader.size.width))
+                    .frame(
+                        width: self.progress(
+                            value: isDragging ? (dragPosition ?? value) : value,
+                            maxValue: self.maxValue,
+                            width: geometryReader.size.width
+                        )
+                    )
                     .foregroundColor(self.foregroundColor)
                     .animation(animationMode)
             }
@@ -63,15 +67,30 @@ struct ProgressBar: View {
                         if onSeek != nil {
                             isDragging = true
                             animationMode = nil
-                            let x = max(0, min(gesture.location.x, geometryReader.size.width))
-                            let percentage = x / geometryReader.size.width
+
+                            let width = geometryReader.size.width
+                            guard width.isFinite, width > 0, maxValue.isFinite, maxValue > 0 else {
+                                dragPosition = 0
+                                return
+                            }
+
+                            let x = max(0, min(gesture.location.x, width))
+                            let percentage = x / width
                             dragPosition = percentage * maxValue
                         }
                     }
                     .onEnded { gesture in
                         if let onSeek = onSeek {
-                            let x = max(0, min(gesture.location.x, geometryReader.size.width))
-                            let percentage = x / geometryReader.size.width
+                            let width = geometryReader.size.width
+                            guard width.isFinite, width > 0, maxValue.isFinite, maxValue > 0 else {
+                                isDragging = false
+                                dragPosition = nil
+                                animationMode = .easeIn
+                                return
+                            }
+
+                            let x = max(0, min(gesture.location.x, width))
+                            let percentage = x / width
                             let seekPosition = percentage * maxValue
                             onSeek(seekPosition)
                         }
@@ -95,7 +114,12 @@ struct ProgressBar: View {
     private func progress(value: Double,
                           maxValue: Double,
                           width: CGFloat) -> CGFloat {
-        let percentage = value / maxValue
+        guard value.isFinite, maxValue.isFinite, maxValue > 0, width.isFinite, width > 0 else {
+            return 0
+        }
+
+        let raw = value / maxValue
+        let percentage = min(max(raw, 0), 1)
         return width * CGFloat(percentage)
     }
 }

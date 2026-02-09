@@ -5,9 +5,18 @@ import SwiftUI
 /// Implements optimistic updates with background sync
 @MainActor
 class SyncEngine {
+    /// Single long-lived instance so pending processing can be triggered from multiple places
+    /// (launch, popover open, network regain) without losing internal debounce/locking state.
+    @MainActor
+    static let shared = SyncEngine(store: .shared, scrobbleManager: .shared, offlineQueue: .shared)
+
     private let store: ListenStore
     private let scrobbleManager: ScrobbleManager
     private let offlineQueue: OfflineQueue
+
+    private var isProcessingPending = false
+    private var scheduledProcessTask: Task<Void, Never>?
+    private let maxRetryCount = 3
 
     init(store: ListenStore, scrobbleManager: ScrobbleManager, offlineQueue: OfflineQueue) {
         self.store = store
@@ -21,18 +30,48 @@ class SyncEngine {
         SyncEngine(store: .shared, scrobbleManager: .shared, offlineQueue: .shared)
     }
 
+    /// Debounced entry point for places that may fire frequently (popover open, network flaps).
+    func scheduleProcessPending(reason: String, debounceNanoseconds: UInt64 = 350_000_000) {
+        Logger.debug("⏳ SyncEngine.scheduleProcessPending: \(reason)", log: Logger.sync)
+        if isProcessingPending {
+            Logger.debug("⏸️ SyncEngine.scheduleProcessPending: Skipping (already running)", log: Logger.sync)
+            return
+        }
+
+        if scheduledProcessTask != nil {
+            Logger.debug("⏳ SyncEngine.scheduleProcessPending: Already scheduled", log: Logger.sync)
+            return
+        }
+
+        scheduledProcessTask = Task {
+            defer { self.scheduledProcessTask = nil }
+            try? await Task.sleep(nanoseconds: debounceNanoseconds)
+            await self.processPending()
+        }
+    }
+
     // MARK: - Main Entry Points
 
     /// Scrobble a new listen (called when scrobble threshold met)
     func scrobble(_ nowPlaying: Listen) async {
         Logger.info("🎵 SyncEngine.scrobble: \(nowPlaying.track) by \(nowPlaying.artist)", log: Logger.scrobbling)
 
+        let trimmedArtist = nowPlaying.artist.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedTrack = nowPlaying.track.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedArtist.isEmpty, !trimmedTrack.isEmpty else {
+            Logger.debug("SyncEngine.scrobble skipped (missing artist/track)", log: Logger.scrobbling)
+            return
+        }
+
         // 1. Convert to Listen with pending status for all enabled services
         var newListen = nowPlaying
         let enabledServices = Defaults.shared.enabledServices.map { $0.service }
 
         for service in enabledServices {
-            newListen.services[service.rawValue] = ServiceSyncState(status: .pending)
+            newListen.services[service.rawValue] = ServiceSyncState(
+                status: .pending,
+                timestamp: nowPlaying.listenedAt
+            )
         }
 
         // 2. Insert into SQLite (optimistic)
@@ -53,9 +92,29 @@ class SyncEngine {
 
     /// Process all pending syncs
     func processPending() async {
+        guard Reachability.shared.isConnected else {
+            Logger.debug("⏸️ SyncEngine.processPending: Skipping (offline)", log: Logger.sync)
+            return
+        }
+
+        guard !isProcessingPending else {
+            Logger.debug("⏸️ SyncEngine.processPending: Skipping (already running)", log: Logger.sync)
+            return
+        }
+
+        isProcessingPending = true
+        defer { isProcessingPending = false }
+
         Logger.info("🔄 SyncEngine.processPending: Starting", log: Logger.sync)
 
         let enabledServices = Defaults.shared.enabledServices.map { $0.service }
+
+        // Keep this conservative to avoid hammering APIs if a user has a large backlog.
+        // This will still make progress, and can be invoked again later (e.g. on next app open or
+        // when the network becomes available).
+        let maxPerService = 25
+
+        let retryAfterSeconds: TimeInterval = 60 * 30
 
         for service in enabledServices {
             do {
@@ -63,9 +122,35 @@ class SyncEngine {
                 let pendingListens = try await store.getPending(service: service.rawValue)
                 Logger.info("📋 Found \(pendingListens.count) pending listens for \(service.rawValue)", log: Logger.sync)
 
+                let deletePendingListens = try await store.getDeletePending(
+                    service: service.rawValue,
+                    maxRetryCount: maxRetryCount,
+                    retryAfterSeconds: retryAfterSeconds
+                )
+                Logger.info("🗑️ Found \(deletePendingListens.count) delete-pending listens for \(service.rawValue)", log: Logger.sync)
+
+                let retryableFailed = try await store.getRetryableFailed(
+                    service: service.rawValue,
+                    maxRetryCount: maxRetryCount,
+                    retryAfterSeconds: retryAfterSeconds
+                )
+                Logger.info("🔁 Found \(retryableFailed.count) retryable failed listens for \(service.rawValue)", log: Logger.sync)
+
                 // Batch send to service
-                for listen in pendingListens {
+                for listen in pendingListens.prefix(maxPerService) {
                     await processSingleListen(listen, service: service)
+                }
+
+                for listen in retryableFailed.prefix(maxPerService) {
+                    if let listenId = listen.id {
+                        try? await store.markPending(listenId: listenId, service: service.rawValue)
+                    }
+                    await processSingleListen(listen, service: service)
+                }
+
+                for listen in deletePendingListens.prefix(maxPerService) {
+                    guard let listenId = listen.id else { continue }
+                    await deleteFromService(listenId: listenId, services: [service])
                 }
 
             } catch {
@@ -110,11 +195,6 @@ class SyncEngine {
                 return
             }
 
-            // 2. Mark as deleted locally (optimistic)
-            for service in services {
-                try await store.markDeleted(listenId: listenId, service: service.rawValue)
-            }
-
             // 3. Call service API
             let stringServiceInfo = listen.services.reduce(into: [String: ServiceTrackData]()) { result, entry in
                 result[entry.key] = ServiceTrackData(
@@ -128,7 +208,8 @@ class SyncEngine {
             await scrobbleManager.deleteScrobbleAll(
                 artist: listen.artist,
                 track: listen.track,
-                serviceInfo: stringServiceInfo
+                serviceInfo: stringServiceInfo,
+                listenId: listenId
             )
 
             // 4. Update status on success/failure
@@ -166,8 +247,28 @@ class SyncEngine {
     }
 
     private func processSingleListen(_ listen: Listen, service: ScrobbleService) async {
+        guard let listenId = listen.id else {
+            Logger.error("❌ SyncEngine.processSingleListen: missing listen id", log: Logger.sync)
+            return
+        }
+
         guard let credentials = Defaults.shared.credentials(for: service) else {
             Logger.error("❌ No credentials for \(service.rawValue)", log: Logger.sync)
+            return
+        }
+
+        let trimmedArtist = listen.artist.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedTrack = listen.track.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedArtist.isEmpty || trimmedTrack.isEmpty {
+            let serviceRaw = service.rawValue
+            var updatedState = listen.services[serviceRaw] ?? ServiceSyncState(status: .failed)
+            if updatedState.timestamp == nil { updatedState.timestamp = listen.listenedAt }
+            updatedState.status = .failed
+            updatedState.error = "missing artist or track"
+            updatedState.retryCount = maxRetryCount
+            updatedState.lastAttemptAt = Date.nowISO8601()
+            try? await store.updateServiceState(listenId: listenId, service: serviceRaw, state: updatedState)
+            Logger.debug("SyncEngine.processSingleListen skipped (missing artist/track)", log: Logger.sync)
             return
         }
 
@@ -175,9 +276,9 @@ class SyncEngine {
             // Convert Listen to Track for backward compatibility
             let track = Track(
                 id: UUID(),
-                artist: listen.artist,
+                artist: trimmedArtist,
                 album: listen.album,
-                name: listen.track,
+                name: trimmedTrack,
                 timestamp: listen.listenedAt,
                 duration: listen.duration,
                 sourceService: service,
@@ -194,32 +295,32 @@ class SyncEngine {
 
             // Mark as synced
             let serviceRaw = service.rawValue
-            if let timestamp = listen.services[serviceRaw]?.timestamp,
-               let recordingMsid = listen.services[serviceRaw]?.recordingMsid {
-                try await store.markSynced(
-                    listenId: listen.id ?? -1,
-                    service: serviceRaw,
-                    timestamp: timestamp,
-                    recordingMsid: recordingMsid
-                )
-            } else {
-                try await store.markSynced(
-                    listenId: listen.id ?? -1,
-                    service: serviceRaw,
-                    timestamp: nil,
-                    recordingMsid: nil
-                )
-            }
+            var updatedState = listen.services[serviceRaw] ?? ServiceSyncState(status: .synced)
+            if updatedState.timestamp == nil { updatedState.timestamp = listen.listenedAt }
+            updatedState.status = .synced
+            updatedState.error = nil
+            updatedState.lastAttemptAt = Date.nowISO8601()
+            try await store.updateServiceState(listenId: listenId, service: serviceRaw, state: updatedState)
 
             Logger.info("✅ Synced listen \(listen.track) to \(service.rawValue)", log: Logger.sync)
 
         } catch {
-            Logger.error("❌ Failed to sync to \(service.rawValue): \(error)", log: Logger.sync)
-            try? await store.markFailed(
-                listenId: listen.id ?? -1,
-                service: service.rawValue,
-                error: error.localizedDescription
-            )
+            let isCancellation: Bool = {
+                let nsError = error as NSError
+                return nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled
+            }()
+
+            if isCancellation {
+                Logger.debug("⏸️ Sync cancelled for \(service.rawValue); keeping pending for retry", log: Logger.sync)
+                try? await store.markPending(listenId: listenId, service: service.rawValue)
+            } else {
+                Logger.error("❌ Failed to sync to \(service.rawValue): \(error)", log: Logger.sync)
+                try? await store.markFailed(
+                    listenId: listenId,
+                    service: service.rawValue,
+                    error: error.localizedDescription
+                )
+            }
         }
     }
 

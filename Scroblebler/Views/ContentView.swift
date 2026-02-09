@@ -12,6 +12,7 @@ struct ContentView: View {
     @StateObject var serviceManager = ScrobbleManager.shared
     @StateObject var defaults = Defaults.shared
     @StateObject var listenStore = ListenStore.shared
+    private let syncEngine = SyncEngine.shared
 
     var body: some View {
         VStack {
@@ -31,7 +32,6 @@ struct ContentView: View {
             watcher.onScrobbleWanted = { listen in
                 Task {
                     await MainActor.run {
-                        let syncEngine = SyncEngine.makeDefault()
                         Task { await syncEngine.scrobble(listen) }
                     }
                 }
@@ -40,6 +40,9 @@ struct ContentView: View {
 
             // Check if track info arrived before callbacks were set
             watcher.refreshCurrentState()
+
+            // Best-effort: try to flush any pending backlog when the app starts.
+            syncEngine.scheduleProcessPending(reason: "app_start")
         }
     }
 }

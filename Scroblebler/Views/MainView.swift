@@ -289,6 +289,12 @@ struct MainView: View {
     @MainActor
     private func startHistoryBackfillIfNeeded(startPage: Int, limitPerPage: Int) {
         guard !isBackfillingHistory else { return }
+
+        // If we've already completed a full backfill in a previous session, don't keep hammering
+        // remote APIs on every app/popup open. Users can still refresh the visible UI page from
+        // SQLite; backfill is a one-time import.
+        guard defaults.historyBackfillLastSuccessAt == nil else { return }
+
         if let task = backfillTask, !task.isCancelled {
             return
         }
@@ -406,21 +412,32 @@ struct MainView: View {
                 ) {
                     var updated = existing
 
+                    var didChange = false
+
                     // Merge per-service states
                     for (service, state) in listen.services {
-                        updated.services[service] = state
+                        if updated.services[service] != state {
+                            updated.services[service] = state
+                            didChange = true
+                        }
                     }
 
                     // Conflict rule: remote wins for love state
-                    updated.loved = listen.loved
-
-                    // Prefer first non-nil MBID for cover art
-                    if updated.releaseMbid == nil {
-                        updated.releaseMbid = listen.releaseMbid
+                    if updated.loved != listen.loved {
+                        updated.loved = listen.loved
+                        didChange = true
                     }
 
-                    updated.updatedAt = Date.nowISO8601()
-                    try await listenStore.update(updated)
+                    // Prefer first non-nil MBID for cover art
+                    if updated.releaseMbid == nil, listen.releaseMbid != nil {
+                        updated.releaseMbid = listen.releaseMbid
+                        didChange = true
+                    }
+
+                    if didChange {
+                        updated.updatedAt = Date.nowISO8601()
+                        try await listenStore.update(updated)
+                    }
                 } else {
                     _ = try await listenStore.insert(listen)
                 }

@@ -16,7 +16,7 @@ struct HistoryItem: View {
         // Pre-compute service info from Listen.services
         self.serviceInfoKeys = track.services.reduce(into: [:]) { result, entry in
             result[entry.key] = ServiceTrackData(
-                timestamp: entry.value.timestamp,
+                timestamp: entry.value.timestamp ?? track.listenedAt,
                 id: entry.value.recordingMsid,
                 artistMbid: entry.value.artistMbid,
                 releaseMbid: entry.value.releaseMbid
@@ -39,25 +39,27 @@ struct HistoryItem: View {
     }
 
     var body: some View {
-        // TODO: Build URLs from Listen (need to adapt service.buildURLs or build directly from MBIDs)
+        let displayService = defaults.mainServicePreference ?? defaults.primaryService?.service ?? .lastfm
+        let service = serviceManager.service(for: displayService)
+        let urls = service?.buildURLs(for: listenAsTrack(displayService: displayService))
 
-        TrackInfo(
-            trackName: track.track,
-            artist: track.artist,
-            album: track.album,
-            loved: .constant(track.loved),
-            artworkImageUrl: nil,  // TODO: Build from releaseMbid
-            timestamp: track.listenedAt,
-            playCount: .constant(0),  // TODO: Load from ListenStore.playcount()
-            artistURL: nil,  // TODO: Build from service/MBIDs
-            albumURL: nil,
-            trackURL: nil,
+            TrackInfo(
+                trackName: track.track,
+                artist: track.artist,
+                album: track.album,
+                loved: .constant(track.loved),
+                artworkImageUrl: nil,  // TODO: Build from releaseMbid
+                timestamp: track.listenedAt,
+                playCount: .constant(0),  // TODO: Load from ListenStore.playcount()
+            artistURL: urls?.artistURL,
+            albumURL: urls?.albumURL,
+            trackURL: urls?.trackURL,
             actionButtons: {
                 HStack(spacing: 4) {
                     // Sync status indicator
                     SyncStatusBadge(
                         syncStatus: syncStatus,
-                        serviceInfo: serviceInfoKeys,
+                        serviceStates: track.services,
                         sourceService: nil  // TODO: Determine from services
                     )
 
@@ -65,7 +67,8 @@ struct HistoryItem: View {
                         artist: track.artist,
                         track: track.track,
                         album: track.album,
-                        serviceInfo: serviceInfoKeys
+                        serviceInfo: serviceInfoKeys,
+                        listenId: track.id
                     )
 
                     BlacklistButton(
@@ -97,6 +100,29 @@ struct HistoryItem: View {
         .onHover { hovering in
             isHovered = hovering
         }
+    }
+
+    private func listenAsTrack(displayService: ScrobbleService) -> Track {
+        Track(
+            id: UUID(),
+            artist: track.artist,
+            album: track.album,
+            name: track.track,
+            timestamp: track.listenedAt,
+            duration: track.duration,
+            sourceService: displayService,
+            loved: track.loved,
+            playcount: 1,
+            scrobbled: true,
+            blacklisted: false,
+            serviceInfo: serviceInfoKeys.reduce(into: [ScrobbleService: ServiceTrackData]()) { result, entry in
+                if let service = ScrobbleService(rawValue: entry.key) {
+                    result[service] = entry.value
+                }
+            },
+            artwork: nil,
+            imageUrl: nil
+        )
     }
 
     private var iconName: String {

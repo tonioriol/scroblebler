@@ -9,10 +9,9 @@ struct NowPlaying: View {
 
     var body: some View {
         if let listen = listenStore.currentListen {  // Read from store (single source of truth)
-            // TODO: Build URLs for listen (need to adapt service.buildURLs to work with Listen)
-            // let displayService = defaults.mainServicePreference ?? defaults.primaryService?.service ?? .lastfm
-            // let service = serviceManager.service(for: displayService)
-            // let urls = service?.buildURLs(for: listen)
+            let displayService = defaults.mainServicePreference ?? defaults.primaryService?.service ?? .lastfm
+            let service = serviceManager.service(for: displayService)
+            let urls = service?.buildURLs(for: listenAsTrack(listen, displayService: displayService))
 
             VStack(spacing: 12) {
                 TrackInfo(
@@ -32,9 +31,9 @@ struct NowPlaying: View {
                         get: { 0 },  // TODO: Load playcount via ListenStore.playcount()
                         set: { _ in }
                     ),
-                    artistURL: nil,  // TODO: Build from service/MBIDs
-                    albumURL: nil,
-                    trackURL: nil,
+                    artistURL: urls?.artistURL,
+                    albumURL: urls?.albumURL,
+                    trackURL: urls?.trackURL,
                     actionButtons: {
                         BlacklistButton(artist: listen.artist, track: listen.track)
                     },
@@ -52,6 +51,34 @@ struct NowPlaying: View {
             }
             .padding()
         }
+    }
+
+    private func listenAsTrack(_ listen: Listen, displayService: ScrobbleService) -> Track {
+        Track(
+            id: UUID(),
+            artist: listen.artist,
+            album: listen.album,
+            name: listen.track,
+            timestamp: listen.listenedAt,
+            duration: listen.duration,
+            sourceService: displayService,
+            loved: listen.loved,
+            playcount: 1,
+            scrobbled: true,
+            blacklisted: false,
+            serviceInfo: listen.services.reduce(into: [ScrobbleService: ServiceTrackData]()) { result, entry in
+                if let service = ScrobbleService(rawValue: entry.key) {
+                    result[service] = ServiceTrackData(
+                        timestamp: entry.value.timestamp ?? listen.listenedAt,
+                        id: entry.value.recordingMsid,
+                        artistMbid: entry.value.artistMbid,
+                        releaseMbid: entry.value.releaseMbid
+                    )
+                }
+            },
+            artwork: nil,
+            imageUrl: nil
+        )
     }
 }
 

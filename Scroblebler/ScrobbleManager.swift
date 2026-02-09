@@ -275,7 +275,10 @@ class ScrobbleManager: ObservableObject {
         try await service.client.deleteScrobble(identifier: identifier)
     }
 
-    func deleteScrobbleAll(artist: String, track: String, serviceInfo: [String: ServiceTrackData]) async {
+    func deleteScrobbleAll(artist: String, track: String, serviceInfo: [String: ServiceTrackData], listenId: Int64?) async {
+        let trimmedArtist = artist.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedTrack = track.trimmingCharacters(in: .whitespacesAndNewlines)
+        let hasArtistTrack = !trimmedArtist.isEmpty && !trimmedTrack.isEmpty
         let enabledServices = Defaults.shared.enabledServices
 
         Logger.info("🗑️ DELETE_ALL: Deleting scrobble '\(artist) - \(track)' from \(enabledServices.count) enabled services", log: Logger.scrobbling)
@@ -311,8 +314,8 @@ class ScrobbleManager: ObservableObject {
                     }
 
                     let identifier = ScrobbleIdentifier(
-                        artist: artist,
-                        track: track,
+                        artist: trimmedArtist,
+                        track: trimmedTrack,
                         timestamp: info?.timestamp,
                         serviceId: info?.id
                     )
@@ -321,11 +324,47 @@ class ScrobbleManager: ObservableObject {
 
                     group.addTask {
                         Logger.info("DELETE_ALL: 🚀 Starting delete for \(credentials.service.displayName)", log: Logger.scrobbling)
+
+                        if let listenId {
+                            try? await ListenStore.shared.markDeletePending(listenId: listenId, service: credentials.service.rawValue)
+                        }
+
                         do {
-                            try await self.deleteScrobble(credentials: credentials, identifier: identifier)
-                            Logger.info("DELETE_ALL: ✅ Successfully deleted scrobble from \(credentials.service.displayName): \(artist) - \(track)", log: Logger.scrobbling)
+                            // If we lack the required identifiers, treat as a no-op (it was never scrobbled there).
+                            let canDelete: Bool = {
+                                switch credentials.service {
+                                case .listenbrainz:
+                                    return identifier.timestamp != nil && identifier.serviceId != nil
+                                case .lastfm, .librefm:
+                                    return identifier.timestamp != nil && hasArtistTrack
+                                }
+                            }()
+
+                            if canDelete {
+                                try await self.deleteScrobble(credentials: credentials, identifier: identifier)
+                                Logger.info("DELETE_ALL: ✅ Successfully deleted scrobble from \(credentials.service.displayName): \(artist) - \(track)", log: Logger.scrobbling)
+                            } else {
+                                Logger.info("DELETE_ALL: ⏭️ Skip delete for \(credentials.service.displayName) (missing identifiers)", log: Logger.scrobbling)
+                            }
+
+                            if let listenId {
+                                try? await ListenStore.shared.markDeleted(listenId: listenId, service: credentials.service.rawValue)
+                            }
                         } catch {
                             Logger.error("DELETE_ALL: ❌ Failed to delete scrobble from \(credentials.service.displayName): \(error)", log: Logger.scrobbling)
+
+                            let nsError = error as NSError
+                            let isNetworkError = nsError.domain == NSURLErrorDomain
+                            if isNetworkError {
+                                do {
+                                    try await OfflineQueue.shared.enqueue(operation)
+                                    Logger.info("DELETE_ALL: Queued delete retry for \(credentials.service.displayName) (network error)", log: Logger.scrobbling)
+                                } catch {
+                                    Logger.error("DELETE_ALL: Failed to queue delete retry: \(error)", log: Logger.scrobbling)
+                                }
+                            } else if let listenId {
+                                try? await ListenStore.shared.markDeletePending(listenId: listenId, service: credentials.service.rawValue)
+                            }
                         }
                     }
                 }

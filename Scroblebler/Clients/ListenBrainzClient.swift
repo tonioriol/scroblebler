@@ -93,14 +93,28 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
             throw Error.invalidToken
         }
 
+        let artist = track.artist.trimmingCharacters(in: .whitespacesAndNewlines)
+        let name = track.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let album = track.album.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !artist.isEmpty, !name.isEmpty else {
+            Logger.debug("ListenBrainz updateNowPlaying skipped (missing artist/track)", log: Logger.scrobbling)
+            return
+        }
+
+        var trackMetadata: [String: Any] = [
+            "artist_name": artist,
+            "track_name": name
+        ]
+
+        if !album.isEmpty {
+            trackMetadata["release_name"] = album
+        }
+
         let payload: [String: Any] = [
             "listen_type": "playing_now",
             "payload": [[
-                "track_metadata": [
-                    "artist_name": track.artist,
-                    "track_name": track.name,
-                    "release_name": track.album
-                ]
+                "track_metadata": trackMetadata
             ]]
         ]
         try await sendRequest(endpoint: "submit-listens", token: token, payload: payload)
@@ -111,15 +125,29 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
             throw Error.invalidToken
         }
 
+        let artist = track.artist.trimmingCharacters(in: .whitespacesAndNewlines)
+        let name = track.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let album = track.album.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !artist.isEmpty, !name.isEmpty else {
+            Logger.debug("ListenBrainz scrobble skipped (missing artist/track)", log: Logger.scrobbling)
+            return
+        }
+
+        var trackMetadata: [String: Any] = [
+            "artist_name": artist,
+            "track_name": name
+        ]
+
+        if !album.isEmpty {
+            trackMetadata["release_name"] = album
+        }
+
         let payload: [String: Any] = [
             "listen_type": "single",
             "payload": [[
                 "listened_at": Int(track.startedAt),
-                "track_metadata": [
-                    "artist_name": track.artist,
-                    "track_name": track.name,
-                    "release_name": track.album
-                ]
+                "track_metadata": trackMetadata
             ]]
         ]
         try await sendRequest(endpoint: "submit-listens", token: token, payload: payload)
@@ -235,25 +263,35 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         do {
             return try await NetworkClient.executeWithRetry(maxRetries: 3) {
                 let (data, response) = try await URLSession.shared.data(from: url)
-                guard let httpResponse = response as? HTTPURLResponse,
-                      httpResponse.statusCode == 200 else {
-                    Logger.error("MBID Mapper: HTTP \((response as? HTTPURLResponse)?.statusCode ?? -1) for '\(artist) - \(track)'", log: Logger.network)
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    Logger.error("MBID Mapper: invalid HTTP response for '\(artist) - \(track)'", log: Logger.network)
+                    return nil
+                }
+
+                // 404 is a normal "no mapping found" outcome.
+                if httpResponse.statusCode == 404 {
+                    Logger.debug("MBID Mapper: no mapping (404) for '\(artist) - \(track)'", log: Logger.network)
+                    return nil
+                }
+
+                guard httpResponse.statusCode == 200 else {
+                    Logger.error("MBID Mapper: HTTP \(httpResponse.statusCode) for '\(artist) - \(track)'", log: Logger.network)
                     return nil
                 }
 
                 let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-
-                // Log raw JSON to see all available fields
-                if let jsonData = try? JSONSerialization.data(withJSONObject: json ?? [:], options: .prettyPrinted),
-                   let jsonString = String(data: jsonData, encoding: .utf8) {
-                    Logger.debug("MBID Mapper raw JSON for '\(artist) - \(track)':\n\(jsonString)", log: Logger.network)
-                }
 
                 let confidence = json?["confidence"] as? Double ?? 0.0
 
                 guard confidence > 0.5 else {
                     Logger.debug("MBID Mapper: Low confidence (\(String(format: "%.2f", confidence))) for '\(artist) - \(track)'", log: Logger.network)
                     return nil
+                }
+
+                // Log raw JSON only for accepted matches (reduces log spam).
+                if let jsonData = try? JSONSerialization.data(withJSONObject: json ?? [:], options: .prettyPrinted),
+                   let jsonString = String(data: jsonData, encoding: .utf8) {
+                    Logger.debug("MBID Mapper raw JSON for '\(artist) - \(track)':\n\(jsonString)", log: Logger.network)
                 }
 
                 let artistMbids = json?["artist_credit_mbids"] as? [String]
@@ -328,10 +366,15 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         if !listens.isEmpty {
             if let lastListen = listens.last,
                let lastTimestamp = lastListen["listened_at"] as? Int {
+                // `max_ts` is inclusive on the ListenBrainz API. If we feed the same timestamp back,
+                // we can get stuck re-fetching the same last item(s) indefinitely (especially when
+                // many listens share the same second). Move the cursor back by 1s to guarantee
+                // forward progress.
+                let nextMaxTs = max(0, lastTimestamp - 1)
                 paginationState.withLock { state in
-                    state.paginationState[username] = lastTimestamp
+                    state.paginationState[username] = nextMaxTs
                 }
-                Logger.info("✅ ListenBrainz stored pagination timestamp: \(lastTimestamp) for user: \(username)", log: Logger.api)
+                Logger.info("✅ ListenBrainz stored pagination timestamp: \(nextMaxTs) (from last listened_at=\(lastTimestamp)) for user: \(username)", log: Logger.api)
             } else {
                 // Has tracks but missing timestamp - this is an actual error
                 Logger.error("❌ ListenBrainz tracks missing timestamp for user: \(username)", log: Logger.api)

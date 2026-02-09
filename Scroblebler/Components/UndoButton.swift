@@ -9,6 +9,7 @@ struct UndoButton: View {
     let track: String
     let album: String
     let serviceInfo: [String: ServiceTrackData]
+    let listenId: Int64?
 
     @State private var isProcessing = false
     @State private var isUndone = false
@@ -63,7 +64,12 @@ struct UndoButton: View {
             Logger.debug("UNDO: Enabled services: \(enabled.map { $0.service.displayName }.joined(separator: ", "))", log: Logger.scrobbling)
 
             // Delete from all services
-            await serviceManager.deleteScrobbleAll(artist: artist, track: track, serviceInfo: serviceInfo)
+            await serviceManager.deleteScrobbleAll(
+                artist: artist,
+                track: track,
+                serviceInfo: serviceInfo,
+                listenId: listenId
+            )
 
             Logger.info("✅ UNDO: Completed undo operation", log: Logger.scrobbling)
 
@@ -170,7 +176,8 @@ struct UndoButton: View {
         artist: "Test Artist",
         track: "Test Track",
         album: "Test Album",
-        serviceInfo: [:]
+        serviceInfo: [:],
+        listenId: nil
     )
     .environmentObject(ScrobbleManager.shared)
     .environmentObject(Defaults.shared)

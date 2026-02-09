@@ -66,15 +66,21 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
                 button.imagePosition = .imageOnly
             }
         }
-        
+
         // Auto-authenticate Last.fm web client if password is stored in Keychain
         Task {
             await ScrobbleManager.shared.autoAuthenticateLastFmWebClient()
         }
-        
+
         // Initialize network reachability monitoring
         _ = Reachability.shared
-        
+
+        // Opportunistically flush any local pending listens once at app launch.
+        // (No-op if offline.)
+        Task { @MainActor in
+            SyncEngine.shared.scheduleProcessPending(reason: "launch")
+        }
+
         NSApp.activate(ignoringOtherApps: true)
     }
 
@@ -106,17 +112,24 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
                         popoverWindow.makeKey()
                     }
                     NotificationCenter.default.post(name: NSNotification.Name("ScrobleblerDidShow"), object: nil)
+
+                    // When the UI is shown, try flushing any pending backlog.
+                    // Debounced to avoid doing work if user rapidly opens/closes.
+                    Task { @MainActor in
+                        SyncEngine.shared.scheduleProcessPending(reason: "popover_open")
+                    }
+
                     startMonitoring()
                 }
             }
         }
     }
-    
+
     func closePopover() {
         self.popover.performClose(nil)
         stopMonitoring()
     }
-    
+
     func startMonitoring() {
         eventMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
             if let strongSelf = self, strongSelf.popover.isShown {
@@ -124,7 +137,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             }
         }
     }
-    
+
     func stopMonitoring() {
         if let monitor = eventMonitor {
             NSEvent.removeMonitor(monitor)
@@ -151,5 +164,5 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         }
         updateLaunchAtLogin()
     }
-    
+
 }
