@@ -203,15 +203,13 @@ class Watcher: ObservableObject {
 
         // Create unique identifier from artist + title + album to properly detect track changes
         let trackIdentifier = "\(payload.artist ?? "")|\(payload.title ?? "")|\(payload.album ?? "")"
-        let trackChanged = currentStatus?.contentItemIdentifier != trackIdentifier
 
-        // Determine artwork: convert if track changed, otherwise reuse
-        let artworkData: String?
-        if trackChanged {
-            artworkData = payload.artwork.flatMap { convertArtworkToBase64($0) }
-        } else {
-            artworkData = currentStatus?.artworkData
-        }
+        // Determine artwork:
+        // - Use fresh artwork when present (it can arrive late for the same track).
+        // - Otherwise, keep the previous artwork to avoid flicker.
+        let artworkData: String? = payload.artwork
+            .flatMap { convertArtworkToBase64($0) }
+            ?? currentStatus?.artworkData
 
         // Convert microseconds to seconds
         let durationSeconds = (payload.durationMicros ?? 0) / 1_000_000.0
@@ -296,6 +294,11 @@ class Watcher: ObservableObject {
         let album = status.album ?? ""
         let title = status.title ?? ""
 
+        // Convert artwork (base64 PNG) into bytes for UI rendering.
+        // This is ephemeral (not persisted).
+        let artworkData: Data? = status.artworkData
+            .flatMap { Data(base64Encoded: $0) }
+
         // Create Listen from media player status
         return Listen(
             id: nil,
@@ -308,6 +311,8 @@ class Watcher: ObservableObject {
             services: [:],
             loved: false,
             releaseMbid: nil,
+            imageUrl: nil,
+            artwork: artworkData,
             sourceBundle: status.bundleIdentifier,
             createdAt: Date.nowISO8601(),
             updatedAt: Date.nowISO8601()
@@ -367,15 +372,22 @@ class Watcher: ObservableObject {
             currentBundleIdentifier = bundleId
         }
 
-        // Update player state
-        let newState: PlayerState = (status.playing ?? false) ? .playing : .paused
-        if newState != playerState {
-            playerState = newState
+        // Update player state.
+        // If we can't determine play/pause, keep the previous state to avoid flip-flopping.
+        if let playing = status.playing {
+            let newState: PlayerState = playing ? .playing : .paused
+            if newState != playerState {
+                playerState = newState
+            }
         }
 
         // Check if track changed first
-        let trackID = status.contentItemIdentifier ?? "0"
-        let trackChanged = currentTrackID != trackID
+        // Some players keep `contentItemIdentifier` stable across track transitions.
+        // Use a composite identity so artwork/metadata refresh correctly.
+        let baseID = status.contentItemIdentifier ?? ""
+        let metaID = "\(status.title ?? "")|\(status.artist ?? "")|\(status.album ?? "")"
+        let identity = baseID.isEmpty ? metaID : "\(baseID)|\(metaID)"
+        let trackChanged = currentTrackID != identity
 
         if trackChanged {
             Logger.info("Track changed: \(status.title ?? "Unknown") by \(status.artist ?? "Unknown")", log: Logger.playback)
@@ -405,7 +417,7 @@ class Watcher: ObservableObject {
 
             maxPosition = newPosition
             currentPosition = newPosition
-            currentTrackID = trackID
+            currentTrackID = identity
 
             let listen = try getPlayerTrack(from: status)
 
@@ -417,12 +429,26 @@ class Watcher: ObservableObject {
             }
         } else {
             // Same track - check if artwork arrived late
-            let hasArtwork = status.artworkData != nil
-            let currentHasArtwork = (ListenStore.shared.currentListen?.releaseMbid?.count ?? 0) > 0
+            let hasArtwork = (status.artworkData?.isEmpty == false)
+            let currentHasArtwork = (ListenStore.shared.currentListen?.artwork?.isEmpty == false)
 
             if hasArtwork && !currentHasArtwork {
                 let listen = try getPlayerTrack(from: status)
                 ListenStore.shared.updateCurrentListen(listen)
+            }
+
+            // Keep metadata fresh even if the track identity didn't change (some players update
+            // title/album/bundle id late, or reuse IDs when starting playback via scripting).
+            if let current = ListenStore.shared.currentListen {
+                let sameIdentity = current.canonicalKey == ListenIdentity.key(artist: status.artist ?? "", track: status.title ?? "")
+                let titleChanged = (status.title ?? "") != current.track
+                let artistChanged = (status.artist ?? "") != current.artist
+                let albumChanged = (status.album ?? "") != current.album
+                let bundleChanged = (status.bundleIdentifier ?? "") != (current.sourceBundle ?? "")
+                if sameIdentity || titleChanged || artistChanged || albumChanged || bundleChanged {
+                    let updated = try getPlayerTrack(from: status)
+                    ListenStore.shared.updateCurrentListen(updated)
+                }
             }
 
             // Update position if changed significantly

@@ -225,7 +225,7 @@ class ScrobbleManager: ObservableObject {
                             scrobbled: false,
                             blacklisted: false,
                             serviceInfo: [:],
-                            artwork: listen.releaseMbid.flatMap { _ in Data() },
+                            artwork: listen.artwork,
                             imageUrl: nil
                         )
                         try await self.updateNowPlaying(credentials: credentials, track: track)
