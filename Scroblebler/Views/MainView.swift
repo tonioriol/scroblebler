@@ -123,7 +123,6 @@ struct MainView: View {
 
     var mainContent: some View {
         VStack(alignment: .leading, spacing: 0) {
-            focusTrap
             nowPlayingSection
             Divider()
             PendingOperationsView()
@@ -146,13 +145,6 @@ struct MainView: View {
         .onChange(of: serviceManager.scrobbleCompletedTrigger) { _ in
             loadRecentTracks()
         }
-    }
-
-    private var focusTrap: some View {
-        TextField("", text: .constant(""))
-            .frame(width: 0, height: 0)
-            .opacity(0)
-            .accessibilityHidden(true)
     }
 
     @ViewBuilder
