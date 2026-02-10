@@ -95,6 +95,7 @@ extension Listen: FetchableRecord, MutablePersistableRecord {
         static let services = Column("services")
         static let loved = Column("loved")
         static let releaseMbid = Column("release_mbid")
+        static let imageUrl = Column("image_url")
         static let sourceBundle = Column("source_bundle")
         static let createdAt = Column("created_at")
         static let updatedAt = Column("updated_at")
@@ -111,6 +112,7 @@ extension Listen: FetchableRecord, MutablePersistableRecord {
         container[Columns.services] = services.jsonString()
         container[Columns.loved] = loved
         container[Columns.releaseMbid] = releaseMbid
+        container[Columns.imageUrl] = imageUrl
         container[Columns.sourceBundle] = sourceBundle
         container[Columns.createdAt] = createdAt
         container[Columns.updatedAt] = updatedAt
@@ -133,6 +135,8 @@ extension Listen: FetchableRecord, MutablePersistableRecord {
         }
         loved = row[Columns.loved]
         releaseMbid = row[Columns.releaseMbid]
+        imageUrl = row[Columns.imageUrl]
+        artwork = nil
         sourceBundle = row[Columns.sourceBundle]
         createdAt = row[Columns.createdAt]
         updatedAt = row[Columns.updatedAt]

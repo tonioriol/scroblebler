@@ -176,16 +176,8 @@ struct MainView: View {
 
                     Spacer()
 
-                    // Cache rebuild button (ListenBrainz only)
-                    if defaults.primaryService?.service == .listenbrainz {
-                        Button(action: invalidateCache) {
-                            Image(systemName: "arrow.clockwise")
-                                .font(.system(size: 10))
-                                .foregroundColor(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                        .help("Rebuild playcount cache")
-                    }
+                    // Cache rebuild button removed.
+                    // Playcount is computed from local listens, so there's no cache to rebuild.
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 12)
@@ -345,6 +337,19 @@ struct MainView: View {
             do {
                 try await listenStore.refreshHistory(limit: uiPageSize)
 
+                // Restore pre-local-history behavior: history artwork came from the service response.
+                // Now that history is local-first, older DB rows may be missing `releaseMbid` and/or
+                // `imageUrl` until we merge a fresh page from the enabled services.
+                let needsArtworkRefresh = listenStore.history.prefix(uiPageSize).contains { listen in
+                    let hasRelease = (listen.releaseMbid?.isEmpty == false)
+                    let hasImageUrl = (listen.imageUrl?.isEmpty == false)
+                    return !hasRelease && !hasImageUrl
+                }
+                if needsArtworkRefresh {
+                    _ = try? await importAndMergeHistoryPage(page: 1, limit: min(20, uiPageSize))
+                    try? await listenStore.refreshHistory(limit: uiPageSize)
+                }
+
                 // Render from SQLite immediately, then run background backfill until the beginning.
                 let total = try await listenStore.countListens()
                 let startPage = backfillStartPage(totalListens: total)
@@ -473,6 +478,7 @@ struct MainView: View {
                         listenedAt: track.timestamp,
                         loved: track.loved,
                         releaseMbid: info?.releaseMbid,
+                        imageUrl: track.imageUrl,
                         sourceBundle: nil,
                         services: services
                     )
@@ -509,6 +515,14 @@ struct MainView: View {
                     // Prefer first non-nil MBID for cover art
                     if updated.releaseMbid == nil, listen.releaseMbid != nil {
                         updated.releaseMbid = listen.releaseMbid
+                        didChange = true
+                    }
+
+                    // Preserve old behavior (pre local-history): keep service-provided image URL
+                    // when we don't have a release MBID (or when the row was created before we
+                    // started persisting it).
+                    if updated.imageUrl == nil, listen.imageUrl != nil {
+                        updated.imageUrl = listen.imageUrl
                         didChange = true
                     }
 
@@ -614,7 +628,7 @@ struct MainView: View {
         await withTaskGroup(of: Void.self) { group in
             for listen in listens {
                 guard let releaseMbid = listen.releaseMbid else { continue }
-                let imageUrl = "https://coverartarchive.org/release/\(releaseMbid)/front-250"
+                let imageUrl = CoverArt.coverArtArchiveFrontURL(releaseMbid: releaseMbid, size: 250)
 
                 group.addTask {
                     // Check if already cached
@@ -853,18 +867,7 @@ struct MainView: View {
         }
     }
 
-    private func invalidateCache() {
-        guard let primary = defaults.primaryService,
-              primary.service == .listenbrainz,
-              let client = serviceManager.client(for: .listenbrainz) as? ListenBrainzClient else {
-            return
-        }
-
-        Logger.info("Cache rebuild triggered", log: Logger.ui)
-        Task {
-            await client.invalidateAndRebuildCache(username: primary.username)
-        }
-    }
+    // invalidateCache() removed (no longer needed)
 }
 
 struct ServiceRow: View {

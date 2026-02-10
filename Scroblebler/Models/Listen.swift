@@ -41,6 +41,16 @@ struct Listen: Identifiable, Codable, Equatable {
 
     // MARK: - Media & Source
     var releaseMbid: String?   // MusicBrainz release ID (for Cover Art Archive)
+    /// Optional remote artwork URL (service-provided). Used as a fallback when we don't have a release MBID.
+    ///
+    /// - Last.fm provides `imageUrl` in its recent tracks API.
+    /// - ListenBrainz may provide a Cover Art Archive URL derived from MBIDs.
+    var imageUrl: String?
+
+    /// Artwork bytes for *currently playing* listens (from the media player).
+    ///
+    /// Intentionally NOT persisted to SQLite (and not included in Codable keys) to avoid storing large blobs.
+    var artwork: Data?
     var sourceBundle: String?  // Bundle ID of app that played the track
     // NOTE: Images are loaded lazily from Cover Art Archive using releaseMbid
     // We don't store service-specific image URLs - CAA is service-agnostic
@@ -83,6 +93,7 @@ struct Listen: Identifiable, Codable, Equatable {
         case services
         case loved
         case releaseMbid
+        case imageUrl
         case sourceBundle
         case createdAt
         case updatedAt
@@ -110,6 +121,8 @@ struct Listen: Identifiable, Codable, Equatable {
             services: [:],
             loved: false,
             releaseMbid: nil,
+            imageUrl: nil,
+            artwork: nil,
             sourceBundle: sourceBundle,
             createdAt: Date.nowISO8601(),
             updatedAt: Date.nowISO8601()
@@ -126,6 +139,7 @@ struct Listen: Identifiable, Codable, Equatable {
         listenedAt: Int,
         loved: Bool,
         releaseMbid: String?,
+        imageUrl: String?,
         sourceBundle: String?,
         services: [String: ServiceSyncState]
     ) -> Listen {
@@ -140,6 +154,8 @@ struct Listen: Identifiable, Codable, Equatable {
             services: services,
             loved: loved,
             releaseMbid: releaseMbid,
+            imageUrl: imageUrl,
+            artwork: nil,
             sourceBundle: sourceBundle,
             createdAt: Date.nowISO8601(),
             updatedAt: Date.nowISO8601()

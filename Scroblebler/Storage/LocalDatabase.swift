@@ -103,6 +103,7 @@ class LocalDatabase {
                 // NOTE: playcount is NOT stored - computed via COUNT(*) query
 
                 t.column("release_mbid", .text)          // For Cover Art Archive images
+                t.column("image_url", .text)             // Service-provided artwork URL fallback (e.g. Last.fm)
                 t.column("source_bundle", .text)         // App that played the track
 
                 t.column("created_at", .text).notNull()   // When row was inserted
@@ -119,6 +120,14 @@ class LocalDatabase {
             try db.execute(sql: """
                 CREATE UNIQUE INDEX idx_listens_unique ON listens(artist, track, listened_at)
             """)
+        }
+
+        migrator.registerMigration("v6_listens_image_url") { db in
+            // Add service-provided artwork URL fallback for history.
+            // Kept separate from v4 to avoid forcing a full DB reset.
+            try db.alter(table: "listens") { t in
+                t.add(column: "image_url", .text)
+            }
         }
 
         migrator.registerMigration("v5_remove_listenbrainz_cache") { db in
