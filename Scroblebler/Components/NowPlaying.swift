@@ -23,12 +23,13 @@ struct NowPlaying: View {
                         set: { _ in }
                     ),
                     artworkSize: 92,
-                    artworkImageData: nil,  // TODO: Load from releaseMbid
+                    artworkImageData: listen.artwork,
+                    artworkImageUrl: listen.releaseMbid.map { CoverArt.coverArtArchiveFrontURL(releaseMbid: $0, size: 250) } ?? listen.imageUrl,
                     titleFontSize: 18,
                     detailFontSize: 13,
                     loveFontSize: 12,
                     playCount: Binding(
-                        get: { 0 },  // TODO: Load playcount via ListenStore.playcount()
+                        get: { 0 },
                         set: { _ in }
                     ),
                     artistURL: urls?.artistURL,

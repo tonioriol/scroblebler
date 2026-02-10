@@ -49,7 +49,7 @@ struct HistoryItem: View {
                 artist: track.artist,
                 album: track.album,
                 loved: .constant(track.loved),
-                artworkImageUrl: nil,  // TODO: Build from releaseMbid
+                artworkImageUrl: track.releaseMbid.map { CoverArt.coverArtArchiveFrontURL(releaseMbid: $0, size: 250) } ?? track.imageUrl,
                 timestamp: track.listenedAt,
                 playCount: .constant(0),  // TODO: Load from ListenStore.playcount()
             artistURL: urls?.artistURL,

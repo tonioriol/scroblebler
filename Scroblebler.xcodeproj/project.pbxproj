@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		1642B729205FE028EE8C5A9F /* Listen.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC0011FE1A7CFD0F6D60B113 /* Listen.swift */; };
 		16766413902D56A80A25CD43 /* SyncEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7376CABC68290FC7A18B45D0 /* SyncEngine.swift */; };
+		1BA7C11483CC7598E00109B2 /* CoverArt.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61E7B0487F20D4A33B37D34B /* CoverArt.swift */; };
 		214BE49AEB926CFA16D44F62 /* LoveButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0F361811AED80EF7ACDCA43 /* LoveButton.swift */; };
 		54EF5BB490E7B7CAEA23F3C5 /* ListenBrainzService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEC77CD2AD564E2DF10EF98C /* ListenBrainzService.swift */; };
 		55299BF7CBA1D9466CF5364E /* ListenStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53E6B6510EF81F671C30594D /* ListenStore.swift */; };
@@ -97,6 +98,7 @@
 		0390C611586C209B0D20291B /* LastFmService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LastFmService.swift; path = Scroblebler/Services/LastFmService.swift; sourceTree = "<group>"; };
 		2FE900854B26848E1F16665A /* Service.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = Service.swift; path = Scroblebler/Protocols/Service.swift; sourceTree = "<group>"; };
 		53E6B6510EF81F671C30594D /* ListenStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ListenStore.swift; sourceTree = "<group>"; };
+		61E7B0487F20D4A33B37D34B /* CoverArt.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CoverArt.swift; path = Scroblebler/Utilities/CoverArt.swift; sourceTree = "<group>"; };
 		7376CABC68290FC7A18B45D0 /* SyncEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SyncEngine.swift; sourceTree = "<group>"; };
 		945B0AE950C577F39A8982D7 /* HistoryPlay.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HistoryPlay.swift; path = Scroblebler/HistoryPlay.swift; sourceTree = "<group>"; };
 		A0F361811AED80EF7ACDCA43 /* LoveButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoveButton.swift; sourceTree = "<group>"; };
@@ -191,6 +193,14 @@
 			);
 			sourceTree = "<group>";
 		};
+		C5AF130661D6DF579862C6DA /* Utilities */ = {
+			isa = PBXGroup;
+			children = (
+				61E7B0487F20D4A33B37D34B /* CoverArt.swift */,
+			);
+			name = Utilities;
+			sourceTree = "<group>";
+		};
 		CL9999999999999999999999 /* Clients */ = {
 			isa = PBXGroup;
 			children = (
@@ -244,6 +254,7 @@
 				DA8DE134292FC575004DC22E /* Products */,
 				DA7B0AA3297B392000B522D6 /* Frameworks */,
 				097F4C17B8E1B5125B7AF603 /*  */,
+				C5AF130661D6DF579862C6DA /* Utilities */,
 			);
 			sourceTree = "<group>";
 		};
@@ -520,6 +531,7 @@
 				16766413902D56A80A25CD43 /* SyncEngine.swift in Sources */,
 				5B87BA04A23A1AB8A3C8EC52 /* ListenIdentity.swift in Sources */,
 				CBD572569B6EBAA129C1F6EE /* ListenMatcher.swift in Sources */,
+				1BA7C11483CC7598E00109B2 /* CoverArt.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
