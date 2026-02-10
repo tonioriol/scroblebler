@@ -19,12 +19,13 @@ struct MainView: View {
     @State private var isPlaying = false
     @State private var showServicesSection = false
     @State private var historySearchQuery = ""
+    @State private var isSearchingHistory = false
 
     // History backfill state (remote → local)
     @State private var backfillTask: Task<Void, Never>?
     @State private var isBackfillingHistory = false
 
-    private let uiPageSize = 20
+    private let uiPageSize = 50
     private let backfillPageSize = 50
     private let maxVisibleHistoryItems = 400
 
@@ -32,16 +33,10 @@ struct MainView: View {
         listenStore.history
     }
 
-    private var filteredHistoryTracks: [Listen] {
-        let q = historySearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !q.isEmpty else { return historyTracks }
+    private var filteredHistoryTracks: [Listen] { historyTracks }
 
-        let needle = q.lowercased()
-        return historyTracks.filter { listen in
-            listen.artist.lowercased().contains(needle) ||
-            listen.track.lowercased().contains(needle) ||
-            listen.album.lowercased().contains(needle)
-        }
+    private var shouldShowHistorySection: Bool {
+        !historyTracks.isEmpty || !historySearchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     var body: some View {
@@ -180,7 +175,7 @@ struct MainView: View {
 
     @ViewBuilder
     private var historySection: some View {
-        if !historyTracks.isEmpty {
+        if shouldShowHistorySection {
             VStack(alignment: .leading, spacing: 0) {
                 HStack {
                     Text("Recently Scrobbled")
@@ -204,21 +199,88 @@ struct MainView: View {
                 .padding(.top, 12)
                 .padding(.bottom, 8)
 
-                // Simple local filter (does not hit SQLite).
-                TextField("Search history", text: $historySearchQuery)
-                    .textFieldStyle(.roundedBorder)
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 8)
+                // Full SQLite search.
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.secondary)
+
+                    TextField("Search history", text: $historySearchQuery)
+                        .textFieldStyle(.plain)
+
+                    if !historySearchQuery.isEmpty {
+                        Button {
+                            historySearchQuery = ""
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(.secondary)
+                                .font(.system(size: 14))
+                        }
+                        .buttonStyle(.plain)
+                        .help("Clear")
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color(NSColor.controlBackgroundColor))
+                .cornerRadius(10)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
+                    .onChange(of: historySearchQuery) { newValue in
+                        let q = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                        guard !q.isEmpty else {
+                            isSearchingHistory = false
+                            Task {
+                                try? await listenStore.refreshHistory(limit: max(uiPageSize, currentPage * uiPageSize))
+                                let total = try? await listenStore.countListens()
+                                await MainActor.run {
+                                    hasMoreTracks = (total ?? 0) > historyTracks.count || isBackfillingHistory
+                                }
+                            }
+                            return
+                        }
+
+                        // Search full SQLite history.
+                        isSearchingHistory = true
+                        let token = q.lowercased()
+                        Task {
+                            // Small debounce to avoid querying on every keystroke.
+                            try? await Task.sleep(nanoseconds: 200_000_000)
+                            // If the query has changed since the debounce started, drop this run.
+                            if historySearchQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() != token {
+                                return
+                            }
+
+                            let enabled = Defaults.shared.enabledServices.map { $0.service }
+                            if let results = try? await listenStore.search(query: q, limit: maxVisibleHistoryItems, enabledServices: enabled) {
+                                await MainActor.run {
+                                    listenStore.setHistory(results)
+                                    // Disable pagination while searching.
+                                    hasMoreTracks = false
+                                }
+                            }
+                        }
+                    }
 
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
                         let visible = filteredHistoryTracks
 
+                        if visible.isEmpty {
+                            VStack(alignment: .center) {
+                                Text(isSearchingHistory ? "No matches" : "No history yet")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(.secondary)
+                                    .padding(.vertical, 24)
+                                    .frame(maxWidth: .infinity)
+                            }
+                        }
+
                         ForEach(Array(visible.enumerated()), id: \.element.historyIdentity) { index, track in
                             HistoryItem(track: track)
                                 .onAppear {
                                     // Only auto-paginate when not filtering.
-                                    let isFiltering = !historySearchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                    let isFiltering = isSearchingHistory
                                     let isLastItem = index == visible.count - 1
                                     if !isFiltering && isLastItem && !isLoadingMore && hasMoreTracks {
                                         loadMoreTracks()
@@ -230,7 +292,7 @@ struct MainView: View {
                             }
                         }
 
-                        if isLoadingMore {
+                        if !isSearchingHistory && isLoadingMore {
                             HStack {
                                 Spacer()
                                 ProgressView()

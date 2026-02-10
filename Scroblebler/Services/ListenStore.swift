@@ -345,6 +345,48 @@ class ListenStore: ObservableObject {
         return Array(visible.prefix(limit))
     }
 
+    /// Search listens by artist/track/album in SQLite.
+    ///
+    /// Note: we still apply the same "fully deleted across enabled services" visibility rule.
+    func search(query: String, limit: Int, enabledServices: [ScrobbleService]) async throws -> [Listen] {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !q.isEmpty else {
+            return try await getRecentVisible(limit: limit, enabledServices: enabledServices)
+        }
+
+        // Escape LIKE wildcards so the query behaves as a literal substring match.
+        let escaped = q
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "%", with: "\\%")
+            .replacingOccurrences(of: "_", with: "\\_")
+
+        let pattern = "%\(escaped)%"
+        let enabledKeys = Set(enabledServices.map { $0.rawValue })
+
+        let listens = try await db.asyncRead { db in
+            try Listen
+                .filter(
+                    sql: "(artist LIKE ? ESCAPE '\\' OR track LIKE ? ESCAPE '\\' OR album LIKE ? ESCAPE '\\')",
+                    arguments: [pattern, pattern, pattern]
+                )
+                .order(Listen.Columns.listenedAt.desc)
+                .limit(max(100, limit * 3))
+                .fetchAll(db)
+        }
+
+        let visible = listens.filter { listen in
+            for serviceKey in enabledKeys {
+                let status = listen.services[serviceKey]?.status
+                if status != .deleted {
+                    return true
+                }
+            }
+            return enabledKeys.isEmpty
+        }
+
+        return Array(visible.prefix(limit))
+    }
+
     /// Total listens in local database
     func countListens() async throws -> Int {
         try await db.asyncRead { db in
