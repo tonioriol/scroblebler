@@ -770,10 +770,7 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
         return try await ListenStore.shared.playcount(artist: artist, track: track)
     }
 
-    func invalidateAndRebuildCache(username: String) async {
-        // Cache removed - playcount now computed from local listens
-        // No action needed
-    }
+    // invalidateAndRebuildCache removed: playcount is computed from local listens
 
     func getTrackInfo(artist: String, track: String) async throws -> (loved: Bool, playcount: Int?) {
         guard self.username != nil, self.token != nil else {
