@@ -135,6 +135,7 @@ on their repository](https://github.com/lastfm/lastfm-desktop/blob/9ae84cf4ab204
 - [ ] Update the reverse domain.
 - [ ] Update the date and the (c) of the new files.
 - [ ] Fix credits in files.
+- [ ] display full date on hover.
 
 ## License
 

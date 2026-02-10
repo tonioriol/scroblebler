@@ -1,4 +1,4 @@
-# Local-First Sync Engine
+# [local-first-sync-engine] Local-First Sync Engine
 
 ## TASK
 
@@ -9,6 +9,7 @@ Implement a local-first sync engine with the following requirements:
 3. Create unified `ListenStore` backed by SQLite
 4. Build sync engine with optimistic updates and conflict resolution
 5. Design simple yet well-architected pipeline
+6. Make delete/undo predictable: optimistic local delete with queued retry and a per-service delete-pending state
 
 ## GENERAL CONTEXT
 
@@ -26,39 +27,20 @@ ALWAYS use absolute paths.
 
 ### RELEVANT FILES
 
-**Current Entity/Store/Service (to rename):**
-
-- /Users/tr0n/Code/scroblebler/Scroblebler/Models/Track.swift
-- /Users/tr0n/Code/scroblebler/Scroblebler/Services/TrackStore.swift
-- /Users/tr0n/Code/scroblebler/Scroblebler/Services/TrackService.swift
-
-**Database & Storage:**
-
-- /Users/tr0n/Code/scroblebler/Scroblebler/Storage/LocalDatabase.swift
-- /Users/tr0n/Code/scroblebler/Scroblebler/Storage/OfflineQueue.swift
-- /Users/tr0n/Code/scroblebler/Scroblebler/Storage/Models/QueuedOperation.swift
-
-**Sync & Service Layer:**
-
-- /Users/tr0n/Code/scroblebler/Scroblebler/Services/SyncService.swift
-- /Users/tr0n/Code/scroblebler/Scroblebler/ScrobbleManager.swift
-
-**Supporting Files:**
-
-- /Users/tr0n/Code/scroblebler/Scroblebler/Models.swift
-- /Users/tr0n/Code/scroblebler/Scroblebler/Watcher.swift
-- /Users/tr0n/Code/scroblebler/Scroblebler/Utilities/TrackIdentity.swift
-- /Users/tr0n/Code/scroblebler/Scroblebler/Utilities/TrackMatcher.swift
-
-**Files to Remove (Phase 6):**
-
-- /Users/tr0n/Code/scroblebler/Scroblebler/Storage/Models/ListenBrainzCacheEntry.swift
-- /Users/tr0n/Code/scroblebler/Scroblebler/Storage/Models/ListenBrainzCacheMeta.swift
-- /Users/tr0n/Code/scroblebler/Scroblebler/Clients/ListenBrainzCache.swift
-
-**Project Config:**
-
-- /Users/tr0n/Code/scroblebler/Scroblebler.xcodeproj/project.pbxproj
+* /Users/tr0n/Code/scroblebler/Scroblebler/Models/Listen.swift
+* /Users/tr0n/Code/scroblebler/Scroblebler/Models.swift
+* /Users/tr0n/Code/scroblebler/Scroblebler/Services/ListenStore.swift
+* /Users/tr0n/Code/scroblebler/Scroblebler/Services/SyncEngine.swift
+* /Users/tr0n/Code/scroblebler/Scroblebler/ScrobbleManager.swift
+* /Users/tr0n/Code/scroblebler/Scroblebler/Utilities/Reachability.swift
+* /Users/tr0n/Code/scroblebler/Scroblebler/Utilities/NetworkClient.swift
+* /Users/tr0n/Code/scroblebler/Scroblebler/Storage/OfflineQueue.swift
+* /Users/tr0n/Code/scroblebler/Scroblebler/Clients/LastFmClient.swift
+* /Users/tr0n/Code/scroblebler/Scroblebler/Clients/ListenBrainzClient.swift
+* /Users/tr0n/Code/scroblebler/Scroblebler/Components/UndoButton.swift
+* /Users/tr0n/Code/scroblebler/Scroblebler/Components/SyncStatusBadge.swift
+* /Users/tr0n/Code/scroblebler/ScrobbleblerTests/ScrobbleManagerE2ETests.swift
+* /Users/tr0n/Code/scroblebler/Scroblebler.xcodeproj/project.pbxproj
 
 ## PLAN
 
@@ -189,3 +171,13 @@ See detailed plan: [plan.md](./plan.md)
 - [ ] Validate full history backfill completes (all pages until the beginning) for Last.fm + ListenBrainz without rate-limit issues
 - [ ] Monitor rate-limit behavior during extended backfill sessions
 - [ ] Consider adding a small UI indicator for `isBackfillingHistory` (optional) so users know history is still loading
+
+* **2026-02-09 - Add optimistic delete with queued retry + per-service delete-pending state**
+  * Problem: undo/delete should be predictable even when remote deletes are impossible (missing identifiers) or temporarily failing (network).
+  * Change: introduced `deletePending` per-service status so UI can reflect the user’s intent immediately, while retries self-heal later.
+  * Implementation highlights:
+    - `deletePending` state stored in Listen.services JSON.
+    - On undo/delete: mark service `deletePending`, attempt remote delete, then mark `deleted` on success or no-op.
+    - On network errors: enqueue delete retry in OfflineQueue.
+    - On reconnect / pending processing: delete-pending listens are retried.
+  * Verification: `swift test` passed. Commit: b394406

@@ -149,6 +149,13 @@ class ListenStore: ObservableObject {
         Logger.debug("Deleted listen with id: \(id)", log: Logger.sync)
     }
 
+    /// Fetch a single listen by row id.
+    func get(id: Int64) async throws -> Listen? {
+        try await db.asyncRead { db in
+            try Listen.fetchOne(db, key: id)
+        }
+    }
+
     // MARK: - Service State Management
 
     /// Update service state for a listen
@@ -213,6 +220,21 @@ class ListenStore: ObservableObject {
         try await updateServiceState(listenId: listenId, service: service, state: state)
     }
 
+    /// Mark service deletion as failed (no more retries; user may need to delete manually).
+    func markDeleteFailed(listenId: Int64, service: String, error: String) async throws {
+        let existingState: ServiceSyncState? = try? await db.asyncRead { db in
+            guard let listen = try Listen.fetchOne(db, key: listenId) else { return nil }
+            return listen.services[service]
+        }
+
+        var state = existingState ?? ServiceSyncState(status: .deleteFailed)
+        state.status = .deleteFailed
+        state.error = error
+        state.retryCount = (existingState?.retryCount ?? 0) + 1
+        state.lastAttemptAt = Date.nowISO8601()
+        try await updateServiceState(listenId: listenId, service: service, state: state)
+    }
+
     /// Mark service as pending (used for retries)
     func markPending(listenId: Int64, service: String) async throws {
         let existingState: ServiceSyncState? = try? await db.asyncRead { db in
@@ -231,6 +253,49 @@ class ListenStore: ObservableObject {
     func markDeleted(listenId: Int64, service: String) async throws {
         let state = ServiceSyncState(status: .deleted)
         try await updateServiceState(listenId: listenId, service: service, state: state)
+    }
+
+    /// Delete listens that are fully deleted across all currently-enabled services.
+    ///
+    /// This keeps the DB tidy and ensures the UI history list eventually drops items the user
+    /// successfully deleted everywhere.
+    func pruneFullyDeleted(enabledServices: [ScrobbleService], limit: Int = 200) async {
+        guard !enabledServices.isEmpty else { return }
+
+        do {
+            let candidates = try await getRecent(limit: 2000)
+            let enabledKeys = Set(enabledServices.map { $0.rawValue })
+
+            var deletedCount = 0
+            for listen in candidates {
+                guard deletedCount < limit else { break }
+                guard let id = listen.id else { continue }
+
+                let isFullyDeleted = enabledKeys.allSatisfy { key in
+                    listen.services[key]?.status == .deleted
+                }
+
+                if isFullyDeleted {
+                    try? await delete(id: id)
+                    deletedCount += 1
+                }
+            }
+
+            // Also refresh the published history so the UI drops pruned rows.
+            // Best-effort and conservative; history is always derived from SQLite.
+            if deletedCount > 0 {
+                let currentLimit = history.count
+                if currentLimit > 0 {
+                    try? await refreshHistory(limit: currentLimit)
+                }
+            }
+
+            if deletedCount > 0 {
+                Logger.info("Pruned \(deletedCount) fully-deleted listens", log: Logger.sync)
+            }
+        } catch {
+            Logger.error("Failed to prune fully-deleted listens: \(error)", log: Logger.sync)
+        }
     }
 
     /// Mark service as delete pending (used for delete retries)
@@ -258,6 +323,26 @@ class ListenStore: ObservableObject {
                 .limit(limit)
                 .fetchAll(db)
         }
+    }
+
+    /// Get recent listens, excluding listens that are fully deleted across all enabled services.
+    func getRecentVisible(limit: Int, enabledServices: [ScrobbleService]) async throws -> [Listen] {
+        let listens = try await getRecent(limit: max(100, limit * 3)) // over-fetch a bit to account for filtering
+        let enabledKeys = Set(enabledServices.map { $0.rawValue })
+
+        let visible = listens.filter { listen in
+            // Only consider enabled services when deciding if the listen should be visible.
+            for serviceKey in enabledKeys {
+                let status = listen.services[serviceKey]?.status
+                if status != .deleted {
+                    return true
+                }
+            }
+            // If there are no enabled services, keep it visible.
+            return enabledKeys.isEmpty
+        }
+
+        return Array(visible.prefix(limit))
     }
 
     /// Total listens in local database
@@ -339,7 +424,8 @@ class ListenStore: ObservableObject {
 
     /// Refresh history from SQLite
     func refreshHistory(limit: Int) async throws {
-        let listens = try await getRecent(limit: limit)
+        let enabled = Defaults.shared.enabledServices.map { $0.service }
+        let listens = try await getRecentVisible(limit: limit, enabledServices: enabled)
         await MainActor.run {
             self.setHistory(listens)
         }

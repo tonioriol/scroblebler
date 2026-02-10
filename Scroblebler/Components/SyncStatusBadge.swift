@@ -50,6 +50,8 @@ struct SyncStatusBadge: View {
                     return ("⚠︎", "failed")
                 case .deletePending:
                     return ("…", "delete pending")
+                case .deleteFailed:
+                    return ("⚠︎", "delete failed")
                 case .deleted:
                     return ("⦸", "deleted")
                 }

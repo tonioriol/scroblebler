@@ -40,17 +40,37 @@ enum SyncStatus: Codable {
 
 struct ServiceTrackData: Codable, Equatable {
     let timestamp: Int?     // Required for Last.fm/Libre.fm
-    var id: String?         // ListenBrainz recording_msid (for deletion) or recording_mbid
+    /// ListenBrainz recording MBID (used for ListenBrainz track URLs).
+    ///
+    /// Note: this is NOT the identifier needed for ListenBrainz deletion.
+    var id: String?
+
+    /// ListenBrainz recording MSID (required for ListenBrainz deletion).
+    var recordingMsid: String?
     var artistMbid: String? // ListenBrainz artist MBID (for URLs)
     var releaseMbid: String? // ListenBrainz release MBID (for URLs)
 
+    init(
+        timestamp: Int?,
+        id: String? = nil,
+        recordingMsid: String? = nil,
+        artistMbid: String? = nil,
+        releaseMbid: String? = nil
+    ) {
+        self.timestamp = timestamp
+        self.id = id
+        self.recordingMsid = recordingMsid
+        self.artistMbid = artistMbid
+        self.releaseMbid = releaseMbid
+    }
+
     // Factory methods make intent clear
     static func lastfm(timestamp: Int) -> ServiceTrackData {
-        ServiceTrackData(timestamp: timestamp, id: nil, artistMbid: nil, releaseMbid: nil)
+        ServiceTrackData(timestamp: timestamp)
     }
 
     static func listenbrainz(recordingMsid: String, timestamp: Int) -> ServiceTrackData {
-        ServiceTrackData(timestamp: timestamp, id: recordingMsid, artistMbid: nil, releaseMbid: nil)
+        ServiceTrackData(timestamp: timestamp, recordingMsid: recordingMsid)
     }
 
     static func listenbrainzWithMbids(recordingMbid: String, artistMbid: String?, releaseMbid: String?, timestamp: Int) -> ServiceTrackData {

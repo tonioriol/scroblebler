@@ -17,7 +17,10 @@ struct Listen: Identifiable, Codable, Equatable {
     /// to avoid SwiftUI diffing glitches (missing rows / large blank gaps) when the backing array
     /// is refreshed.
     var historyIdentity: String {
-        "\(listenedAt)|\(canonicalKey)"
+        if let id {
+            return "db:\(id)"
+        }
+        return "\(listenedAt)|\(canonicalKey)"
     }
 
     // MARK: - Core Metadata
@@ -152,22 +155,35 @@ struct ServiceSyncState: Codable, Equatable {
         case synced    // Successfully sent to service
         case failed    // Max retries reached
         case deletePending // Delete requested, retrying
+        case deleteFailed  // Delete failed (user may need to delete manually)
         case deleted   // User deleted from this service
     }
 
     var status: Status
     var timestamp: Int?        // For Last.fm/Libre.fm deletion
     var recordingMsid: String? // For ListenBrainz deletion
+    var recordingMbid: String? // For ListenBrainz track URL building
     var artistMbid: String?    // For ListenBrainz URLs
     var releaseMbid: String?   // For ListenBrainz URLs
     var error: String?
     var retryCount: Int
     var lastAttemptAt: String? // ISO 8601
 
-    init(status: Status, timestamp: Int? = nil, recordingMsid: String? = nil, artistMbid: String? = nil, releaseMbid: String? = nil, error: String? = nil, retryCount: Int = 0, lastAttemptAt: String? = nil) {
+    init(
+        status: Status,
+        timestamp: Int? = nil,
+        recordingMsid: String? = nil,
+        recordingMbid: String? = nil,
+        artistMbid: String? = nil,
+        releaseMbid: String? = nil,
+        error: String? = nil,
+        retryCount: Int = 0,
+        lastAttemptAt: String? = nil
+    ) {
         self.status = status
         self.timestamp = timestamp
         self.recordingMsid = recordingMsid
+        self.recordingMbid = recordingMbid
         self.artistMbid = artistMbid
         self.releaseMbid = releaseMbid
         self.error = error

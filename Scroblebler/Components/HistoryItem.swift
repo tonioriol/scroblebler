@@ -17,7 +17,8 @@ struct HistoryItem: View {
         self.serviceInfoKeys = track.services.reduce(into: [:]) { result, entry in
             result[entry.key] = ServiceTrackData(
                 timestamp: entry.value.timestamp ?? track.listenedAt,
-                id: entry.value.recordingMsid,
+                id: entry.value.recordingMbid,
+                recordingMsid: entry.value.recordingMsid,
                 artistMbid: entry.value.artistMbid,
                 releaseMbid: entry.value.releaseMbid
             )

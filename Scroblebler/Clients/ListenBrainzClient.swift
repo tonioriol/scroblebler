@@ -88,6 +88,68 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
 
     // MARK: - Scrobbling
 
+    /// Find ListenBrainz recording_msid for a listen by looking up listens around a timestamp.
+    ///
+    /// Needed because ListenBrainz deletion requires (listened_at, recording_msid), but our local
+    /// listen may not have had the msid persisted at the time of scrobble.
+    func findRecordingMsid(artist: String, track: String, listenedAt: Int) async throws -> String? {
+        // Prefer a slightly wider window because clocks differ between services.
+        let windowSeconds = 180
+        let minTs = max(0, listenedAt - windowSeconds)
+        let maxTs = listenedAt + windowSeconds
+
+        guard let candidates = try await getRecentTracksByTimeRange(minTs: minTs, maxTs: maxTs, limit: 100) else {
+            return nil
+        }
+
+        func normalizeForLookup(_ string: String) -> String {
+            var out = string.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+
+            // Common browser/media titles include notification prefixes like "(19) Home / X".
+            // Strip those so we can still match the underlying title.
+            if let range = out.range(of: #"^\(\d+\+?\)\s*"#, options: .regularExpression) {
+                out.removeSubrange(range)
+                out = out.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            return out
+        }
+
+        let normalizedArtist = normalizeForLookup(artist)
+        let normalizedTrack = normalizeForLookup(track)
+
+        // 1) Prefer exact match on metadata.
+        if !normalizedArtist.isEmpty, !normalizedTrack.isEmpty {
+            let match = candidates.first { t in
+                normalizeForLookup(t.artist) == normalizedArtist &&
+                normalizeForLookup(t.name) == normalizedTrack &&
+                abs(t.timestamp - listenedAt) <= windowSeconds
+            }
+            if let msid = match?.serviceInfo[.listenbrainz]?.recordingMsid {
+                return msid
+            }
+        }
+
+        // 2) If artist is missing locally, match on track name + timestamp.
+        if !normalizedTrack.isEmpty {
+            let match = candidates.first { t in
+                normalizeForLookup(t.name) == normalizedTrack &&
+                abs(t.timestamp - listenedAt) <= windowSeconds
+            }
+            if let msid = match?.serviceInfo[.listenbrainz]?.recordingMsid {
+                return msid
+            }
+        }
+
+        // 3) Last-resort: if there's a single listen extremely close in time, assume it's the one.
+        if let best = candidates.min(by: { abs($0.timestamp - listenedAt) < abs($1.timestamp - listenedAt) }) {
+            if abs(best.timestamp - listenedAt) <= 5 {
+                return best.serviceInfo[.listenbrainz]?.recordingMsid
+            }
+        }
+
+        return nil
+    }
+
     func updateNowPlaying(track: Track) async throws {
         guard let token = self.token else {
             throw Error.invalidToken
@@ -204,6 +266,14 @@ class ListenBrainzClient: ObservableObject, ScrobbleClient {
             try await sendRequest(endpoint: "delete-listen", token: token, payload: payload)
             Logger.info("LB_DELETE: ✅ Successfully deleted from ListenBrainz", log: Logger.scrobbling)
         } catch {
+            // ListenBrainz returns 404 when the listen doesn't exist (already deleted / never present).
+            // Treat that as success so local history can be cleared.
+            if case let Error.serverError(message) = error,
+               message.contains("HTTP 404") {
+                Logger.info("LB_DELETE: listen not found (already gone): \(identifier.artist) - \(identifier.track) @ \(timestamp)", log: Logger.scrobbling)
+                return
+            }
+
             Logger.error("LB_DELETE: ❌ Delete request failed: \(error)", log: Logger.scrobbling)
             throw error
         }

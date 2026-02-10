@@ -157,6 +157,9 @@ class SyncEngine {
                 Logger.error("❌ Error processing pending for \(service.rawValue): \(error)", log: Logger.sync)
             }
         }
+
+        // Opportunistically clean up rows that are fully deleted across all enabled services.
+        await store.pruneFullyDeleted(enabledServices: enabledServices)
     }
 
     /// Reconcile local with remote
@@ -199,7 +202,8 @@ class SyncEngine {
             let stringServiceInfo = listen.services.reduce(into: [String: ServiceTrackData]()) { result, entry in
                 result[entry.key] = ServiceTrackData(
                     timestamp: entry.value.timestamp,
-                    id: entry.value.recordingMsid,
+                    id: entry.value.recordingMbid,
+                    recordingMsid: entry.value.recordingMsid,
                     artistMbid: entry.value.artistMbid,
                     releaseMbid: entry.value.releaseMbid
                 )
@@ -300,6 +304,23 @@ class SyncEngine {
             updatedState.status = .synced
             updatedState.error = nil
             updatedState.lastAttemptAt = Date.nowISO8601()
+
+            // Ensure we persist service-specific identifiers needed later for deletion/links.
+            // Track.serviceInfo comes from the scrobble client and may include ListenBrainz msid/mbids.
+            let info = track.serviceInfo[service]
+            if updatedState.recordingMsid == nil {
+                updatedState.recordingMsid = info?.recordingMsid
+            }
+            if updatedState.recordingMbid == nil {
+                updatedState.recordingMbid = info?.id
+            }
+            if updatedState.artistMbid == nil {
+                updatedState.artistMbid = info?.artistMbid
+            }
+            if updatedState.releaseMbid == nil {
+                updatedState.releaseMbid = info?.releaseMbid
+            }
+
             try await store.updateServiceState(listenId: listenId, service: serviceRaw, state: updatedState)
 
             Logger.info("✅ Synced listen \(listen.track) to \(service.rawValue)", log: Logger.sync)
@@ -365,6 +386,7 @@ class SyncEngine {
                 status: remoteServiceData.status,
                 timestamp: remoteServiceData.timestamp,
                 recordingMsid: remoteServiceData.recordingMsid,
+                recordingMbid: remoteServiceData.recordingMbid,
                 artistMbid: remoteServiceData.artistMbid,
                 releaseMbid: remoteServiceData.releaseMbid,
                 error: remoteServiceData.error,
@@ -391,6 +413,7 @@ class SyncEngine {
                 status: .synced,
                 timestamp: serviceData.timestamp,
                 recordingMsid: serviceData.recordingMsid,
+                recordingMbid: serviceData.recordingMbid,
                 artistMbid: serviceData.artistMbid,
                 releaseMbid: serviceData.releaseMbid,
                 error: serviceData.error,

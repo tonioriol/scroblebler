@@ -278,12 +278,53 @@ class ScrobbleManager: ObservableObject {
     func deleteScrobbleAll(artist: String, track: String, serviceInfo: [String: ServiceTrackData], listenId: Int64?) async {
         let trimmedArtist = artist.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedTrack = track.trimmingCharacters(in: .whitespacesAndNewlines)
-        let hasArtistTrack = !trimmedArtist.isEmpty && !trimmedTrack.isEmpty
         let enabledServices = Defaults.shared.enabledServices
+
+        // Some "non-music" sources (e.g. browsers) can produce listens with an empty artist.
+        // If the track title looks like "Artist - Title", split it so delete calls have the
+        // minimum data required by services like Last.fm.
+        func stripNotificationPrefix(_ text: String) -> String {
+            text
+                .replacingOccurrences(
+                    of: #"^\(\d+\+?\)\s*"#,
+                    with: "",
+                    options: .regularExpression
+                )
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+
+        func splitArtistTitleIfNeeded(artist: String, track: String) -> (artist: String, track: String) {
+            let cleanedTrack = stripNotificationPrefix(track)
+            guard artist.isEmpty else {
+                return (artist: artist, track: cleanedTrack)
+            }
+
+            for separator in [" - ", " – ", " — "] {
+                guard let range = cleanedTrack.range(of: separator) else { continue }
+                let left = cleanedTrack[..<range.lowerBound].trimmingCharacters(in: .whitespacesAndNewlines)
+                let right = cleanedTrack[range.upperBound...].trimmingCharacters(in: .whitespacesAndNewlines)
+                if !left.isEmpty, !right.isEmpty {
+                    return (artist: left, track: right)
+                }
+            }
+
+            return (artist: artist, track: cleanedTrack)
+        }
+
+        let (effectiveArtist, effectiveTrack) = splitArtistTitleIfNeeded(
+            artist: trimmedArtist,
+            track: trimmedTrack
+        )
 
         Logger.info("🗑️ DELETE_ALL: Deleting scrobble '\(artist) - \(track)' from \(enabledServices.count) enabled services", log: Logger.scrobbling)
         Logger.debug("DELETE_ALL: Available serviceInfo keys: \(serviceInfo.keys.sorted().joined(separator: ", "))", log: Logger.scrobbling)
         Logger.debug("DELETE_ALL: Enabled services: \(enabledServices.map { $0.service.displayName }.joined(separator: ", "))", log: Logger.scrobbling)
+        if trimmedArtist != effectiveArtist || trimmedTrack != effectiveTrack {
+            Logger.info(
+                "DELETE_ALL: Normalized delete metadata artist='\(effectiveArtist)' track='\(effectiveTrack)' (from artist='\(trimmedArtist)' track='\(trimmedTrack)')",
+                log: Logger.scrobbling
+            )
+        }
 
         // Log detailed serviceInfo for debugging
         for (key, data) in serviceInfo {
@@ -314,10 +355,10 @@ class ScrobbleManager: ObservableObject {
                     }
 
                     let identifier = ScrobbleIdentifier(
-                        artist: trimmedArtist,
-                        track: trimmedTrack,
+                        artist: effectiveArtist,
+                        track: effectiveTrack,
                         timestamp: info?.timestamp,
-                        serviceId: info?.id
+                        serviceId: info?.recordingMsid
                     )
 
                     Logger.debug("DELETE_ALL: Created identifier for \(credentials.service.displayName): artist=\(identifier.artist), track=\(identifier.track), timestamp=\(identifier.timestamp ?? 0), serviceId=\(identifier.serviceId ?? "nil")", log: Logger.scrobbling)
@@ -325,29 +366,113 @@ class ScrobbleManager: ObservableObject {
                     group.addTask {
                         Logger.info("DELETE_ALL: 🚀 Starting delete for \(credentials.service.displayName)", log: Logger.scrobbling)
 
-                        if let listenId {
-                            try? await ListenStore.shared.markDeletePending(listenId: listenId, service: credentials.service.rawValue)
-                        }
-
                         do {
+                            // If we have a listenId, always prefer the latest persisted row values
+                            // (the in-memory HistoryItem snapshot may be missing identifiers).
+                            var identifier = identifier
+                            if let listenId,
+                               let latest = try? await ListenStore.shared.get(id: listenId) {
+                                let latestArtist = latest.artist.trimmingCharacters(in: .whitespacesAndNewlines)
+                                let latestTrack = latest.track.trimmingCharacters(in: .whitespacesAndNewlines)
+                                if !latestArtist.isEmpty || !latestTrack.isEmpty {
+                                    let (a, t) = splitArtistTitleIfNeeded(artist: latestArtist, track: latestTrack)
+                                    identifier = ScrobbleIdentifier(
+                                        artist: a,
+                                        track: t,
+                                        timestamp: identifier.timestamp,
+                                        serviceId: identifier.serviceId
+                                    )
+                                }
+                            }
+
+                            // Special case: ListenBrainz deletion requires recording_msid.
+                            // If we don't have it yet, try to look it up by timestamp+metadata.
+                            if credentials.service == .listenbrainz,
+                               identifier.serviceId == nil,
+                               let ts = identifier.timestamp,
+                               let lbClient = self.client(for: .listenbrainz) as? ListenBrainzClient {
+                                if let msid = try? await lbClient.findRecordingMsid(
+                                    artist: identifier.artist,
+                                    track: identifier.track,
+                                    listenedAt: ts
+                                ) {
+                                    identifier = ScrobbleIdentifier(
+                                        artist: identifier.artist,
+                                        track: identifier.track,
+                                        timestamp: identifier.timestamp,
+                                        serviceId: msid
+                                    )
+                                    if let listenId {
+                                        // Persist msid so future retries don't have to re-fetch.
+                                        var state = ServiceSyncState(status: .deletePending)
+                                        state.timestamp = ts
+                                        state.recordingMsid = msid
+                                        try? await ListenStore.shared.updateServiceState(
+                                            listenId: listenId,
+                                            service: credentials.service.rawValue,
+                                            state: state
+                                        )
+                                    }
+                                }
+                            }
+
                             // If we lack the required identifiers, treat as a no-op (it was never scrobbled there).
                             let canDelete: Bool = {
                                 switch credentials.service {
                                 case .listenbrainz:
                                     return identifier.timestamp != nil && identifier.serviceId != nil
                                 case .lastfm, .librefm:
-                                    return identifier.timestamp != nil && hasArtistTrack
+                                    let hasTrack = !identifier.track.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                    // Some non-music scrobbles can have an empty artist. If the
+                                    // remote service has such an entry, the *correct* delete call
+                                    // may still need artist="".
+                                    return identifier.timestamp != nil && hasTrack
                                 }
                             }()
 
                             if canDelete {
+                                if let listenId {
+                                    try? await ListenStore.shared.markDeletePending(
+                                        listenId: listenId,
+                                        service: credentials.service.rawValue
+                                    )
+                                }
+
                                 try await self.deleteScrobble(credentials: credentials, identifier: identifier)
                                 Logger.info("DELETE_ALL: ✅ Successfully deleted scrobble from \(credentials.service.displayName): \(artist) - \(track)", log: Logger.scrobbling)
                             } else {
                                 Logger.info("DELETE_ALL: ⏭️ Skip delete for \(credentials.service.displayName) (missing identifiers)", log: Logger.scrobbling)
+
+                                // If we can't even attempt a remote delete, treat it as "not present"
+                                // on that service and allow the local history item to be removed.
+                                if let listenId {
+                                    let reason: String = {
+                                        switch credentials.service {
+                                        case .listenbrainz:
+                                            if identifier.timestamp == nil {
+                                                return "missing listened_at timestamp"
+                                            }
+                                            return "missing recording_msid"
+                                        case .lastfm, .librefm:
+                                            if identifier.timestamp == nil { return "missing timestamp" }
+                                            if identifier.track.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return "missing track" }
+                                            return "missing identifiers"
+                                        }
+                                    }()
+
+                                    Logger.info(
+                                        "DELETE_ALL: treating as not present on \(credentials.service.displayName) (\(reason)); marking deleted locally",
+                                        log: Logger.scrobbling
+                                    )
+                                    try? await ListenStore.shared.markDeleted(
+                                        listenId: listenId,
+                                        service: credentials.service.rawValue
+                                    )
+                                }
                             }
 
-                            if let listenId {
+                            // Only mark deleted if we actually performed a remote delete.
+                            if canDelete, let listenId {
                                 try? await ListenStore.shared.markDeleted(listenId: listenId, service: credentials.service.rawValue)
                             }
                         } catch {
@@ -363,7 +488,12 @@ class ScrobbleManager: ObservableObject {
                                     Logger.error("DELETE_ALL: Failed to queue delete retry: \(error)", log: Logger.scrobbling)
                                 }
                             } else if let listenId {
-                                try? await ListenStore.shared.markDeletePending(listenId: listenId, service: credentials.service.rawValue)
+                                // Non-network delete failure should be surfaced to the user.
+                                try? await ListenStore.shared.markDeleteFailed(
+                                    listenId: listenId,
+                                    service: credentials.service.rawValue,
+                                    error: error.localizedDescription
+                                )
                             }
                         }
                     }

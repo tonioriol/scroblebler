@@ -15,6 +15,7 @@ struct UndoButton: View {
     @State private var isUndone = false
     @State private var isAnimating = false
     @State private var showError = false
+    @State private var alertTitle = ""
     @State private var errorMessage = ""
     @State private var playcount: Int = 0
 
@@ -39,7 +40,7 @@ struct UndoButton: View {
         .opacity(isProcessing ? 0.5 : 1.0)
         .alert(isPresented: $showError) {
             Alert(
-                title: Text("Redo Failed"),
+                title: Text(alertTitle.isEmpty ? "Error" : alertTitle),
                 message: Text(errorMessage),
                 dismissButton: .default(Text("OK"))
             )
@@ -49,6 +50,9 @@ struct UndoButton: View {
     private func undoScrobble() {
         guard !isProcessing else { return }
         isProcessing = true
+
+        let enabledServices = defaults.enabledServices.map { $0.service }
+        let enabledKeys = Set(enabledServices.map { $0.rawValue })
 
         Task {
             Logger.info("🔄 UNDO: Starting undo for '\(artist) - \(track)'", log: Logger.scrobbling)
@@ -60,8 +64,7 @@ struct UndoButton: View {
             }
 
             // Log enabled services
-            let enabled = defaults.enabledServices
-            Logger.debug("UNDO: Enabled services: \(enabled.map { $0.service.displayName }.joined(separator: ", "))", log: Logger.scrobbling)
+            Logger.debug("UNDO: Enabled services: \(enabledServices.map { $0.displayName }.joined(separator: ", "))", log: Logger.scrobbling)
 
             // Delete from all services
             await serviceManager.deleteScrobbleAll(
@@ -71,19 +74,63 @@ struct UndoButton: View {
                 listenId: listenId
             )
 
-            Logger.info("✅ UNDO: Completed undo operation", log: Logger.scrobbling)
+            // Decide whether this was actually deleted everywhere.
+            // We only flip the UI state when ALL enabled services are marked deleted.
+            var fullyDeleted = false
+            var deleteFailed: [(service: ScrobbleService, error: String?)] = []
+            var deletePending: [ScrobbleService] = []
+
+            if let listenId {
+                if let updated = try? await listenStore.get(id: listenId) {
+                    fullyDeleted = enabledKeys.allSatisfy { key in
+                        updated.services[key]?.status == .deleted
+                    }
+
+                    for service in enabledServices {
+                        let state = updated.services[service.rawValue]
+                        switch state?.status {
+                        case .deleteFailed:
+                            deleteFailed.append((service: service, error: state?.error))
+                        case .deletePending:
+                            deletePending.append(service)
+                        default:
+                            break
+                        }
+                    }
+                } else {
+                    // Row is gone (pruned) – treat as fully deleted.
+                    fullyDeleted = true
+                }
+            }
 
             await MainActor.run {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                    isUndone = true
-                    isAnimating = true
-                }
-
-                Task {
-                    try? await Task.sleep(nanoseconds: 300_000_000)
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                        isAnimating = false
+                if fullyDeleted {
+                    Logger.info("✅ UNDO: Deleted everywhere", log: Logger.scrobbling)
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                        isUndone = true
+                        isAnimating = true
                     }
+
+                    Task {
+                        try? await Task.sleep(nanoseconds: 300_000_000)
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            isAnimating = false
+                        }
+                    }
+                } else if !deleteFailed.isEmpty {
+                    alertTitle = "Delete Failed"
+                    errorMessage = deleteFailed
+                        .map { "\($0.service.displayName): \($0.error ?? "delete failed")" }
+                        .joined(separator: "\n")
+                    showError = true
+                } else if !deletePending.isEmpty {
+                    alertTitle = "Delete Pending"
+                    errorMessage = "Retrying in background for: " + deletePending.map { $0.displayName }.joined(separator: ", ")
+                    showError = true
+                } else {
+                    alertTitle = "Delete Not Completed"
+                    errorMessage = "Not deleted from all enabled services. Check the sync badge for details."
+                    showError = true
                 }
 
                 isProcessing = false
@@ -100,6 +147,7 @@ struct UndoButton: View {
             let blacklist = LocalBlacklist.shared
             if await blacklist.contains(artist: artist, track: track) {
                 await MainActor.run {
+                    alertTitle = "Redo Failed"
                     errorMessage = "Cannot redo: track is blacklisted"
                     showError = true
                     isProcessing = false
@@ -110,6 +158,7 @@ struct UndoButton: View {
             // Check if there are enabled services
             if defaults.enabledServices.isEmpty {
                 await MainActor.run {
+                    alertTitle = "Redo Failed"
                     errorMessage = "Cannot redo: no services enabled"
                     showError = true
                     isProcessing = false

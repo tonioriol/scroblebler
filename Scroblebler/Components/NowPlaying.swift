@@ -70,7 +70,8 @@ struct NowPlaying: View {
                 if let service = ScrobbleService(rawValue: entry.key) {
                     result[service] = ServiceTrackData(
                         timestamp: entry.value.timestamp ?? listen.listenedAt,
-                        id: entry.value.recordingMsid,
+                        id: entry.value.recordingMbid,
+                        recordingMsid: entry.value.recordingMsid,
                         artistMbid: entry.value.artistMbid,
                         releaseMbid: entry.value.releaseMbid
                     )

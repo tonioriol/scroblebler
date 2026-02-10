@@ -18,6 +18,7 @@ struct MainView: View {
     @State private var loginState: WaitingLogin.Status = .generatingToken
     @State private var isPlaying = false
     @State private var showServicesSection = false
+    @State private var historySearchQuery = ""
 
     // History backfill state (remote → local)
     @State private var backfillTask: Task<Void, Never>?
@@ -29,6 +30,18 @@ struct MainView: View {
 
     private var historyTracks: [Listen] {
         listenStore.history
+    }
+
+    private var filteredHistoryTracks: [Listen] {
+        let q = historySearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !q.isEmpty else { return historyTracks }
+
+        let needle = q.lowercased()
+        return historyTracks.filter { listen in
+            listen.artist.lowercased().contains(needle) ||
+            listen.track.lowercased().contains(needle) ||
+            listen.album.lowercased().contains(needle)
+        }
     }
 
     var body: some View {
@@ -191,17 +204,27 @@ struct MainView: View {
                 .padding(.top, 12)
                 .padding(.bottom, 8)
 
+                // Simple local filter (does not hit SQLite).
+                TextField("Search history", text: $historySearchQuery)
+                    .textFieldStyle(.roundedBorder)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 8)
+
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
-                        ForEach(Array(historyTracks.enumerated()), id: \.element.historyIdentity) { index, track in
+                        let visible = filteredHistoryTracks
+
+                        ForEach(Array(visible.enumerated()), id: \.element.historyIdentity) { index, track in
                             HistoryItem(track: track)
                                 .onAppear {
-                                    let isLastItem = index == historyTracks.count - 1
-                                    if isLastItem && !isLoadingMore && hasMoreTracks {
+                                    // Only auto-paginate when not filtering.
+                                    let isFiltering = !historySearchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                    let isLastItem = index == visible.count - 1
+                                    if !isFiltering && isLastItem && !isLoadingMore && hasMoreTracks {
                                         loadMoreTracks()
                                     }
                                 }
-                            if index < historyTracks.count - 1 {
+                            if index < visible.count - 1 {
                                 Divider()
                                     .padding(.horizontal, 16)
                             }
@@ -377,7 +400,8 @@ struct MainView: View {
                 services[service.rawValue] = ServiceSyncState(
                     status: .synced,
                     timestamp: info?.timestamp ?? track.timestamp,
-                    recordingMsid: info?.id,
+                    recordingMsid: info?.recordingMsid,
+                    recordingMbid: info?.id,
                     artistMbid: info?.artistMbid,
                     releaseMbid: info?.releaseMbid,
                     error: nil,
@@ -590,6 +614,7 @@ struct MainView: View {
                         status: .synced,
                         timestamp: event.timestamp,
                         recordingMsid: nil,
+                        recordingMbid: nil,
                         artistMbid: nil,
                         releaseMbid: nil,
                         error: nil,

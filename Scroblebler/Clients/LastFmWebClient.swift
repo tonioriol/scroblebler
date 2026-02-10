@@ -7,19 +7,19 @@ class LastFmWebClient {
         case missingCookie(String)
         case authenticationFailed(String)
     }
-    
+
     // Web session credentials
     private var csrfToken: String?
     private var sessionId: String?
     private var username: String
-    
+
     // Use a dedicated URLSession instance with persistent cookie storage
     private let session: URLSession
     private let loginURL = "https://www.last.fm/login"
-    
+
     init(username: String) {
         self.username = username
-        
+
         // Create a custom URLSession configuration with cookie persistence
         let config = URLSessionConfiguration.default
         config.httpCookieStorage = HTTPCookieStorage.shared
@@ -27,9 +27,9 @@ class LastFmWebClient {
         config.httpShouldSetCookies = true
         self.session = URLSession(configuration: config)
     }
-    
+
     // MARK: - Authentication
-    
+
     /// Authenticate and obtain web session credentials
     /// This requires username and password for web login
     func authenticate(username: String, password: String) async throws {
@@ -37,12 +37,12 @@ class LastFmWebClient {
         let loginPageURL = URL(string: loginURL)!
         var loginPageRequest = URLRequest(url: loginPageURL)
         loginPageRequest.httpMethod = "GET"
-        
+
         let (_, loginPageResponse) = try await session.data(for: loginPageRequest)
         guard loginPageResponse is HTTPURLResponse else {
             throw Error.unexpectedResponse
         }
-        
+
         // Extract CSRF token from cookies
         if let cookies = HTTPCookieStorage.shared.cookies(for: loginPageURL) {
             for cookie in cookies {
@@ -51,18 +51,18 @@ class LastFmWebClient {
                 }
             }
         }
-        
+
         guard let csrfToken = self.csrfToken else {
             throw Error.missingCookie("csrftoken")
         }
-        
+
         // Step 2: Perform login POST request
         let loginRequestURL = URL(string: loginURL)!
         var loginRequest = URLRequest(url: loginRequestURL)
         loginRequest.httpMethod = "POST"
         loginRequest.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         loginRequest.setValue(loginURL, forHTTPHeaderField: "Referer")
-        
+
         var formComponents = URLComponents()
         formComponents.queryItems = [
             URLQueryItem(name: "csrfmiddlewaretoken", value: csrfToken),
@@ -70,17 +70,17 @@ class LastFmWebClient {
             URLQueryItem(name: "password", value: password)
         ]
         loginRequest.httpBody = formComponents.query?.data(using: .utf8)
-        
+
         let (_, loginResponse) = try await session.data(for: loginRequest)
         guard let loginHttpResponse = loginResponse as? HTTPURLResponse else {
             throw Error.unexpectedResponse
         }
-        
+
         // Check for successful login (redirect or 200)
         if loginHttpResponse.statusCode != 200 {
             throw Error.authenticationFailed("Login failed with status \(loginHttpResponse.statusCode)")
         }
-        
+
         // Extract sessionid cookie
         if let cookies = HTTPCookieStorage.shared.cookies(for: loginRequestURL) {
             for cookie in cookies {
@@ -93,22 +93,22 @@ class LastFmWebClient {
                 }
             }
         }
-        
+
         guard self.sessionId != nil else {
             throw Error.missingCookie("sessionid")
         }
-        
+
         self.username = username
         Logger.info("Last.fm web authentication successful for user: \(username)", log: Logger.authentication)
     }
-    
+
     // MARK: - Scrobble Deletion
-    
+
     /// Delete a scrobble using the Last.fm web endpoint
     func deleteScrobble(username: String, artist: String, track: String, timestamp: Int) async throws {
         // Build the deletion endpoint URL
         let deleteURL = URL(string: "https://www.last.fm/user/\(username)/library/delete")!
-        
+
         // Read CSRF token fresh from cookies (like Go implementation does)
         // This is important because CSRF tokens can change between requests
         guard let cookies = HTTPCookieStorage.shared.cookies(for: deleteURL),
@@ -116,13 +116,13 @@ class LastFmWebClient {
             throw Error.missingCookie("csrftoken")
         }
         let currentCsrfToken = csrfCookie.value
-        
+
         var request = URLRequest(url: deleteURL)
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         request.setValue("https://www.last.fm", forHTTPHeaderField: "Referer")
         request.setValue("*/*", forHTTPHeaderField: "Accept")
-        
+
         // Build form data (cookies are automatically handled by the session)
         var formComponents = URLComponents()
         formComponents.queryItems = [
@@ -133,40 +133,44 @@ class LastFmWebClient {
             URLQueryItem(name: "ajax", value: "1")
         ]
         request.httpBody = formComponents.query?.data(using: .utf8)
-        
+
         let (data, response) = try await session.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw Error.unexpectedResponse
         }
-        
+
         if httpResponse.statusCode >= 400 {
             throw Error.httpError(data, httpResponse)
         }
-        
+
         // Parse JSON response to validate deletion success
         struct DeleteResponse: Codable {
             let result: Bool
         }
-        
+
         do {
             let deleteResponse = try JSONDecoder().decode(DeleteResponse.self, from: data)
+            // If the scrobble does not exist (already deleted / never present), Last.fm returns
+            // `result: false` with a 200 response. Treat this as a no-op success so local history
+            // can move on.
             if !deleteResponse.result {
-                throw Error.authenticationFailed("Delete response indicates failure")
+                Logger.info("Last.fm web delete: scrobble not found (already gone): \(artist) - \(track) @ \(timestamp)", log: Logger.scrobbling)
+                return
             }
         } catch {
             throw Error.authenticationFailed("Failed to parse delete response: \(error.localizedDescription)")
         }
-        
+
         Logger.info("Deleted scrobble via web endpoint: \(artist) - \(track)", log: Logger.scrobbling)
     }
-    
+
     // MARK: - Helper Methods
-    
+
     /// Check if web session is authenticated
     var isAuthenticated: Bool {
         return csrfToken != nil && sessionId != nil
     }
-    
+
     /// Manually set web session credentials (for testing or when obtained elsewhere)
     func setCredentials(csrfToken: String, sessionId: String) {
         self.csrfToken = csrfToken
