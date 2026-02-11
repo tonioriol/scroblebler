@@ -206,3 +206,37 @@ See detailed plan: [plan.md](./plan.md)
   * Verification:
     - `swift test` and `xcodebuild -project Scroblebler.xcodeproj -scheme Scroblebler -configuration Debug -destination 'platform=macOS' build`
     - Commit: `fix: restore love sync and improve focus handling` (8b2f894)
+
+* **2026-02-11 - Follow-up regressions after UI/input changes: recovery + root-cause fixes**
+  * Investigation sequence and rationale:
+    - User reported multiple regressions after the history filter/focus changes: now playing not updating, search clear blanking history, progress bar drag regressions, and playcount not changing on undo.
+    - Hypothesis was state propagation churn from scroll/focus hooks plus local-store inconsistencies for derived count data.
+    - Verified with repeated local runs: `swift test` from `/Users/tr0n/Code/scroblebler` (all passing), then focused on runtime data-flow consistency instead of compile/test-only signals.
+  * Implemented fixes and why:
+    - `/Users/tr0n/Code/scroblebler/Scroblebler/Views/MainView.swift`
+      - Separated `historySearchResults` from canonical `ListenStore.history` so clearing query no longer nukes visible history.
+      - Kept history section renderable while search/focus state exists to prevent dead-end UI state.
+      - Reduced scroll offset churn by quantizing offset and raising direction threshold to avoid preference/update storms that can starve unrelated UI updates.
+      - Changed `ListenStore.shared` binding from `@StateObject` to `@ObservedObject` in `MainView` so singleton publishes reliably trigger redraws.
+    - `/Users/tr0n/Code/scroblebler/Scroblebler/Components/ClickToResignFirstResponder.swift`
+      - Fixed hit-testing coordinate conversion and narrowed responder-clearing to active text-edit sessions only.
+      - Prevented interception side effects on interactive controls (play/pause/prev/next) while still enabling click-to-defocus behavior.
+    - `/Users/tr0n/Code/scroblebler/Scroblebler/Components/ProgressBar.swift`
+      - Removed remount-style workaround that disrupted gesture continuity.
+      - Replaced with cancellable delayed animation task that does not reset drag state; restores click+drag seek behavior.
+    - `/Users/tr0n/Code/scroblebler/Scroblebler/Services/ListenStore.swift`
+      - Added published `listensRevision` and bumped it on `insert`/`delete` to make COUNT-based playcount recompute deterministic in UI.
+      - Synced in-memory state on delete (history/currentListen) to avoid stale rows after local delete.
+    - `/Users/tr0n/Code/scroblebler/Scroblebler/Components/NowPlaying.swift` and `/Users/tr0n/Code/scroblebler/Scroblebler/Components/HistoryItem.swift`
+      - Re-fetch playcount on `listensRevision` changes so undo/redo and track transitions propagate immediately.
+    - `/Users/tr0n/Code/scroblebler/Scroblebler/Components/UndoButton.swift`
+      - On fully successful undo delete, remove local listen row by id; this is required for COUNT-based playcount to decrement immediately.
+  * Commits created during this pass:
+    - `fix: restore progress bar drag` (24ca070)
+    - Earlier docs update in this branch: `docs: update local-first sync engine context` (7a5e75e)
+  * Verification commands and results:
+    - Repeated `swift test` runs from `/Users/tr0n/Code/scroblebler` completed successfully after each fix set.
+
+## Next Steps
+
+- COMPLETED
