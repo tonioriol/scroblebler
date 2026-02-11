@@ -19,6 +19,7 @@ struct ProgressBar: View {
     @State private var animationMode: Animation?
     @State private var isDragging: Bool = false
     @State private var dragPosition: Double?
+    @State private var appearanceToken = UUID()
 
     private var popoverWillHidePublisher: AnyPublisher<Notification, Never> {
         NotificationCenter.default
@@ -100,11 +101,22 @@ struct ProgressBar: View {
                     }
             )
         }
+        .id(appearanceToken)
         .onAppear {
-            Task {
+            // Avoid stacking multiple delayed Tasks (can cause intermittent duplicated rendering).
+            animationMode = nil
+            let token = UUID()
+            appearanceToken = token
+            Task { @MainActor in
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
+                guard appearanceToken == token else { return }
                 animationMode = .easeIn
             }
+        }
+        .onDisappear {
+            // Cancel any pending delayed animation.
+            appearanceToken = UUID()
+            animationMode = nil
         }
         .onReceive(popoverWillHidePublisher, perform: { _ in
             animationMode = nil

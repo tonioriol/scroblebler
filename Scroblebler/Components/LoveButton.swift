@@ -2,6 +2,7 @@ import SwiftUI
 
 struct LoveButton: View {
     @EnvironmentObject var defaults: Defaults
+    @EnvironmentObject var serviceManager: ScrobbleManager
     @ObservedObject private var listenStore = ListenStore.shared
 
     let artist: String
@@ -39,6 +40,8 @@ struct LoveButton: View {
             return
         }
 
+        let newLovedValue = !loved
+
         withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
             isAnimating = true
         }
@@ -47,7 +50,7 @@ struct LoveButton: View {
             // Toggle love state locally
             await MainActor.run {
                 listenStore.updateListen(artist: artist, track: trackName) { listen in
-                    listen.loved.toggle()
+                    listen.loved = newLovedValue
                 }
 
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
@@ -55,7 +58,8 @@ struct LoveButton: View {
                 }
             }
 
-            // TODO: Sync with services via OfflineQueue
+            // Sync with services (or queue for later if offline).
+            await serviceManager.updateLoveAll(artist: artist, track: trackName, loved: newLovedValue)
         }
     }
 }

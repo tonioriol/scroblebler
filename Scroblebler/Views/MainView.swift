@@ -21,6 +21,10 @@ struct MainView: View {
     @State private var historySearchQuery = ""
     @State private var isSearchingHistory = false
 
+    @State private var isHistorySearchFocused = false
+    @State private var shouldShowHistorySearchBar = true
+    @State private var lastHistoryScrollOffsetY: CGFloat = 0
+
     // History backfill state (remote → local)
     @State private var backfillTask: Task<Void, Never>?
     @State private var isBackfillingHistory = false
@@ -35,12 +39,89 @@ struct MainView: View {
 
     private var filteredHistoryTracks: [Listen] { historyTracks }
 
+    private var hasHistorySearchText: Bool {
+        !historySearchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var shouldRenderHistorySearchBar: Bool {
+        shouldShowHistorySearchBar || isHistorySearchFocused || hasHistorySearchText
+    }
+
+    private func setHistorySearchBarVisible(_ visible: Bool) {
+        guard visible != shouldShowHistorySearchBar else { return }
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+            shouldShowHistorySearchBar = visible
+        }
+    }
+
     private var shouldShowHistorySection: Bool {
         !historyTracks.isEmpty || !historySearchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    private func handleHistoryScroll(offsetY newOffsetY: CGFloat) {
+        let delta = newOffsetY - lastHistoryScrollOffsetY
+        let threshold: CGFloat = 2
+
+        // Always show at the very top.
+        if newOffsetY <= 0 {
+            setHistorySearchBarVisible(true)
+            lastHistoryScrollOffsetY = newOffsetY
+            return
+        }
+
+        guard abs(delta) > threshold else {
+            lastHistoryScrollOffsetY = newOffsetY
+            return
+        }
+
+        // Scroll down → hide. Scroll up → show.
+        if delta > 0 {
+            if !hasHistorySearchText && !isHistorySearchFocused {
+                setHistorySearchBarVisible(false)
+            }
+        } else {
+            setHistorySearchBarVisible(true)
+        }
+
+        lastHistoryScrollOffsetY = newOffsetY
+    }
+
+    private struct HistoryScrollOffsetPreferenceKey: PreferenceKey {
+        static var defaultValue: CGFloat = 0
+        static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+            value = nextValue()
+        }
+    }
+
+    private struct HistoryScrollOffsetEmitter: View {
+        let offsetY: CGFloat
+
+        var body: some View {
+            Color.clear
+                .preference(key: HistoryScrollOffsetPreferenceKey.self, value: offsetY)
+        }
+    }
+
+    /// Emits a positive `offsetY` where 0 = top, increasing as you scroll down.
+    private struct ScrollOffsetReader: View {
+        let onChange: (CGFloat) -> Void
+
+        var body: some View {
+            GeometryReader { geo in
+                let minY = geo.frame(in: .named("historyScroll")).minY
+                HistoryScrollOffsetEmitter(offsetY: max(0, -minY))
+            }
+            .frame(height: 0)
+            // Read preference one level above the GeometryReader to avoid
+            // "tried to update multiple times per frame" warnings.
+            .onPreferenceChange(HistoryScrollOffsetPreferenceKey.self, perform: onChange)
+        }
+    }
+
     var body: some View {
         ZStack(alignment: .bottom) {
+            ClickToResignFirstResponder()
+
             VStack(spacing: 0) {
                 mainContent
                     .frame(height: historyTracks.isEmpty ? nil : 600, alignment: .top)
@@ -183,33 +264,41 @@ struct MainView: View {
                 .padding(.top, 12)
                 .padding(.bottom, 8)
 
-                // Full SQLite search.
-                HStack(spacing: 8) {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.secondary)
+                if shouldRenderHistorySearchBar {
+                    // Full SQLite search.
+                    HStack(spacing: 8) {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.secondary)
 
-                    TextField("Search history", text: $historySearchQuery)
-                        .textFieldStyle(.plain)
+                        FocusableTextField(
+                            text: $historySearchQuery,
+                            placeholder: "Search history",
+                            onFocusChange: { focused in
+                                isHistorySearchFocused = focused
+                            }
+                        )
+                        .frame(maxWidth: CGFloat.infinity)
 
-                    if !historySearchQuery.isEmpty {
-                        Button {
-                            historySearchQuery = ""
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(.secondary)
-                                .font(.system(size: 14))
+                        if !historySearchQuery.isEmpty {
+                            Button {
+                                historySearchQuery = ""
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundColor(.secondary)
+                                    .font(.system(size: 14))
+                            }
+                            .buttonStyle(.plain)
+                            .help("Clear")
                         }
-                        .buttonStyle(.plain)
-                        .help("Clear")
                     }
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(Color(NSColor.controlBackgroundColor))
-                .cornerRadius(10)
-                .padding(.horizontal, 16)
-                .padding(.bottom, 8)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .cornerRadius(10)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
                     .onChange(of: historySearchQuery) { newValue in
                         let q = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
                         guard !q.isEmpty else {
@@ -245,8 +334,13 @@ struct MainView: View {
                             }
                         }
                     }
+                }
 
                 ScrollView {
+                    ScrollOffsetReader { offsetY in
+                        handleHistoryScroll(offsetY: offsetY)
+                    }
+
                     LazyVStack(alignment: .leading, spacing: 0) {
                         let visible = filteredHistoryTracks
 
@@ -285,6 +379,19 @@ struct MainView: View {
                                 Spacer()
                             }
                         }
+                    }
+                }
+                .coordinateSpace(name: "historyScroll")
+                .onChange(of: isHistorySearchFocused) { focused in
+                    if focused {
+                        setHistorySearchBarVisible(true)
+                    } else if !hasHistorySearchText {
+                        setHistorySearchBarVisible(false)
+                    }
+                }
+                .onChange(of: hasHistorySearchText) { hasText in
+                    if hasText {
+                        setHistorySearchBarVisible(true)
                     }
                 }
             }

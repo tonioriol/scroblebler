@@ -7,6 +7,9 @@ struct HistoryItem: View {
     let track: Listen
     @State private var isHovered = false
     @State private var playbackState: PlaybackState = .idle
+    @State private var playCount: Int?
+    @State private var playCountTask: Task<Void, Never>?
+    @State private var playCountKey = ""
 
     // Cache only the immutable dictionary conversion
     private let serviceInfoKeys: [String: ServiceTrackData]
@@ -51,7 +54,7 @@ struct HistoryItem: View {
                 loved: .constant(track.loved),
                 artworkImageUrl: track.releaseMbid.map { CoverArt.coverArtArchiveFrontURL(releaseMbid: $0, size: 250) } ?? track.imageUrl,
                 timestamp: track.listenedAt,
-                playCount: .constant(0),  // TODO: Load from ListenStore.playcount()
+                playCount: $playCount,
             artistURL: urls?.artistURL,
             albumURL: urls?.albumURL,
             trackURL: urls?.trackURL,
@@ -98,8 +101,31 @@ struct HistoryItem: View {
         )
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
+        .onAppear {
+            updatePlayCountIfNeeded(forArtist: track.artist, track: track.track)
+        }
+        .onChange(of: track.artist) { _ in
+            updatePlayCountIfNeeded(forArtist: track.artist, track: track.track)
+        }
+        .onChange(of: track.track) { _ in
+            updatePlayCountIfNeeded(forArtist: track.artist, track: track.track)
+        }
         .onHover { hovering in
             isHovered = hovering
+        }
+    }
+
+    private func updatePlayCountIfNeeded(forArtist artist: String, track: String) {
+        let key = "\(artist)|\(track)"
+        guard key != playCountKey else { return }
+        playCountKey = key
+
+        playCountTask?.cancel()
+        playCountTask = Task {
+            let count = try? await ListenStore.shared.playcount(artist: artist, track: track)
+            await MainActor.run {
+                self.playCount = count
+            }
         }
     }
 

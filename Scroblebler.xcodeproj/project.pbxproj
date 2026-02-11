@@ -10,6 +10,7 @@
 		1642B729205FE028EE8C5A9F /* Listen.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC0011FE1A7CFD0F6D60B113 /* Listen.swift */; };
 		16766413902D56A80A25CD43 /* SyncEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7376CABC68290FC7A18B45D0 /* SyncEngine.swift */; };
 		1BA7C11483CC7598E00109B2 /* CoverArt.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61E7B0487F20D4A33B37D34B /* CoverArt.swift */; };
+		1DA6247E02A7A0FD08A82CD5 /* ClickToResignFirstResponder.swift in Sources */ = {isa = PBXBuildFile; fileRef = F41BA3A3290B5450A32E9F4C /* ClickToResignFirstResponder.swift */; };
 		214BE49AEB926CFA16D44F62 /* LoveButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0F361811AED80EF7ACDCA43 /* LoveButton.swift */; };
 		54EF5BB490E7B7CAEA23F3C5 /* ListenBrainzService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEC77CD2AD564E2DF10EF98C /* ListenBrainzService.swift */; };
 		55299BF7CBA1D9466CF5364E /* ListenStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53E6B6510EF81F671C30594D /* ListenStore.swift */; };
@@ -19,6 +20,7 @@
 		AA2222222222222222222222 /* PlayCountBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB2222222222222222222222 /* PlayCountBadge.swift */; };
 		AA4444444444444444444444 /* TrackInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB4444444444444444444444 /* TrackInfo.swift */; };
 		AA5555555555555555555555 /* MarqueeText.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB5555555555555555555555 /* MarqueeText.swift */; };
+		BDE72707AB9A22BA0FEF3FCF /* FocusableTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = C386A094DD2D660BD801A0EE /* FocusableTextField.swift */; };
 		BL0000000000000000000002 /* BlacklistButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = BL0000000000000000000001 /* BlacklistButton.swift */; };
 		BLENT000000000000000002 /* BlacklistEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = BLENT000000000000000001 /* BlacklistEntry.swift */; };
 		CBD572569B6EBAA129C1F6EE /* ListenMatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2A90CA1DD115662DEF41665 /* ListenMatcher.swift */; };
@@ -109,6 +111,7 @@
 		BEC89C26C447DC50A931C564 /* LibreFmService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LibreFmService.swift; path = Scroblebler/Services/LibreFmService.swift; sourceTree = "<group>"; };
 		BL0000000000000000000001 /* BlacklistButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlacklistButton.swift; sourceTree = "<group>"; };
 		BLENT000000000000000001 /* BlacklistEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlacklistEntry.swift; sourceTree = "<group>"; };
+		C386A094DD2D660BD801A0EE /* FocusableTextField.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FocusableTextField.swift; path = Scroblebler/Components/FocusableTextField.swift; sourceTree = "<group>"; };
 		CAE2742F3DAE60CA28B565E4 /* ListenIdentity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ListenIdentity.swift; sourceTree = "<group>"; };
 		CEC77CD2AD564E2DF10EF98C /* ListenBrainzService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ListenBrainzService.swift; path = Scroblebler/Services/ListenBrainzService.swift; sourceTree = "<group>"; };
 		DA6859CA292FDE67009143B3 /* HistoryItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryItem.swift; sourceTree = "<group>"; };
@@ -144,6 +147,7 @@
 		EE7777777777777777777777 /* TokenInputSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenInputSheet.swift; sourceTree = "<group>"; };
 		EE8888888888888888888889 /* PasswordInputSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasswordInputSheet.swift; sourceTree = "<group>"; };
 		EE9999999999999999999999 /* PasteableTextFields.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasteableTextFields.swift; sourceTree = "<group>"; };
+		F41BA3A3290B5450A32E9F4C /* ClickToResignFirstResponder.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ClickToResignFirstResponder.swift; path = Scroblebler/Components/ClickToResignFirstResponder.swift; sourceTree = "<group>"; };
 		FC0011FE1A7CFD0F6D60B113 /* Listen.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Listen.swift; sourceTree = "<group>"; };
 		IMGCACHE000000000000001 /* ImageCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageCache.swift; sourceTree = "<group>"; };
 		KEYC0000000000000000001 /* KeychainHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelper.swift; sourceTree = "<group>"; };
@@ -212,6 +216,15 @@
 			path = Clients;
 			sourceTree = "<group>";
 		};
+		D165CA24B624B5510580EF36 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				C386A094DD2D660BD801A0EE /* FocusableTextField.swift */,
+				F41BA3A3290B5450A32E9F4C /* ClickToResignFirstResponder.swift */,
+			);
+			name = Components;
+			sourceTree = "<group>";
+		};
 		DA6859CA292FDC9C009143B3 /* Components */ = {
 			isa = PBXGroup;
 			children = (
@@ -255,6 +268,7 @@
 				DA7B0AA3297B392000B522D6 /* Frameworks */,
 				097F4C17B8E1B5125B7AF603 /*  */,
 				C5AF130661D6DF579862C6DA /* Utilities */,
+				D165CA24B624B5510580EF36 /* Components */,
 			);
 			sourceTree = "<group>";
 		};
@@ -532,6 +546,8 @@
 				5B87BA04A23A1AB8A3C8EC52 /* ListenIdentity.swift in Sources */,
 				CBD572569B6EBAA129C1F6EE /* ListenMatcher.swift in Sources */,
 				1BA7C11483CC7598E00109B2 /* CoverArt.swift in Sources */,
+				BDE72707AB9A22BA0FEF3FCF /* FocusableTextField.swift in Sources */,
+				1DA6247E02A7A0FD08A82CD5 /* ClickToResignFirstResponder.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

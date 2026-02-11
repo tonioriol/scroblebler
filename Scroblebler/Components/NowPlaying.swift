@@ -7,6 +7,10 @@ struct NowPlaying: View {
     @Binding var currentPosition: Double?
     @Binding var isPlaying: Bool
 
+    @State private var playCount: Int?
+    @State private var playCountTask: Task<Void, Never>?
+    @State private var playCountKey = ""
+
     var body: some View {
         if let listen = listenStore.currentListen {  // Read from store (single source of truth)
             let displayService = defaults.mainServicePreference ?? defaults.primaryService?.service ?? .lastfm
@@ -28,10 +32,7 @@ struct NowPlaying: View {
                     titleFontSize: 18,
                     detailFontSize: 13,
                     loveFontSize: 12,
-                    playCount: Binding(
-                        get: { 0 },
-                        set: { _ in }
-                    ),
+                    playCount: $playCount,
                     artistURL: urls?.artistURL,
                     albumURL: urls?.albumURL,
                     trackURL: urls?.trackURL,
@@ -51,6 +52,29 @@ struct NowPlaying: View {
                 )
             }
             .padding()
+            .onAppear {
+                updatePlayCountIfNeeded(forArtist: listen.artist, track: listen.track)
+            }
+            .onChange(of: listen.artist) { _ in
+                updatePlayCountIfNeeded(forArtist: listen.artist, track: listen.track)
+            }
+            .onChange(of: listen.track) { _ in
+                updatePlayCountIfNeeded(forArtist: listen.artist, track: listen.track)
+            }
+        }
+    }
+
+    private func updatePlayCountIfNeeded(forArtist artist: String, track: String) {
+        let key = "\(artist)|\(track)"
+        guard key != playCountKey else { return }
+        playCountKey = key
+
+        playCountTask?.cancel()
+        playCountTask = Task {
+            let count = try? await listenStore.playcount(artist: artist, track: track)
+            await MainActor.run {
+                self.playCount = count
+            }
         }
     }
 
