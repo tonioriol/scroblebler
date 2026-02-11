@@ -181,3 +181,28 @@ See detailed plan: [plan.md](./plan.md)
     - On network errors: enqueue delete retry in OfflineQueue.
     - On reconnect / pending processing: delete-pending listens are retried.
   * Verification: `swift test` passed. Commit: b394406
+
+* **2026-02-11 - History filter scroll animation + focus + playcount + love fixes**
+  * Implemented scroll-reactive history filter UX in `/Users/tr0n/Code/scroblebler/Scroblebler/Views/MainView.swift`:
+    - Offset tracking via `GeometryReader` → preference emitting `offsetY` (0 at top, increasing as you scroll down).
+    - Behavior: top → visible; scroll down → hide; scroll up → show; force visible when focused or query has text.
+    - Animated show/hide with spring `withAnimation` for slide-in/out.
+  * macOS 11 compatibility workarounds (no `FocusState`, no `.task(id:)`):
+    - `/Users/tr0n/Code/scroblebler/Scroblebler/Components/FocusableTextField.swift` (NSTextField bridge + focus callbacks).
+    - Playcount loading uses `.onAppear`/`.onChange` + cancellable `Task` in:
+      - `/Users/tr0n/Code/scroblebler/Scroblebler/Components/HistoryItem.swift`
+      - `/Users/tr0n/Code/scroblebler/Scroblebler/Components/NowPlaying.swift`
+  * Fixed “can’t exit focus unless Tab” + ugly focus rings:
+    - Added `/Users/tr0n/Code/scroblebler/Scroblebler/Components/ClickToResignFirstResponder.swift` which clears first responder on clicks in non-interactive areas.
+    - Installed in `MainView` so blank clicks defocus text fields.
+  * Fixed playcount display being broken (was hardcoded `0`):
+    - Now reads `ListenStore.playcount(artist:track:)` and binds into `TrackInfo`.
+  * Fixed Love button doing nothing remotely:
+    - `/Users/tr0n/Code/scroblebler/Scroblebler/Components/LoveButton.swift` now calls `ScrobbleManager.updateLoveAll(...)` to update all enabled services (or queue offline) in addition to local optimistic toggle.
+  * Progress bar rendering glitch mitigation:
+    - `/Users/tr0n/Code/scroblebler/Scroblebler/Components/ProgressBar.swift` avoids stacking delayed animation tasks on repeated appear/disappear.
+  * Project wiring:
+    - Updated `/Users/tr0n/Code/scroblebler/Scroblebler.xcodeproj/project.pbxproj` to include the new component files.
+  * Verification:
+    - `swift test` and `xcodebuild -project Scroblebler.xcodeproj -scheme Scroblebler -configuration Debug -destination 'platform=macOS' build`
+    - Commit: `fix: restore love sync and improve focus handling` (8b2f894)
