@@ -14,6 +14,8 @@ struct HistoryItem: View {
     // Cache only the immutable dictionary conversion
     private let serviceInfoKeys: [String: ServiceTrackData]
 
+    @StateObject private var listenStore = ListenStore.shared
+
     init(track: Listen) {
         self.track = track
         // Pre-compute service info from Listen.services
@@ -108,6 +110,9 @@ struct HistoryItem: View {
             updatePlayCountIfNeeded(forArtist: track.artist, track: track.track)
         }
         .onChange(of: track.track) { _ in
+            updatePlayCountIfNeeded(forArtist: track.artist, track: track.track)
+        }
+        .onChange(of: listenStore.listensRevision) { _ in
             updatePlayCountIfNeeded(forArtist: track.artist, track: track.track)
         }
         .onHover { hovering in

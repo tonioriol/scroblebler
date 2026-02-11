@@ -5,12 +5,12 @@ struct PlayerControls: View {
     let currentPosition: Double?
     let trackLength: Double?
     let onSeek: ((Double) -> Void)?
-    
+
     func formatDuration(_ value: Double) -> String {
         let hours = Int(value / 3600)
         let minutes = Int(value.truncatingRemainder(dividingBy: 3600) / 60)
         let seconds = Int(value.truncatingRemainder(dividingBy: 60))
-        
+
         if hours >= 1 {
             return String(format: "%d:%02d:%02d", hours, minutes, seconds)
         } else if minutes >= 1 {
@@ -19,7 +19,7 @@ struct PlayerControls: View {
             return String(format: "0:%02d", seconds)
         }
     }
-    
+
     var body: some View {
         VStack(spacing: 8) {
             // Progress bar with time display
@@ -35,7 +35,7 @@ struct PlayerControls: View {
                         .foregroundColor(.secondary)
                 }
             }
-            
+
             // Playback controls
             HStack(spacing: 16) {
                 Button(action: {
@@ -46,17 +46,19 @@ struct PlayerControls: View {
                 }
                 .buttonStyle(.plain)
                 .help("Previous Track")
-                
+
                 Button(action: {
-                    isPlaying.toggle()
-                    MediaControl.send(.togglePlayPause)
+                    // Use explicit, idempotent commands instead of toggle.
+                    // If the UI is briefly stale and the user taps multiple times,
+                    // repeated play/pause commands are safer than back-and-forth toggles.
+                    MediaControl.send(isPlaying ? .pause : .play)
                 }) {
                     Image(systemName: isPlaying ? "pause.fill" : "play.fill")
                         .font(.system(size: 18))
                 }
                 .buttonStyle(.plain)
                 .help(isPlaying ? "Pause" : "Play")
-                
+
                 Button(action: {
                     MediaControl.send(.nextTrack)
                 }) {
@@ -65,7 +67,7 @@ struct PlayerControls: View {
                 }
                 .buttonStyle(.plain)
                 .help("Next Track")
-                
+
             }
             .foregroundColor(.secondary)
         }

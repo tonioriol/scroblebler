@@ -35,22 +35,33 @@ struct ClickToResignFirstResponder: NSViewRepresentable {
                 guard let self, let window = self.window else { return event }
                 guard event.window === window else { return event }
 
-                let hit = window.contentView?.hitTest(event.locationInWindow)
-                if Self.isInteractive(hit) {
+                // Only intervene when a text field is actively editing.
+                // This avoids interfering with normal button clicks / playback controls.
+                guard window.firstResponder is NSTextView else {
                     return event
                 }
 
-                window.makeFirstResponder(nil)
+                // hitTest expects the point in the contentView's coordinate space.
+                let point = window.contentView?.convert(event.locationInWindow, from: nil) ?? event.locationInWindow
+                let hit = window.contentView?.hitTest(point)
+
+                // If the click is going into another text input/control, don't force resign.
+                if Self.isTextInput(hit) {
+                    return event
+                }
+
+                // Defer to avoid interfering with the current click's normal dispatch.
+                DispatchQueue.main.async {
+                    window.makeFirstResponder(nil)
+                }
                 return event
             }
         }
 
-        private static func isInteractive(_ view: NSView?) -> Bool {
+        private static func isTextInput(_ view: NSView?) -> Bool {
             var current = view
             while let v = current {
-                // Buttons, text fields, segmented controls, scrollers, etc.
-                if v is NSControl { return true }
-                // NSTextView covers some SwiftUI/AppKit bridge cases.
+                if v is NSTextField { return true }
                 if v is NSTextView { return true }
                 current = v.superview
             }
@@ -58,4 +69,3 @@ struct ClickToResignFirstResponder: NSViewRepresentable {
         }
     }
 }
-

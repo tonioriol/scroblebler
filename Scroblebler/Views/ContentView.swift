@@ -23,10 +23,10 @@ struct ContentView: View {
         }.onLoad {
             watcher.onTrackChanged = { listen in
                 Task {
-                    let enrichedListen = await serviceManager.updateNowPlayingAll(listen: listen)
-                    await MainActor.run {
-                        listenStore.setCurrentListen(enrichedListen)
-                    }
+                    // Watcher is the source of truth for current listen state.
+                    // Avoid writing it again here, or a delayed network task can overwrite
+                    // fresher artwork/metadata updates that arrived meanwhile.
+                    _ = await serviceManager.updateNowPlayingAll(listen: listen)
                 }
             }
             watcher.onScrobbleWanted = { listen in

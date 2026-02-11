@@ -61,6 +61,9 @@ struct NowPlaying: View {
             .onChange(of: listen.track) { _ in
                 updatePlayCountIfNeeded(forArtist: listen.artist, track: listen.track)
             }
+            .onChange(of: listenStore.listensRevision) { _ in
+                updatePlayCountIfNeeded(forArtist: listen.artist, track: listen.track)
+            }
         }
     }
 

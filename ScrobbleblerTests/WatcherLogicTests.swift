@@ -79,7 +79,6 @@ final class WatcherLogicTests: XCTestCase {
     }
 
     func testPositionInterpolation_Paused() {
-        let snapshotPosition = 100.0
         let isPlaying = false
         let playbackRate = 0.0
 
@@ -224,6 +223,73 @@ final class WatcherLogicTests: XCTestCase {
         let startedAt = currentTime.timeIntervalSince1970 - elapsedTime
 
         XCTAssertEqual(startedAt, 1704441600.0, "Track just started should have current timestamp")
+    }
+
+    // MARK: - Watcher Command/UI Reactivity
+
+    @MainActor
+    func testNotifyCommandSent_PlaySetsPlayingAndRunning() {
+        let watcher = Watcher(debug: true)
+        watcher.running = false // avoid triggering real snapshot polling in tests
+        watcher.playerState = .unknown
+        watcher.musicRunning = false
+
+        watcher.notifyCommandSent(.play)
+
+        XCTAssertEqual(watcher.playerState, .playing)
+        XCTAssertTrue(watcher.musicRunning)
+    }
+
+    @MainActor
+    func testNotifyCommandSent_PauseSetsPaused() {
+        let watcher = Watcher(debug: true)
+        watcher.running = false
+        watcher.playerState = .playing
+        watcher.musicRunning = true
+
+        watcher.notifyCommandSent(.pause)
+
+        XCTAssertEqual(watcher.playerState, .paused)
+        XCTAssertTrue(watcher.musicRunning) // musicRunning stays true on pause
+    }
+
+    @MainActor
+    func testNotifyCommandSent_StopSetsStoppedAndNotRunning() {
+        let watcher = Watcher(debug: true)
+        watcher.running = false
+        watcher.playerState = .playing
+        watcher.musicRunning = true
+
+        watcher.notifyCommandSent(.stop)
+
+        XCTAssertEqual(watcher.playerState, .stopped)
+        XCTAssertFalse(watcher.musicRunning)
+    }
+
+    @MainActor
+    func testNotifyCommandSent_NextTrackKeepsRunning() {
+        let watcher = Watcher(debug: true)
+        watcher.running = false
+        watcher.playerState = .playing
+        watcher.musicRunning = true
+
+        watcher.notifyCommandSent(.nextTrack)
+
+        XCTAssertEqual(watcher.playerState, .playing) // doesn't change play state
+        XCTAssertTrue(watcher.musicRunning)
+    }
+
+    @MainActor
+    func testNotifySeek_UpdatesPositionImmediately() {
+        let watcher = Watcher(debug: true)
+        watcher.running = false
+
+        watcher.notifySeek(to: 42)
+
+        XCTAssertNotNil(watcher.currentPosition)
+        XCTAssertNotNil(watcher.maxPosition)
+        XCTAssertEqual(watcher.currentPosition ?? -1, 42, accuracy: 0.001)
+        XCTAssertEqual(watcher.maxPosition ?? -1, 42, accuracy: 0.001)
     }
 
     // MARK: - Helper

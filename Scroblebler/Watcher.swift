@@ -35,15 +35,25 @@ class Watcher: ObservableObject {
     private let mediaController = MediaController()
     private var lastSnapshotTime: Date?
     private var lastSnapshotPosition: Double?
+    private var seekTargetPosition: Double?
     private var currentStatus: MediaControlStatus?
     private var positionTimer: Timer?
     private var lastSeekTime: Date?
     private var pendingResetWorkItem: DispatchWorkItem?
+    private var pendingSnapshotRefreshItems: [DispatchWorkItem] = []
     private let processingQueue = DispatchQueue(label: "com.scroblebler.watcher.processing", qos: .userInitiated)
 
     // Artwork conversion cache
     private var artworkCache: [String: String] = [:]
     private var lastArtworkHash: Int?
+    private var lastUIUpdateSignature: String?
+    private var pendingArtworkPollItems: [DispatchWorkItem] = []
+    private var currentArtworkPollIdentity: String?
+    private var playbackEventSequence: Int = 0
+    private var lastTrackChangeTime: Date?
+    private var previousTrackID: String?
+    private let verboseSnapshotLogs = false
+    private let enableAppleScriptDiagnostics = false
 
     var onTrackChanged: ((Listen) -> Void)?
     var onScrobbleWanted: ((Listen) -> Void)?
@@ -56,20 +66,48 @@ class Watcher: ObservableObject {
     private func setupMediaController() {
         mediaController.onTrackInfoReceived = { [weak self] trackInfo in
             guard let self = self else { return }
+            self.playbackEventSequence += 1
+            let eventId = self.playbackEventSequence
 
             if let trackInfo = trackInfo {
                 // Cancel any pending "no media" reset – NIL events are often transient.
                 self.pendingResetWorkItem?.cancel()
                 self.pendingResetWorkItem = nil
 
+                let payload = trackInfo.payload
+                Logger.debug(
+                    "MR_EVENT #\(eventId): title='\(payload.title ?? "")' artist='\(payload.artist ?? "")' album='\(payload.album ?? "")' playing=\(payload.isPlaying.map(String.init(describing:)) ?? "nil") rate=\(payload.playbackRate.map(String.init(describing:)) ?? "nil") elapsed=\(payload.currentElapsedTime.map { String(format: "%.3f", $0) } ?? "nil") durMicros=\(payload.durationMicros.map(String.init(describing:)) ?? "nil") bundle='\(payload.bundleIdentifier ?? "")'",
+                    log: Logger.playback
+                )
+
                 // Process track info on serial queue to prevent race conditions
                 self.processingQueue.async {
                     self.handleTrackInfo(trackInfo)
                 }
             } else {
+                Logger.debug("MR_EVENT #\(eventId): NIL", log: Logger.playback)
                 // MediaRemote can emit transient NIL during track transitions or PID resolution.
                 // Debounce before clearing UI state to avoid flicker / stale resets.
                 self.scheduleResetAfterNoMedia()
+            }
+
+            if self.enableAppleScriptDiagnostics {
+                self.logAppleMusicSnapshot(context: "event_\(eventId)")
+            }
+        }
+
+        mediaController.onPlaybackTimeUpdate = { [weak self] elapsedTime in
+            guard let self = self else { return }
+
+            self.lastSnapshotTime = Date()
+            self.lastSnapshotPosition = elapsedTime
+
+            let capped = self.currentStatus?.duration.map { min(elapsedTime, $0) } ?? elapsedTime
+            self.setState {
+                self.currentPosition = capped
+                if self.maxPosition == nil || capped > (self.maxPosition ?? 0) {
+                    self.maxPosition = capped
+                }
             }
         }
 
@@ -96,8 +134,10 @@ class Watcher: ObservableObject {
     }
 
     func start() {
+        running = true
         mediaController.startListening()
         startPositionTimer()
+        requestCurrentSnapshotBurst(reason: "watcher_start")
     }
 
     func refreshCurrentState() {
@@ -114,6 +154,13 @@ class Watcher: ObservableObject {
 
     func stop() {
         running = false
+        pendingResetWorkItem?.cancel()
+        pendingResetWorkItem = nil
+        pendingSnapshotRefreshItems.forEach { $0.cancel() }
+        pendingSnapshotRefreshItems.removeAll()
+        pendingArtworkPollItems.forEach { $0.cancel() }
+        pendingArtworkPollItems.removeAll()
+        currentArtworkPollIdentity = nil
         mediaController.stopListening()
         stopPositionTimer()
     }
@@ -162,6 +209,7 @@ class Watcher: ObservableObject {
         lastSeekTime = Date()
         lastSnapshotTime = Date()
         lastSnapshotPosition = position
+        seekTargetPosition = position
 
         // Cap position at duration if available
         let cappedPosition = currentStatus?.duration.map { min(position, $0) } ?? position
@@ -172,6 +220,58 @@ class Watcher: ObservableObject {
                 self.maxPosition = cappedPosition
             }
         }
+
+        requestCurrentSnapshotBurst(reason: "seek")
+    }
+
+    func notifyCommandSent(_ command: MediaCommand) {
+        Logger.debug("UI_COMMAND: \(command)", log: Logger.playback)
+
+        // Optimistic UI update for play/pause/stop so the button reflects instantly.
+        // The real state will arrive via MR_EVENT or the delayed snapshot burst.
+        setState {
+            switch command {
+            case .play:
+                self.playerState = .playing
+                self.musicRunning = true
+            case .pause:
+                self.playerState = .paused
+            case .togglePlayPause:
+                if self.playerState == .playing {
+                    self.playerState = .paused
+                } else {
+                    self.playerState = .playing
+                    self.musicRunning = true
+                }
+            case .stop:
+                self.playerState = .stopped
+                self.musicRunning = false
+            case .nextTrack, .previousTrack:
+                self.musicRunning = true
+            }
+        }
+
+        guard running else { return }
+        requestCurrentSnapshotBurst(reason: "command_\(command.rawValue)")
+    }
+
+    private func snapshotBurstDelays(reason: String) -> [TimeInterval] {
+        if reason == "command_4" || reason == "command_5" {
+            // Track changes take time: Perl subprocess + Music app transition.
+            return [0.35, 0.8, 1.5]
+        }
+        if reason.hasPrefix("command_") {
+            // Play/pause/stop: command goes through Perl subprocess (~200-500ms).
+            // Snapshot must fire AFTER the command has propagated to MediaRemote.
+            return [0.4, 0.9]
+        }
+        if reason == "seek" {
+            return [0.15, 0.5]
+        }
+        if reason == "watcher_start" {
+            return [0.0, 0.30]
+        }
+        return [0.0, 0.3]
     }
 
     private func convertArtworkToBase64(_ artwork: NSImage) -> String? {
@@ -192,6 +292,206 @@ class Watcher: ObservableObject {
         return base64
     }
 
+    private func requestCurrentSnapshotBurst(reason: String) {
+        pendingSnapshotRefreshItems.forEach { $0.cancel() }
+        pendingSnapshotRefreshItems.removeAll()
+
+        let delays = snapshotBurstDelays(reason: reason)
+        for delay in delays {
+            let item = DispatchWorkItem { [weak self] in
+                self?.requestCurrentSnapshot(reason: reason)
+            }
+            pendingSnapshotRefreshItems.append(item)
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: item)
+        }
+    }
+
+    private func requestCurrentSnapshot(reason: String) {
+        guard running else { return }
+
+        mediaController.getTrackInfo { [weak self] trackInfo in
+            guard let self = self else { return }
+            guard self.running else { return }
+
+            if let trackInfo = trackInfo {
+                self.pendingResetWorkItem?.cancel()
+                self.pendingResetWorkItem = nil
+
+                let payload = trackInfo.payload
+                let shouldLogGet = self.verboseSnapshotLogs || reason.hasPrefix("command_") || reason == "watcher_start"
+                if shouldLogGet {
+                    Logger.debug(
+                        "MR_GET(\(reason)): title='\(payload.title ?? "")' artist='\(payload.artist ?? "")' album='\(payload.album ?? "")' playing=\(payload.isPlaying.map(String.init(describing:)) ?? "nil") rate=\(payload.playbackRate.map(String.init(describing:)) ?? "nil") elapsed=\(payload.currentElapsedTime.map { String(format: "%.3f", $0) } ?? "nil") bundle='\(payload.bundleIdentifier ?? "")'",
+                        log: Logger.playback
+                    )
+                }
+
+                self.processingQueue.async {
+                    self.handleTrackInfo(trackInfo)
+                }
+            } else {
+                if self.verboseSnapshotLogs || reason.hasPrefix("command_") {
+                    Logger.debug("Snapshot refresh returned NIL (reason=\(reason))", log: Logger.playback)
+                }
+            }
+
+            if self.enableAppleScriptDiagnostics,
+               (self.verboseSnapshotLogs || reason.hasPrefix("command_") || reason == "watcher_start") {
+                self.logAppleMusicSnapshot(context: "mr_get_\(reason)")
+            }
+        }
+    }
+
+    private func logAppleMusicSnapshot(context: String) {
+        DispatchQueue.global(qos: .utility).async {
+            let script = #"""
+tell application "Music"
+if not running then
+    return "running=false"
+end if
+set pstate to (get player state) as text
+set t to ""
+set a to ""
+set al to ""
+set pos to 0
+set dur to 0
+try
+    set t to (name of current track)
+    set a to (artist of current track)
+    set al to (album of current track)
+    set pos to (player position)
+    set dur to (duration of current track)
+end try
+return "running=true state=" & pstate & " title=" & t & " artist=" & a & " album=" & al & " pos=" & (pos as text) & " dur=" & (dur as text)
+end tell
+"""#
+
+            var error: NSDictionary?
+            guard let scriptObject = NSAppleScript(source: script) else {
+                Logger.debug("AS_SNAPSHOT(\(context)): failed to create script", log: Logger.playback)
+                return
+            }
+            let result = scriptObject.executeAndReturnError(&error)
+            if let error {
+                let msg = error["NSAppleScriptErrorMessage"] as? String ?? "unknown"
+                Logger.debug("AS_SNAPSHOT(\(context)): error='\(msg)'", log: Logger.playback)
+                return
+            }
+
+            Logger.debug("AS_SNAPSHOT(\(context)): \(result.stringValue ?? "")", log: Logger.playback)
+        }
+    }
+
+    private func clearArtworkPollTasks() {
+        pendingArtworkPollItems.forEach { $0.cancel() }
+        pendingArtworkPollItems.removeAll()
+        currentArtworkPollIdentity = nil
+    }
+
+    @MainActor
+    private func maybeScheduleArtworkPoll(for status: MediaControlStatus, identity: String) {
+        guard running else { return }
+
+        let alreadyHasArtwork = (status.artworkData?.isEmpty == false)
+            || (ListenStore.shared.currentListen?.artwork?.isEmpty == false)
+        if alreadyHasArtwork {
+            return
+        }
+
+        if currentArtworkPollIdentity == identity, !pendingArtworkPollItems.isEmpty {
+            return
+        }
+
+        clearArtworkPollTasks()
+        currentArtworkPollIdentity = identity
+
+        // Short and bounded poll: artwork usually arrives shortly after metadata.
+        let pollDelays: [TimeInterval] = [0.18, 0.45, 0.9, 1.4]
+        for delay in pollDelays {
+            let item = DispatchWorkItem { [weak self] in
+                guard let self = self else { return }
+                guard self.running else { return }
+                guard self.currentTrackID == identity else { return }
+
+                let hasArtworkNow = (self.currentStatus?.artworkData?.isEmpty == false)
+                    || (ListenStore.shared.currentListen?.artwork?.isEmpty == false)
+                if hasArtworkNow {
+                    self.clearArtworkPollTasks()
+                    return
+                }
+
+                self.requestCurrentSnapshot(reason: "artwork_poll")
+            }
+            pendingArtworkPollItems.append(item)
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: item)
+        }
+    }
+
+    @MainActor
+    private func updateListenIfNeeded(_ listen: Listen) {
+        let current = ListenStore.shared.currentListen
+
+        let changed: Bool = {
+            guard let current else { return true }
+            if current.track != listen.track { return true }
+            if current.artist != listen.artist { return true }
+            if current.album != listen.album { return true }
+            if current.sourceBundle != listen.sourceBundle { return true }
+            if abs(current.duration - listen.duration) > 0.001 { return true }
+            if current.releaseMbid != listen.releaseMbid { return true }
+            if current.imageUrl != listen.imageUrl { return true }
+
+            let currentArtworkSize = current.artwork?.count ?? 0
+            let newArtworkSize = listen.artwork?.count ?? 0
+            if currentArtworkSize != newArtworkSize { return true }
+
+            return false
+        }()
+
+        guard changed else { return }
+
+        let signature = [
+            listen.artist,
+            listen.track,
+            listen.album,
+            listen.sourceBundle ?? "",
+            String(Int((listen.duration * 10).rounded())),
+            listen.releaseMbid ?? "",
+            listen.imageUrl ?? "",
+            String(listen.artwork?.count ?? 0)
+        ].joined(separator: "|")
+
+        guard signature != lastUIUpdateSignature else { return }
+        lastUIUpdateSignature = signature
+
+        if current == nil {
+            ListenStore.shared.setCurrentListen(listen)
+        } else {
+            ListenStore.shared.updateCurrentListen(listen)
+        }
+    }
+
+    @MainActor
+    private func enrichListenWithLocalArtworkHints(_ listen: Listen) -> Listen {
+        var enriched = listen
+
+        guard let existing = ListenStore.shared.findListen(artist: listen.artist, track: listen.track) else {
+            return enriched
+        }
+
+        if enriched.releaseMbid == nil {
+            enriched.releaseMbid = existing.releaseMbid
+        }
+        if enriched.imageUrl == nil {
+            enriched.imageUrl = existing.imageUrl
+        }
+        if enriched.artwork == nil {
+            enriched.artwork = existing.artwork
+        }
+
+        return enriched
+    }
+
     private func handleTrackInfo(_ trackInfo: MediaRemoteAdapter.TrackInfo) {
         let payload = trackInfo.payload
 
@@ -204,16 +504,26 @@ class Watcher: ObservableObject {
         // Create unique identifier from artist + title + album to properly detect track changes
         let trackIdentifier = "\(payload.artist ?? "")|\(payload.title ?? "")|\(payload.album ?? "")"
 
+        let isSameTrackAsCurrent = (currentStatus?.contentItemIdentifier == trackIdentifier)
+
         // Determine artwork:
-        // - Use fresh artwork when present (it can arrive late for the same track).
-        // - Otherwise, keep the previous artwork to avoid flicker.
-        let artworkData: String? = payload.artwork
-            .flatMap { convertArtworkToBase64($0) }
-            ?? currentStatus?.artworkData
+        // - Use fresh artwork when present.
+        // - For SAME track, fall back to previous artwork to avoid flicker.
+        // - For DIFFERENT track, do NOT carry over old artwork (wrong album art bug).
+        let freshArtwork: String? = payload.artwork.flatMap { convertArtworkToBase64($0) }
+        let artworkData: String? = freshArtwork ?? (isSameTrackAsCurrent ? currentStatus?.artworkData : nil)
 
         // Convert microseconds to seconds
         let durationSeconds = (payload.durationMicros ?? 0) / 1_000_000.0
+
+        let hasElapsedInPayload = payload.currentElapsedTime != nil || payload.elapsedTimeMicros != nil
         let elapsedTimeSeconds = payload.currentElapsedTime ?? ((payload.elapsedTimeMicros ?? 0) / 1_000_000.0)
+        let effectiveElapsedTime: Double? = hasElapsedInPayload
+            ? elapsedTimeSeconds
+            : (isSameTrackAsCurrent ? currentStatus?.elapsedTime : nil)
+
+        let effectivePlaying = payload.isPlaying ?? (isSameTrackAsCurrent ? currentStatus?.playing : nil)
+        let effectivePlaybackRate = payload.playbackRate ?? (isSameTrackAsCurrent ? currentStatus?.playbackRate : nil)
 
         let status = MediaControlStatus(
             title: payload.title,
@@ -221,9 +531,9 @@ class Watcher: ObservableObject {
             album: payload.album,
             artworkData: artworkData,
             duration: durationSeconds > 0 ? durationSeconds : nil,
-            playing: payload.isPlaying,
-            playbackRate: payload.playbackRate,
-            elapsedTime: elapsedTimeSeconds,
+            playing: effectivePlaying,
+            playbackRate: effectivePlaybackRate,
+            elapsedTime: effectiveElapsedTime,
             contentItemIdentifier: trackIdentifier,
             trackNumber: nil,
             totalTrackCount: nil,
@@ -256,6 +566,34 @@ class Watcher: ObservableObject {
             )
         }
 
+        // Reject stale events that would revert to a track we already moved past.
+        // When rapidly skipping tracks, late MR_EVENTs for the old track arrive after
+        // a snapshot has already established the new track.
+        if let currentID = currentTrackID, let prevID = previousTrackID,
+           let changeTime = lastTrackChangeTime,
+           Date().timeIntervalSince(changeTime) < 3.0 {
+            let incomingIdentity: String = {
+                let baseID = newStatus.contentItemIdentifier ?? ""
+                let metaID = "\(newStatus.title ?? "")|\(newStatus.artist ?? "")|\(newStatus.album ?? "")"
+                return baseID.isEmpty ? metaID : "\(baseID)|\(metaID)"
+            }()
+
+            // If this event matches the PREVIOUS track (not current), it's stale.
+            if incomingIdentity != currentID && incomingIdentity == prevID {
+                Logger.debug("Rejecting stale event for '\(newStatus.title ?? "")' — already moved to '\(currentStatus?.title ?? "")'", log: Logger.playback)
+                // Still update play state from this event (it may carry correct play/pause info)
+                if let playing = newStatus.playing {
+                    Task { @MainActor in
+                        let newState: PlayerState = playing ? .playing : .paused
+                        if newState != self.playerState {
+                            self.playerState = newState
+                        }
+                    }
+                }
+                return
+            }
+        }
+
         currentStatus = newStatus
 
         guard let status = currentStatus else { return }
@@ -271,15 +609,35 @@ class Watcher: ObservableObject {
         }
     }
 
-    private func scheduleResetAfterNoMedia(delay: TimeInterval = 0.75) {
+    private func scheduleResetAfterNoMedia(delay: TimeInterval = 0.45) {
         pendingResetWorkItem?.cancel()
 
         let item = DispatchWorkItem { [weak self] in
             guard let self = self else { return }
-            self.currentStatus = nil
-            self.musicRunning = false
-            self.playerState = .stopped
-            self.reset()
+            guard self.running else { return }
+
+            // Confirm with one direct snapshot before clearing UI, because MediaRemote NIL can be transient.
+            self.mediaController.getTrackInfo { [weak self] trackInfo in
+                guard let self = self else { return }
+                guard self.running else { return }
+
+                if let trackInfo = trackInfo {
+                    self.pendingResetWorkItem?.cancel()
+                    self.pendingResetWorkItem = nil
+                    self.processingQueue.async {
+                        self.handleTrackInfo(trackInfo)
+                    }
+                    return
+                }
+
+                Logger.debug("Confirmed NIL after debounce -> reset", log: Logger.playback)
+                self.logAppleMusicSnapshot(context: "confirmed_nil_reset")
+
+                self.currentStatus = nil
+                self.musicRunning = false
+                self.playerState = .stopped
+                self.reset()
+            }
         }
 
         pendingResetWorkItem = item
@@ -341,6 +699,10 @@ class Watcher: ObservableObject {
             currentPosition = nil
             maxPosition = nil
             currentBundleIdentifier = nil
+            lastUIUpdateSignature = nil
+            previousTrackID = nil
+            lastTrackChangeTime = nil
+            clearArtworkPollTasks()
             ListenStore.shared.clearCurrentListen()
         }
     }
@@ -390,18 +752,22 @@ class Watcher: ObservableObject {
         let trackChanged = currentTrackID != identity
 
         if trackChanged {
+            let now = Date()
+
+            // Record previous track so we can reject stale events for it
+            previousTrackID = currentTrackID
+            lastTrackChangeTime = now
+
             Logger.info("Track changed: \(status.title ?? "Unknown") by \(status.artist ?? "Unknown")", log: Logger.playback)
 
             // Clear artwork cache on track change to prevent memory buildup
             artworkCache.removeAll()
+            clearArtworkPollTasks()
 
             // Track changed - scrobble previous if needed
-            if let listen = ListenStore.shared.currentListen, let maxPos = maxPosition {
-                guard listen.duration > 0 else {
-                    // Unknown duration (streams / some players). Don't attempt a percent-based scrobble.
-                    return
-                }
-
+            if let listen = ListenStore.shared.currentListen,
+               let maxPos = maxPosition,
+               listen.duration > 0 {
                 let percentPlayed = (maxPos / listen.duration) * 100
                 if percentPlayed >= 95 && listen.id == nil && listen.duration >= 30 {
                     if let fn = onScrobbleWanted {
@@ -412,17 +778,18 @@ class Watcher: ObservableObject {
 
             // Reset position tracking for new track
             let newPosition = status.elapsedTime ?? 0
-            lastSnapshotTime = Date()
+            lastSnapshotTime = now
             lastSnapshotPosition = newPosition
 
             maxPosition = newPosition
             currentPosition = newPosition
             currentTrackID = identity
 
-            let listen = try getPlayerTrack(from: status)
+            let listen = enrichListenWithLocalArtworkHints(try getPlayerTrack(from: status))
 
-            // Route through ListenStore (single source of truth)
-            ListenStore.shared.setCurrentListen(listen)
+            // Route through ListenStore only when metadata/artwork actually changed
+            updateListenIfNeeded(listen)
+            maybeScheduleArtworkPoll(for: status, identity: identity)
 
             if let fn = onTrackChanged {
                 DispatchQueue.main.async { fn(listen) }
@@ -434,7 +801,8 @@ class Watcher: ObservableObject {
 
             if hasArtwork && !currentHasArtwork {
                 let listen = try getPlayerTrack(from: status)
-                ListenStore.shared.updateCurrentListen(listen)
+                updateListenIfNeeded(listen)
+                clearArtworkPollTasks()
             }
 
             // Keep metadata fresh even if the track identity didn't change (some players update
@@ -446,13 +814,47 @@ class Watcher: ObservableObject {
                 let albumChanged = (status.album ?? "") != current.album
                 let bundleChanged = (status.bundleIdentifier ?? "") != (current.sourceBundle ?? "")
                 if sameIdentity || titleChanged || artistChanged || albumChanged || bundleChanged {
-                    let updated = try getPlayerTrack(from: status)
-                    ListenStore.shared.updateCurrentListen(updated)
+                    let updated = enrichListenWithLocalArtworkHints(try getPlayerTrack(from: status))
+                    updateListenIfNeeded(updated)
+                    if (updated.artwork?.isEmpty ?? true) {
+                        maybeScheduleArtworkPoll(for: status, identity: identity)
+                    } else {
+                        clearArtworkPollTasks()
+                    }
                 }
             }
 
             // Update position if changed significantly
             let snapshotPos = status.elapsedTime ?? 0
+
+            let shouldIgnoreStaleSeekSnapshot: Bool = {
+                guard let seekTarget = seekTargetPosition else { return false }
+
+                // Snapshot converged to seek target; resume normal tracking.
+                if abs(snapshotPos - seekTarget) <= 2.0 {
+                    seekTargetPosition = nil
+                    return false
+                }
+
+                // Shortly after seek, ignore backward/stale snapshots that contradict our target.
+                if let seekTime = lastSeekTime,
+                   Date().timeIntervalSince(seekTime) < 3.0,
+                   snapshotPos < (seekTarget - 2.0) {
+                    return true
+                }
+
+                // Give up on strict seek tracking after a while.
+                if let seekTime = lastSeekTime,
+                   Date().timeIntervalSince(seekTime) >= 3.0 {
+                    seekTargetPosition = nil
+                }
+
+                return false
+            }()
+
+            if shouldIgnoreStaleSeekSnapshot {
+                return
+            }
 
             // Ignore stale position updates for 1 second after seeking
             let isInSeekGracePeriod = lastSeekTime.map { Date().timeIntervalSince($0) < 1.0 } ?? false

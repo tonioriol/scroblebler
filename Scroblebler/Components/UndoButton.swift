@@ -111,6 +111,13 @@ struct UndoButton: View {
                         isAnimating = true
                     }
 
+                    // Remove the listen locally so playcount (COUNT queries) updates immediately.
+                    if let listenId {
+                        Task {
+                            try? await listenStore.delete(id: listenId)
+                        }
+                    }
+
                     Task {
                         try? await Task.sleep(nanoseconds: 300_000_000)
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {

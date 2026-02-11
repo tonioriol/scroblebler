@@ -395,8 +395,10 @@ class SyncEngine {
             )
         }
 
-        // Use remote loved status (remote = truth for UI)
-        updatedLocal.loved = remote.loved
+        // Merge loved state with service-aware conflict resolution.
+        // ListenBrainz recent listens don't carry authoritative loved status, so default `false`
+        // must not overwrite local/user state.
+        updatedLocal.loved = service.mergeLovedState(local: local.loved, remote: remote.loved)
 
         // Update
         try? await store.update(updatedLocal)

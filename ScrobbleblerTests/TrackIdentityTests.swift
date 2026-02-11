@@ -122,6 +122,28 @@ final class TrackIdentityTests: XCTestCase {
         XCTAssertNil(found, "Should not match different tracks even within time window")
     }
 
+    // MARK: - Loved State Merge
+
+    func testMergeLovedState_LastFmRemoteTrue_AlwaysTrue() {
+        let merged = ScrobbleService.lastfm.mergeLovedState(local: false, remote: true)
+        XCTAssertTrue(merged)
+    }
+
+    func testMergeLovedState_LastFmRemoteFalse_OverridesToFalse() {
+        let merged = ScrobbleService.lastfm.mergeLovedState(local: true, remote: false)
+        XCTAssertFalse(merged)
+    }
+
+    func testMergeLovedState_ListenBrainzRemoteFalse_PreservesLocalTrue() {
+        let merged = ScrobbleService.listenbrainz.mergeLovedState(local: true, remote: false)
+        XCTAssertTrue(merged)
+    }
+
+    func testMergeLovedState_ListenBrainzRemoteTrue_SetsTrue() {
+        let merged = ScrobbleService.listenbrainz.mergeLovedState(local: false, remote: true)
+        XCTAssertTrue(merged)
+    }
+
     // MARK: - Helper
 
     private func createTrack(artist: String, track: String, timestamp: Int = 1704441600) -> Track {

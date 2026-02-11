@@ -16,8 +16,16 @@ class ListenStore: ObservableObject {
     /// History listens (only scrobbled listens from API)
     @Published private(set) var history: [Listen] = []
 
+    /// Bumps whenever the underlying listens table changes in a way that affects derived values
+    /// like playcount (COUNT queries).
+    @Published private(set) var listensRevision: Int = 0
+
     private let db = LocalDatabase.shared
     private init() {}
+
+    private func bumpListensRevision() {
+        listensRevision += 1
+    }
 
     // MARK: - Current Listen Management
 
@@ -30,7 +38,11 @@ class ListenStore: ObservableObject {
     /// Update current listen with enriched data
     func updateCurrentListen(_ listen: Listen) {
         currentListen = listen
-        Logger.debug("Updated current listen: \(listen.track) by \(listen.artist)", log: Logger.ui)
+        let artworkBytes = listen.artwork?.count ?? 0
+        Logger.debug(
+            "Updated current listen: \(listen.track) by \(listen.artist) [artworkBytes=\(artworkBytes)]",
+            log: Logger.ui
+        )
     }
 
     /// Clear current listen
@@ -130,6 +142,7 @@ class ListenStore: ObservableObject {
             return insertedListen
         }
         Logger.debug("Inserted listen: \(inserted.track) by \(inserted.artist)", log: Logger.sync)
+        bumpListensRevision()
         return inserted
     }
 
@@ -146,7 +159,19 @@ class ListenStore: ObservableObject {
         _ = try await db.asyncWrite { db in
             try Listen.deleteOne(db, key: id)
         }
+
+        // Keep in-memory published state in sync.
+        if let index = history.firstIndex(where: { $0.id == id }) {
+            var copy = history
+            copy.remove(at: index)
+            history = copy
+        }
+        if currentListen?.id == id {
+            currentListen = nil
+        }
+
         Logger.debug("Deleted listen with id: \(id)", log: Logger.sync)
+        bumpListensRevision()
     }
 
     /// Fetch a single listen by row id.

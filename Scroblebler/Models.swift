@@ -197,6 +197,29 @@ enum ScrobbleService: String, CaseIterable, Codable, Identifiable {
 
     var id: String { rawValue }
     var displayName: String { rawValue }
+
+    /// Whether this service's recent-track payload reliably includes loved state.
+    ///
+    /// Last.fm/Libre.fm expose this directly in recent tracks.
+    /// ListenBrainz does not include it in recent listens (requires separate feedback lookup),
+    /// so a default `false` there should not clobber local loved state.
+    var hasAuthoritativeLovedStateInRecentTracks: Bool {
+        switch self {
+        case .lastfm, .librefm:
+            return true
+        case .listenbrainz:
+            return false
+        }
+    }
+
+    /// Merge remote loved state into local state, guarding against non-authoritative false values.
+    func mergeLovedState(local: Bool, remote: Bool) -> Bool {
+        if remote {
+            return true
+        }
+
+        return hasAuthoritativeLovedStateInRecentTracks ? false : local
+    }
 }
 
 struct ServiceCredentials: Codable {

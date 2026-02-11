@@ -4,7 +4,7 @@ struct MainView: View {
     @EnvironmentObject var watcher: Watcher
     @EnvironmentObject var serviceManager: ScrobbleManager
     @EnvironmentObject var defaults: Defaults
-    @StateObject private var listenStore = ListenStore.shared
+    @ObservedObject private var listenStore = ListenStore.shared
     @State private var showProfileView = false
     @State private var loginService: ScrobbleService?
     @State private var tokenInput = ""
@@ -20,6 +20,7 @@ struct MainView: View {
     @State private var showServicesSection = false
     @State private var historySearchQuery = ""
     @State private var isSearchingHistory = false
+    @State private var historySearchResults: [Listen] = []
 
     @State private var isHistorySearchFocused = false
     @State private var shouldShowHistorySearchBar = true
@@ -37,7 +38,9 @@ struct MainView: View {
         listenStore.history
     }
 
-    private var filteredHistoryTracks: [Listen] { historyTracks }
+    private var filteredHistoryTracks: [Listen] {
+        isSearchingHistory ? historySearchResults : historyTracks
+    }
 
     private var hasHistorySearchText: Bool {
         !historySearchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -55,12 +58,14 @@ struct MainView: View {
     }
 
     private var shouldShowHistorySection: Bool {
-        !historyTracks.isEmpty || !historySearchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        // Keep the section visible while searching / focused so the user can recover the UI
+        // even if a query returns 0 results.
+        !historyTracks.isEmpty || isSearchingHistory || shouldRenderHistorySearchBar
     }
 
     private func handleHistoryScroll(offsetY newOffsetY: CGFloat) {
         let delta = newOffsetY - lastHistoryScrollOffsetY
-        let threshold: CGFloat = 2
+        let threshold: CGFloat = 6
 
         // Always show at the very top.
         if newOffsetY <= 0 {
@@ -69,10 +74,8 @@ struct MainView: View {
             return
         }
 
-        guard abs(delta) > threshold else {
-            lastHistoryScrollOffsetY = newOffsetY
-            return
-        }
+        // Avoid churning state on tiny float jitter; this can starve other UI updates.
+        guard abs(delta) > threshold else { return }
 
         // Scroll down → hide. Scroll up → show.
         if delta > 0 {
@@ -109,7 +112,11 @@ struct MainView: View {
         var body: some View {
             GeometryReader { geo in
                 let minY = geo.frame(in: .named("historyScroll")).minY
-                HistoryScrollOffsetEmitter(offsetY: max(0, -minY))
+
+                // Quantize to whole points to prevent preference spam from sub-point layout jitter.
+                let rawOffset = max(0, -minY)
+                let offset = CGFloat(Int(rawOffset))
+                HistoryScrollOffsetEmitter(offsetY: offset)
             }
             .frame(height: 0)
             // Read preference one level above the GeometryReader to avoid
@@ -303,6 +310,7 @@ struct MainView: View {
                         let q = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
                         guard !q.isEmpty else {
                             isSearchingHistory = false
+                            historySearchResults = []
                             Task {
                                 try? await listenStore.refreshHistory(limit: max(uiPageSize, currentPage * uiPageSize))
                                 let total = try? await listenStore.countListens()
@@ -327,7 +335,7 @@ struct MainView: View {
                             let enabled = Defaults.shared.enabledServices.map { $0.service }
                             if let results = try? await listenStore.search(query: q, limit: maxVisibleHistoryItems, enabledServices: enabled) {
                                 await MainActor.run {
-                                    listenStore.setHistory(results)
+                                    historySearchResults = results
                                     // Disable pagination while searching.
                                     hasMoreTracks = false
                                 }
@@ -613,9 +621,16 @@ struct MainView: View {
                         }
                     }
 
-                    // Conflict rule: remote wins for love state
-                    if updated.loved != listen.loved {
-                        updated.loved = listen.loved
+                    // Merge loved state with service-aware conflict resolution.
+                    // Some services (e.g. ListenBrainz recent listens) don't provide authoritative
+                    // loved state in history payloads, so a default `false` must not clobber local.
+                    let remoteService = listen.services.keys
+                        .compactMap(ScrobbleService.init(rawValue:))
+                        .first
+                    let mergedLoved = remoteService?.mergeLovedState(local: updated.loved, remote: listen.loved)
+                        ?? listen.loved
+                    if updated.loved != mergedLoved {
+                        updated.loved = mergedLoved
                         didChange = true
                     }
 

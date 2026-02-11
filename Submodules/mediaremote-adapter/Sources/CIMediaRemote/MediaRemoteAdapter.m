@@ -332,13 +332,25 @@ void loop(void) {
           int pid = (pidValue != nil) ? [pidValue intValue] : 0;
           fetchAndProcess(pid);
       });
-      
+
       // Schedule the new block to run after a 100ms delay.
       dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.1 * NSEC_PER_SEC)), _queue, _debounce_block);
     };
-    
+
     [[NSNotificationCenter defaultCenter]
         addObserverForName:(NSString *)kMRMediaRemoteNowPlayingInfoDidChangeNotification
+                    object:nil
+                     queue:nil
+                usingBlock:handler];
+
+    [[NSNotificationCenter defaultCenter]
+        addObserverForName:(NSString *)kMRMediaRemoteNowPlayingApplicationIsPlayingDidChangeNotification
+                    object:nil
+                     queue:nil
+                usingBlock:handler];
+
+    [[NSNotificationCenter defaultCenter]
+        addObserverForName:(NSString *)kMRMediaRemoteNowPlayingApplicationDidChangeNotification
                     object:nil
                      queue:nil
                 usingBlock:handler];
@@ -434,4 +446,4 @@ void get(void) {
     while (!completed && [[NSDate date] compare:timeout] == NSOrderedAscending) {
         [[NSRunLoop currentRunLoop] runMode:NSDefaultRunLoopMode beforeDate:[NSDate dateWithTimeIntervalSinceNow:0.1]];
     }
-} 
+}

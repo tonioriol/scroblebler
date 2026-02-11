@@ -13,18 +13,20 @@ enum MediaCommand: Int {
 class MediaControl {
     private static weak var controller: MediaController?
     private static weak var watcher: Watcher?
-    
+
     static func setup(controller: MediaController, watcher: Watcher) {
         self.controller = controller
         self.watcher = watcher
     }
-    
+
     static func send(_ command: MediaCommand) {
         guard let controller = controller else {
             Logger.error("MediaController not initialized", log: Logger.playback)
             return
         }
-        
+
+        watcher?.notifyCommandSent(command)
+
         switch command {
         case .play:
             controller.play()
@@ -40,18 +42,18 @@ class MediaControl {
             controller.previousTrack()
         }
     }
-    
+
     static func seek(to position: Double) {
         guard let controller = controller else {
             Logger.error("MediaController not initialized", log: Logger.playback)
             return
         }
-        
+
         Logger.debug("Seeking to position: \(position)s", log: Logger.playback)
-        
+
         // Immediately update watcher state to prevent UI jank
         watcher?.notifySeek(to: position)
-        
+
         // Send seek command to media player
         controller.setTime(seconds: position)
     }
