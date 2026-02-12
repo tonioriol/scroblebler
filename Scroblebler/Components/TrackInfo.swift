@@ -96,6 +96,14 @@ struct TrackInfo<ActionButtons: View, ArtworkOverlay: View>: View {
         return formatter.localizedString(for: date, relativeTo: Date())
     }
 
+    func formatFullDate(_ timestamp: Int) -> String {
+        let date = Date(timeIntervalSince1970: TimeInterval(timestamp))
+        let formatter = DateFormatter()
+        formatter.dateStyle = .long
+        formatter.timeStyle = .medium
+        return formatter.string(from: date)
+    }
+
     func formatDuration(_ value: Double) -> String {
         let hours = Int(value / 3600)
         let minutes = Int(value.truncatingRemainder(dividingBy: 3600) / 60)
@@ -222,6 +230,7 @@ struct TrackInfo<ActionButtons: View, ArtworkOverlay: View>: View {
                             Text(formatDate(timestamp))
                                 .font(.system(size: 10))
                                 .foregroundColor(.secondary)
+                                .help(formatFullDate(timestamp))
                         }
                     }
                 }
