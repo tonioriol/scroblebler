@@ -136,6 +136,7 @@ on their repository](https://github.com/lastfm/lastfm-desktop/blob/9ae84cf4ab204
 - [ ] Update the date and the (c) of the new files.
 - [ ] Fix credits in files.
 - [ ] display full date on hover.
+- [ ] Filter out youtube (or any other non music from browser crap) (use AI?)
 
 ## License
 
