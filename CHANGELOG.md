@@ -1,3 +1,228 @@
+# [1.0.0](https://github.com/tonioriol/scroblebler/compare/v0.3.0...v1.0.0) (2026-02-20)
+
+
+### Bug Fixes
+
+* avoid lastfm rate limit during history backfill ([d1872ba](https://github.com/tonioriol/scroblebler/commit/d1872ba67bfb98a02d1f102308031141d72b2e84))
+* balance vertical spacing in now playing view ([3c80d58](https://github.com/tonioriol/scroblebler/commit/3c80d587d67ea75bf142a4e583f73494cf0a019d))
+* **build:** remove obsolete cmake step for mediaremote-adapter ([e252b68](https://github.com/tonioriol/scroblebler/commit/e252b680b977c35b94514881c06c656d86ae7b83))
+* correct MediaRemoteAdapter usage and fix duplicate controller instance ([23b8137](https://github.com/tonioriol/scroblebler/commit/23b81376181eefffbac97d5aaa5f80a29ab8e4ae))
+* eliminate progress bar animation jank during seeking ([332e3c8](https://github.com/tonioriol/scroblebler/commit/332e3c879f400464dc61966002c00f75a88c953c))
+* **history:** stabilize list row identity to prevent blank gaps ([0f20e19](https://github.com/tonioriol/scroblebler/commit/0f20e194b9ef7a1bd4f118dab66196d60a079f3c))
+* improve track transition detection and prevent progress bar overflow ([5970618](https://github.com/tonioriol/scroblebler/commit/597061848cd2156eeb76c1fb8dd39081e9ea8352))
+* **listenbrainz:** use track/album fallback search types ([d59d7c7](https://github.com/tonioriol/scroblebler/commit/d59d7c738ede91f26ed30b0376b3d2100f66a3c6))
+* love and blacklist state not updating in now playing view ([fcc317e](https://github.com/tonioriol/scroblebler/commit/fcc317e5c04ce933c8b273224ef4f8c7b4ef46c5))
+* love button now properly toggles and displays state ([f903a65](https://github.com/tonioriol/scroblebler/commit/f903a65448f78828eaf3ba93a09d4eeba89724f8))
+* make services selector clickable when logged out ([27fde7f](https://github.com/tonioriol/scroblebler/commit/27fde7f2b5c334e410a93e7d93c0a4e571f093b6))
+* now playing links go to correct last.fm pages instead of homepage ([08e741f](https://github.com/tonioriol/scroblebler/commit/08e741fb5e186ea9718b8ad8bc95c4b1bb36058e))
+* persist history image url ([9245850](https://github.com/tonioriol/scroblebler/commit/9245850c41a16889dcda271c0b4cd5a979b0e8a3))
+* preserve loved state during non-authoritative sync ([739ce18](https://github.com/tonioriol/scroblebler/commit/739ce1873544b411da02760987b832ef06bc2399))
+* prevent stale now playing state from mediaremote ([38a8ca7](https://github.com/tonioriol/scroblebler/commit/38a8ca785fddb0c5f27d03d7d4b12bc0b36a48d8))
+* propagate undo scrobble to follower services by passing reactive serviceInfo state ([acde2f8](https://github.com/tonioriol/scroblebler/commit/acde2f861bcfc23ab4ee7d1fe19b2e04903d1376))
+* refresh now playing state ([b49661c](https://github.com/tonioriol/scroblebler/commit/b49661c9c22793e96d1b53aa5c7592684faca017))
+* remove focus trap to eliminate input focus lag ([139a922](https://github.com/tonioriol/scroblebler/commit/139a9222dab92c44cf15ab066cb23f96511a06aa))
+* remove stats endpoint from LB cache to prevent double-counting ([9319904](https://github.com/tonioriol/scroblebler/commit/93199040c2307a6db62742a245fcdcd2d841d5cd))
+* respect blacklist in backfill service to prevent syncing to follower services ([e3dfb2e](https://github.com/tonioriol/scroblebler/commit/e3dfb2e9cbda3bc2e4de77919ebc3daacd4d9b72))
+* restore history via db schema + multi-service backfill ([8d34164](https://github.com/tonioriol/scroblebler/commit/8d34164f4519740aceccb2eb559cf8aaa5bfdef4))
+* restore love sync and improve focus handling ([8b2f894](https://github.com/tonioriol/scroblebler/commit/8b2f8940a031160bf74888290ceb317ced0c4f40))
+* restore progress bar drag ([24ca070](https://github.com/tonioriol/scroblebler/commit/24ca070966c638d793e8f4f98a0d060fc1e195b9))
+* smooth now playing to history transition ([3f84b98](https://github.com/tonioriol/scroblebler/commit/3f84b986361eb68d1ab7d20a0d56aaad9395148d))
+* sync icon not refreshing during backfill ([48e75d7](https://github.com/tonioriol/scroblebler/commit/48e75d746b9d6e994f9c69b4f8c5aeecba57ce97))
+* update TODO list with new tasks and completed items ([53f62d0](https://github.com/tonioriol/scroblebler/commit/53f62d0916486651582b28c36af3cf1b2f995232))
+* update Xcode project to reference HistoryPlay.swift ([fe42339](https://github.com/tonioriol/scroblebler/commit/fe4233901e985c0b8ce28fc0e95dba88c0793233))
+* **watcher:** ensure now playing detected on first start ([931028d](https://github.com/tonioriol/scroblebler/commit/931028d3c9402af708aaa5cc0ea3463d40ebc190))
+
+
+### Features
+
+* add bundleIdentifier field to Track model ([f93e68d](https://github.com/tonioriol/scroblebler/commit/f93e68d142761bf841b7640af47099bc77dcd96e))
+* add cache invalidation button for ListenBrainz with immediate rebuild and progress logging ([a370d88](https://github.com/tonioriol/scroblebler/commit/a370d888556c3eb1f933fb5e30d406aa6f410a63))
+* add collapsible service section with slide animation ([7d271ee](https://github.com/tonioriol/scroblebler/commit/7d271ee4951116cba911fe81b9d12a0306cc17f5))
+* add cover art url helper ([b0d9595](https://github.com/tonioriol/scroblebler/commit/b0d9595ece3e729b5edae1ae071ab5d16eae8205))
+* add delete-pending retries for optimistic deletes ([b394406](https://github.com/tonioriol/scroblebler/commit/b394406032a386e60d24ccbc968693c33774981a))
+* add history search ([9006012](https://github.com/tonioriol/scroblebler/commit/9006012decc1552de9b8925758bcae5b3f6dfd94))
+* add play button for history tracks ([dd91d4a](https://github.com/tonioriol/scroblebler/commit/dd91d4a9021adf206fff7a42e5e8ea7c9cc6fa14))
+* add sqlite history search ([229588a](https://github.com/tonioriol/scroblebler/commit/229588aa91cef17d81990efc32b5eed96a3be574))
+* add StringSimilarity utility for improved track matching and refactor findBestMatch logic ([30da44b](https://github.com/tonioriol/scroblebler/commit/30da44b6ac479bbe0d3606ac5a54dc05cf83550d))
+* complete Phase 4 by simplifying sync logic, reducing lines and improving code flow ([c33c481](https://github.com/tonioriol/scroblebler/commit/c33c481bb8c0cc36519411c0d4e05e09ad4fb447))
+* complete UI cleanup by removing year field, unifying player controls, and simplifying TrackInfo ([145fbe4](https://github.com/tonioriol/scroblebler/commit/145fbe47718937a05534d4883b1aaec2f40e7452))
+* **database:** add SQLite storage layer with GRDB ([1ec517b](https://github.com/tonioriol/scroblebler/commit/1ec517b953a167f2955ab41ce2429aa266943043))
+* enhance logging and artwork handling in media components ([98766be](https://github.com/tonioriol/scroblebler/commit/98766bef2eecec15c38e59467c273f76554e469b))
+* **history:** show full date on hover ([6f00de9](https://github.com/tonioriol/scroblebler/commit/6f00de956531ffe4b34dbf0fd2dd3b9a8b3ea3e9))
+* implement Jaccard similarity calculation and update similarity scoring method ([e88f917](https://github.com/tonioriol/scroblebler/commit/e88f9171bef34c4202c51c50900991caf68b6524))
+* implement local-first sync engine with Track→Listen migration ([0c20f1f](https://github.com/tonioriol/scroblebler/commit/0c20f1f7695dbdbccfa16158933e3ebd6124f32f))
+* implement offline operation queue and network reachability monitoring ([c9b514c](https://github.com/tonioriol/scroblebler/commit/c9b514cc381bbf48dcdd9c81d5006a5dc02d0eb9))
+* integrate ejbills/mediaremote-adapter Swift package for native media control ([e5293d5](https://github.com/tonioriol/scroblebler/commit/e5293d513c45bf19c026e32a9cc2ff7ba358d75b))
+* open source app from now playing artwork ([f8477e8](https://github.com/tonioriol/scroblebler/commit/f8477e80a05bc6ec3b82ba2e47b73c198274e12b))
+* **phase3:** migrate ListenBrainz cache to SQLite with rate limiting ([5aadafc](https://github.com/tonioriol/scroblebler/commit/5aadafc0af6743d1c8a8cde8a73a80b25ea80a0d))
+* **phase4:** implement persistent blacklist with case-insensitive sync ([b0ae8b0](https://github.com/tonioriol/scroblebler/commit/b0ae8b0b37791592b052c0637ba2567b3e147d86))
+* **playback:** add play controls to now playing view ([af1a590](https://github.com/tonioriol/scroblebler/commit/af1a59001342fac1299597b08bfe506a422463aa))
+* refactor client methods to remove sessionKey parameter and restore credentials on app restart ([6d0d47b](https://github.com/tonioriol/scroblebler/commit/6d0d47b57d6c0d7d48891fe6b34f65d192707c86))
+* replace media-control wrapper with direct mediaremote-adapter integration for real-time streaming ([3f3f768](https://github.com/tonioriol/scroblebler/commit/3f3f76898d7067ab6e8bba75209f061fd01df62e))
+* show error state (X) when track not found in library ([1d02f0f](https://github.com/tonioriol/scroblebler/commit/1d02f0f598b78d130877f3118b52c89e1b6f5c70))
+* simplify track matching logic by focusing on exact timestamp matches ([2be14dc](https://github.com/tonioriol/scroblebler/commit/2be14dc4bda756755e2139dad877818aa58293db))
+* update TODO list with new features and improvements ([c0fa011](https://github.com/tonioriol/scroblebler/commit/c0fa0116557d05342be6469d8e942dbeb0331e23))
+
+
+### Performance Improvements
+
+* optimize artwork loading and reduce verbose logging ([6a0c934](https://github.com/tonioriol/scroblebler/commit/6a0c934a0501e19582a6f36f49c7c361c36312f9))
+* optimize history pagination with timestamp-based queries ([a87bb9b](https://github.com/tonioriol/scroblebler/commit/a87bb9b2821f3586bcb4f34f9e05f875dcd73cb8))
+
+
+### Reverts
+
+* restore original Levenshtein-based track matching with 2-min window and 80% threshold ([2136370](https://github.com/tonioriol/scroblebler/commit/2136370ac7cee9608ff9b1ea695366c6ea42dc5c))
+
+
+### BREAKING CHANGES
+
+* **phase4:** Blacklist data migrated from UserDefaults to SQLite
+
+Features:
+- Case-insensitive artist/track matching
+- Global state synchronization via NotificationCenter
+- Thread-safe UI updates with @MainActor
+- Persistent SQLite storage with GRDB
+- Cross-component sync (NowPlaying ↔ History)
+
+Implementation:
+- LocalBlacklist: Singleton service with async/await API
+- BlacklistButton: Synchronized UI with notification observers
+- GRDB models: Added CodingKeys for snake_case mapping
+- ServiceManager: Blacklist checks before scrobble/now-playing
+- UndoButton: Blacklist checks before redo operations
+
+Fixes:
+- Missing databaseTableName in BlacklistEntry & QueuedOperation
+- Missing CodingKeys enums in all 4 database models
+- Case mismatch between NowPlaying and History APIs
+- Thread safety issues with background notifications
+- View identity management for track changes
+
+Technical Details:
+- Normalize strings to lowercase for comparison
+- Post notifications on main thread
+- Use @MainActor for state updates
+- Force view recreation with .id(trackId)
+- macOS 11.0+ compatible (no .task modifier)
+
+Timeline: 3.5 hours (estimated 2 hours)
+
+Refs: SCROBLEBLER_REFACTOR_PLAN.md Phase 4
+
+# [1.0.0](https://github.com/tonioriol/scroblebler/compare/v0.3.0...v1.0.0) (2026-02-20)
+
+
+### Bug Fixes
+
+* avoid lastfm rate limit during history backfill ([d1872ba](https://github.com/tonioriol/scroblebler/commit/d1872ba67bfb98a02d1f102308031141d72b2e84))
+* balance vertical spacing in now playing view ([3c80d58](https://github.com/tonioriol/scroblebler/commit/3c80d587d67ea75bf142a4e583f73494cf0a019d))
+* correct MediaRemoteAdapter usage and fix duplicate controller instance ([23b8137](https://github.com/tonioriol/scroblebler/commit/23b81376181eefffbac97d5aaa5f80a29ab8e4ae))
+* eliminate progress bar animation jank during seeking ([332e3c8](https://github.com/tonioriol/scroblebler/commit/332e3c879f400464dc61966002c00f75a88c953c))
+* **history:** stabilize list row identity to prevent blank gaps ([0f20e19](https://github.com/tonioriol/scroblebler/commit/0f20e194b9ef7a1bd4f118dab66196d60a079f3c))
+* improve track transition detection and prevent progress bar overflow ([5970618](https://github.com/tonioriol/scroblebler/commit/597061848cd2156eeb76c1fb8dd39081e9ea8352))
+* **listenbrainz:** use track/album fallback search types ([d59d7c7](https://github.com/tonioriol/scroblebler/commit/d59d7c738ede91f26ed30b0376b3d2100f66a3c6))
+* love and blacklist state not updating in now playing view ([fcc317e](https://github.com/tonioriol/scroblebler/commit/fcc317e5c04ce933c8b273224ef4f8c7b4ef46c5))
+* love button now properly toggles and displays state ([f903a65](https://github.com/tonioriol/scroblebler/commit/f903a65448f78828eaf3ba93a09d4eeba89724f8))
+* make services selector clickable when logged out ([27fde7f](https://github.com/tonioriol/scroblebler/commit/27fde7f2b5c334e410a93e7d93c0a4e571f093b6))
+* now playing links go to correct last.fm pages instead of homepage ([08e741f](https://github.com/tonioriol/scroblebler/commit/08e741fb5e186ea9718b8ad8bc95c4b1bb36058e))
+* persist history image url ([9245850](https://github.com/tonioriol/scroblebler/commit/9245850c41a16889dcda271c0b4cd5a979b0e8a3))
+* preserve loved state during non-authoritative sync ([739ce18](https://github.com/tonioriol/scroblebler/commit/739ce1873544b411da02760987b832ef06bc2399))
+* prevent stale now playing state from mediaremote ([38a8ca7](https://github.com/tonioriol/scroblebler/commit/38a8ca785fddb0c5f27d03d7d4b12bc0b36a48d8))
+* propagate undo scrobble to follower services by passing reactive serviceInfo state ([acde2f8](https://github.com/tonioriol/scroblebler/commit/acde2f861bcfc23ab4ee7d1fe19b2e04903d1376))
+* refresh now playing state ([b49661c](https://github.com/tonioriol/scroblebler/commit/b49661c9c22793e96d1b53aa5c7592684faca017))
+* remove focus trap to eliminate input focus lag ([139a922](https://github.com/tonioriol/scroblebler/commit/139a9222dab92c44cf15ab066cb23f96511a06aa))
+* remove stats endpoint from LB cache to prevent double-counting ([9319904](https://github.com/tonioriol/scroblebler/commit/93199040c2307a6db62742a245fcdcd2d841d5cd))
+* respect blacklist in backfill service to prevent syncing to follower services ([e3dfb2e](https://github.com/tonioriol/scroblebler/commit/e3dfb2e9cbda3bc2e4de77919ebc3daacd4d9b72))
+* restore history via db schema + multi-service backfill ([8d34164](https://github.com/tonioriol/scroblebler/commit/8d34164f4519740aceccb2eb559cf8aaa5bfdef4))
+* restore love sync and improve focus handling ([8b2f894](https://github.com/tonioriol/scroblebler/commit/8b2f8940a031160bf74888290ceb317ced0c4f40))
+* restore progress bar drag ([24ca070](https://github.com/tonioriol/scroblebler/commit/24ca070966c638d793e8f4f98a0d060fc1e195b9))
+* smooth now playing to history transition ([3f84b98](https://github.com/tonioriol/scroblebler/commit/3f84b986361eb68d1ab7d20a0d56aaad9395148d))
+* sync icon not refreshing during backfill ([48e75d7](https://github.com/tonioriol/scroblebler/commit/48e75d746b9d6e994f9c69b4f8c5aeecba57ce97))
+* update TODO list with new tasks and completed items ([53f62d0](https://github.com/tonioriol/scroblebler/commit/53f62d0916486651582b28c36af3cf1b2f995232))
+* update Xcode project to reference HistoryPlay.swift ([fe42339](https://github.com/tonioriol/scroblebler/commit/fe4233901e985c0b8ce28fc0e95dba88c0793233))
+* **watcher:** ensure now playing detected on first start ([931028d](https://github.com/tonioriol/scroblebler/commit/931028d3c9402af708aaa5cc0ea3463d40ebc190))
+
+
+### Features
+
+* add bundleIdentifier field to Track model ([f93e68d](https://github.com/tonioriol/scroblebler/commit/f93e68d142761bf841b7640af47099bc77dcd96e))
+* add cache invalidation button for ListenBrainz with immediate rebuild and progress logging ([a370d88](https://github.com/tonioriol/scroblebler/commit/a370d888556c3eb1f933fb5e30d406aa6f410a63))
+* add collapsible service section with slide animation ([7d271ee](https://github.com/tonioriol/scroblebler/commit/7d271ee4951116cba911fe81b9d12a0306cc17f5))
+* add cover art url helper ([b0d9595](https://github.com/tonioriol/scroblebler/commit/b0d9595ece3e729b5edae1ae071ab5d16eae8205))
+* add delete-pending retries for optimistic deletes ([b394406](https://github.com/tonioriol/scroblebler/commit/b394406032a386e60d24ccbc968693c33774981a))
+* add history search ([9006012](https://github.com/tonioriol/scroblebler/commit/9006012decc1552de9b8925758bcae5b3f6dfd94))
+* add play button for history tracks ([dd91d4a](https://github.com/tonioriol/scroblebler/commit/dd91d4a9021adf206fff7a42e5e8ea7c9cc6fa14))
+* add sqlite history search ([229588a](https://github.com/tonioriol/scroblebler/commit/229588aa91cef17d81990efc32b5eed96a3be574))
+* add StringSimilarity utility for improved track matching and refactor findBestMatch logic ([30da44b](https://github.com/tonioriol/scroblebler/commit/30da44b6ac479bbe0d3606ac5a54dc05cf83550d))
+* complete Phase 4 by simplifying sync logic, reducing lines and improving code flow ([c33c481](https://github.com/tonioriol/scroblebler/commit/c33c481bb8c0cc36519411c0d4e05e09ad4fb447))
+* complete UI cleanup by removing year field, unifying player controls, and simplifying TrackInfo ([145fbe4](https://github.com/tonioriol/scroblebler/commit/145fbe47718937a05534d4883b1aaec2f40e7452))
+* **database:** add SQLite storage layer with GRDB ([1ec517b](https://github.com/tonioriol/scroblebler/commit/1ec517b953a167f2955ab41ce2429aa266943043))
+* enhance logging and artwork handling in media components ([98766be](https://github.com/tonioriol/scroblebler/commit/98766bef2eecec15c38e59467c273f76554e469b))
+* **history:** show full date on hover ([6f00de9](https://github.com/tonioriol/scroblebler/commit/6f00de956531ffe4b34dbf0fd2dd3b9a8b3ea3e9))
+* implement Jaccard similarity calculation and update similarity scoring method ([e88f917](https://github.com/tonioriol/scroblebler/commit/e88f9171bef34c4202c51c50900991caf68b6524))
+* implement local-first sync engine with Track→Listen migration ([0c20f1f](https://github.com/tonioriol/scroblebler/commit/0c20f1f7695dbdbccfa16158933e3ebd6124f32f))
+* implement offline operation queue and network reachability monitoring ([c9b514c](https://github.com/tonioriol/scroblebler/commit/c9b514cc381bbf48dcdd9c81d5006a5dc02d0eb9))
+* integrate ejbills/mediaremote-adapter Swift package for native media control ([e5293d5](https://github.com/tonioriol/scroblebler/commit/e5293d513c45bf19c026e32a9cc2ff7ba358d75b))
+* open source app from now playing artwork ([f8477e8](https://github.com/tonioriol/scroblebler/commit/f8477e80a05bc6ec3b82ba2e47b73c198274e12b))
+* **phase3:** migrate ListenBrainz cache to SQLite with rate limiting ([5aadafc](https://github.com/tonioriol/scroblebler/commit/5aadafc0af6743d1c8a8cde8a73a80b25ea80a0d))
+* **phase4:** implement persistent blacklist with case-insensitive sync ([b0ae8b0](https://github.com/tonioriol/scroblebler/commit/b0ae8b0b37791592b052c0637ba2567b3e147d86))
+* **playback:** add play controls to now playing view ([af1a590](https://github.com/tonioriol/scroblebler/commit/af1a59001342fac1299597b08bfe506a422463aa))
+* refactor client methods to remove sessionKey parameter and restore credentials on app restart ([6d0d47b](https://github.com/tonioriol/scroblebler/commit/6d0d47b57d6c0d7d48891fe6b34f65d192707c86))
+* replace media-control wrapper with direct mediaremote-adapter integration for real-time streaming ([3f3f768](https://github.com/tonioriol/scroblebler/commit/3f3f76898d7067ab6e8bba75209f061fd01df62e))
+* show error state (X) when track not found in library ([1d02f0f](https://github.com/tonioriol/scroblebler/commit/1d02f0f598b78d130877f3118b52c89e1b6f5c70))
+* simplify track matching logic by focusing on exact timestamp matches ([2be14dc](https://github.com/tonioriol/scroblebler/commit/2be14dc4bda756755e2139dad877818aa58293db))
+* update TODO list with new features and improvements ([c0fa011](https://github.com/tonioriol/scroblebler/commit/c0fa0116557d05342be6469d8e942dbeb0331e23))
+
+
+### Performance Improvements
+
+* optimize artwork loading and reduce verbose logging ([6a0c934](https://github.com/tonioriol/scroblebler/commit/6a0c934a0501e19582a6f36f49c7c361c36312f9))
+* optimize history pagination with timestamp-based queries ([a87bb9b](https://github.com/tonioriol/scroblebler/commit/a87bb9b2821f3586bcb4f34f9e05f875dcd73cb8))
+
+
+### Reverts
+
+* restore original Levenshtein-based track matching with 2-min window and 80% threshold ([2136370](https://github.com/tonioriol/scroblebler/commit/2136370ac7cee9608ff9b1ea695366c6ea42dc5c))
+
+
+### BREAKING CHANGES
+
+* **phase4:** Blacklist data migrated from UserDefaults to SQLite
+
+Features:
+- Case-insensitive artist/track matching
+- Global state synchronization via NotificationCenter
+- Thread-safe UI updates with @MainActor
+- Persistent SQLite storage with GRDB
+- Cross-component sync (NowPlaying ↔ History)
+
+Implementation:
+- LocalBlacklist: Singleton service with async/await API
+- BlacklistButton: Synchronized UI with notification observers
+- GRDB models: Added CodingKeys for snake_case mapping
+- ServiceManager: Blacklist checks before scrobble/now-playing
+- UndoButton: Blacklist checks before redo operations
+
+Fixes:
+- Missing databaseTableName in BlacklistEntry & QueuedOperation
+- Missing CodingKeys enums in all 4 database models
+- Case mismatch between NowPlaying and History APIs
+- Thread safety issues with background notifications
+- View identity management for track changes
+
+Technical Details:
+- Normalize strings to lowercase for comparison
+- Post notifications on main thread
+- Use @MainActor for state updates
+- Force view recreation with .id(trackId)
+- macOS 11.0+ compatible (no .task modifier)
+
+Timeline: 3.5 hours (estimated 2 hours)
+
+Refs: SCROBLEBLER_REFACTOR_PLAN.md Phase 4
+
 # [0.3.0](https://github.com/tonioriol/scroblebler/compare/v0.2.1...v0.3.0) (2025-12-28)
 
 
