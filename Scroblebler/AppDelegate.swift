@@ -81,6 +81,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             SyncEngine.shared.scheduleProcessPending(reason: "launch")
         }
 
+        // Backfill plays from Music.app (catches iPhone/HomePod/CarPlay plays synced via iCloud)
+        if #available(macOS 14.0, *) {
+            MusicLibraryBackfill.shared.start()
+        }
+
         NSApp.activate(ignoringOtherApps: true)
     }
 

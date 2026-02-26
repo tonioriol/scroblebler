@@ -137,6 +137,7 @@ on their repository](https://github.com/lastfm/lastfm-desktop/blob/9ae84cf4ab204
 - [ ] Fix credits in files.
 - [ ] display full date on hover.
 - [ ] Filter out youtube (or any other non music from browser crap) (use AI?)
+- [ ] Edit scrobbles (for fixing wrong metadata, or adding missing info). Maybe keep the rule (search/replace or something like that) and allow for future automatic uses and backward fixing.
 
 ## License
 

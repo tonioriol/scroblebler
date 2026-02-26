@@ -26,5 +26,7 @@
 	<string></string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSAppleMusicUsageDescription</key>
+	<string>Scroblebler reads your music library to backfill plays from other devices (iPhone, HomePod, CarPlay).</string>
 </dict>
 </plist>
