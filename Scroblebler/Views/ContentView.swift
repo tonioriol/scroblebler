@@ -41,8 +41,7 @@ struct ContentView: View {
             // Check if track info arrived before callbacks were set
             watcher.refreshCurrentState()
 
-            // Best-effort: try to flush any pending backlog when the app starts.
-            syncEngine.scheduleProcessPending(reason: "app_start")
+            // processPending is triggered from AppDelegate after web auth completes
         }
     }
 }

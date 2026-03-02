@@ -190,35 +190,21 @@ class LastFmClient: ObservableObject, ScrobbleClient {
             throw Error.apiError(6, "Missing timestamp for scrobble deletion")
         }
 
-        // Try API method first
-        do {
-            _ = try await executeRequest(method: "library.removeScrobble", args: [
-                "artist": identifier.artist,
-                "track": identifier.track,
-                "timestamp": String(timestamp),
-                "sk": sessionKey
-            ])
-            Logger.info("Deleted scrobble via API: \(identifier.artist) - \(identifier.track)", log: Logger.scrobbling)
-        } catch {
-            Logger.error("Last.fm API deletion failed: \(error)", log: Logger.scrobbling)
-
-            // If API fails and web client is authenticated, try web deletion
-            if let webClient = webClient, webClient.isAuthenticated,
-               let username = self.username {
-                Logger.debug("Attempting web deletion for \(identifier.artist) - \(identifier.track)", log: Logger.scrobbling)
-                try await webClient.deleteScrobble(
-                    username: username,
-                    artist: identifier.artist,
-                    track: identifier.track,
-                    timestamp: timestamp
-                )
-                return // Successfully deleted via web
-            } else {
-                Logger.error("Web client not available for deletion", log: Logger.scrobbling)
-                // Re-throw the original error if web client is not available
-                throw error
-            }
+        // library.removeScrobble API is deprecated — use web client directly
+        guard let webClient = webClient, webClient.isAuthenticated,
+              let username = self.username else {
+            Logger.error("Web client not available for deletion (not yet authenticated?)", log: Logger.scrobbling)
+            throw Error.apiError(29, "Last.fm web client not authenticated — will retry")
         }
+
+        Logger.debug("Deleting scrobble via web client: \(identifier.artist) - \(identifier.track)", log: Logger.scrobbling)
+        try await webClient.deleteScrobble(
+            username: username,
+            artist: identifier.artist,
+            track: identifier.track,
+            timestamp: timestamp
+        )
+        Logger.info("Deleted scrobble via web client: \(identifier.artist) - \(identifier.track)", log: Logger.scrobbling)
     }
 
     // MARK: - Web Client Management

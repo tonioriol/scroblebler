@@ -16,12 +16,26 @@ class SyncEngine {
 
     private var isProcessingPending = false
     private var scheduledProcessTask: Task<Void, Never>?
+    private var periodicSyncTask: Task<Void, Never>?
     private let maxRetryCount = 3
 
     init(store: ListenStore, scrobbleManager: ScrobbleManager, offlineQueue: OfflineQueue) {
         self.store = store
         self.scrobbleManager = scrobbleManager
         self.offlineQueue = offlineQueue
+    }
+
+    /// Start a background timer that retries pending/failed operations every 60 seconds.
+    /// Independent of UI events (popover, network) so stale items don't get stuck.
+    func startPeriodicSync() {
+        guard periodicSyncTask == nil else { return }
+        periodicSyncTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 60_000_000_000) // 60s
+                guard let self else { break }
+                await self.processPending()
+            }
+        }
     }
 
     /// Convenience initializer that is safe with MainActor isolation.
@@ -60,6 +74,18 @@ class SyncEngine {
         let trimmedTrack = nowPlaying.track.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedArtist.isEmpty, !trimmedTrack.isEmpty else {
             Logger.debug("SyncEngine.scrobble skipped (missing artist/track)", log: Logger.scrobbling)
+            return
+        }
+
+        // Validate that this is real music (not a YouTube video, podcast, etc.)
+        let isMusic = await MusicValidator.shared.shouldScrobble(
+            artist: trimmedArtist,
+            track: trimmedTrack,
+            album: nowPlaying.album,
+            sourceBundle: nowPlaying.sourceBundle
+        )
+        guard isMusic else {
+            Logger.info("SyncEngine.scrobble skipped (not music): \(trimmedArtist) - \(trimmedTrack)", log: Logger.scrobbling)
             return
         }
 

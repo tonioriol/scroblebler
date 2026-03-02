@@ -67,18 +67,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             }
         }
 
-        // Auto-authenticate Last.fm web client if password is stored in Keychain
-        Task {
-            await ScrobbleManager.shared.autoAuthenticateLastFmWebClient()
-        }
-
         // Initialize network reachability monitoring
         _ = Reachability.shared
 
-        // Opportunistically flush any local pending listens once at app launch.
-        // (No-op if offline.)
+        // Auto-authenticate Last.fm web client, then flush pending listens.
+        // Sequential to avoid race where deletes run before web client is ready.
         Task { @MainActor in
+            await ScrobbleManager.shared.autoAuthenticateLastFmWebClient()
             SyncEngine.shared.scheduleProcessPending(reason: "launch")
+            SyncEngine.shared.startPeriodicSync()
         }
 
         // Backfill plays from Music.app (catches iPhone/HomePod/CarPlay plays synced via iCloud)
