@@ -81,8 +81,19 @@ Scroblebler is a macOS menu bar app that scrobbles to Last.fm, Libre.fm, and Lis
     3. `ContentView` — removed redundant `app_start` processPending trigger that raced with AppDelegate's sequential flow
   * Key info: All 32 non-music scrobbles successfully deleted from both Last.fm and ListenBrainz. 16 legitimate music entries remain (Vladimir Cosma, Roberto Carlos, Kangding Ray).
 
+* **2026-03-02 23:05 - Fixed soft-delete resurrection bug: deleted items re-imported by sync**
+ * Why: Previously deleted non-music items (Hasan Minhaj, PrimeTime, EspañaXDescubrir) reappeared in DB after sync. Two root causes: (1) `importAndMergeHistoryPage()` merge loop overwrote local `deleted`/`deletePending` states with remote `synced` state. (2) `pruneFullyDeleted()` hard-deleted tombstone rows, so on next sync the remote listen had no local match and got re-inserted as new.
+ * How: Four changes:
+   1. **Removed `pruneFullyDeleted()` call** in `SyncEngine.processPending()` — soft-deleted rows are now permanent tombstones, never hard-deleted. Soft-delete is the source of truth.
+   2. **Protected delete states during merge** in `importAndMergeHistoryPage()` — if any service has a delete-related status (`.deleted`, `.deletePending`, `.deleteFailed`), the entire listen merge is skipped. Individual service states with delete status are also never overwritten.
+   3. **Protected delete states in `SyncEngine.reconcile()`** — same skip logic for the reconcile path.
+   4. **Added MusicValidator on remote imports** — new listens imported from remote services are validated through MusicValidator before insertion. Non-music content (no MBID match, no album) is blocked.
+ * Key info: 7 non-music items had re-appeared (5x Hasan Minhaj, 1x EspañaXDescubrir, 1x The PrimeTime). All marked `deletePending`, app processed them successfully — deleted from LB, marked deleted locally. Rows remain as tombstones.
+ * Files: Scroblebler/Services/SyncEngine.swift, Scroblebler/Views/MainView.swift, Scroblebler/Services/ListenStore.swift
+
 ## Next Steps
 
 - [x] ~~Add periodic processPending timer~~ — Done: 60s timer in `SyncEngine.startPeriodicSync()`, triggered from `AppDelegate`
+- [x] ~~Fix soft-delete resurrection bug~~ — Done: see event log 2026-03-02 23:05
 - [ ] Monitor MusicValidator logs for false positives/negatives over time
 - [ ] Consider adding Last.fm track.search as secondary validator if MBID Mapper proves unreliable

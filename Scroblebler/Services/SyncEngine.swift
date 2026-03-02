@@ -184,18 +184,28 @@ class SyncEngine {
             }
         }
 
-        // Opportunistically clean up rows that are fully deleted across all enabled services.
-        await store.pruneFullyDeleted(enabledServices: enabledServices)
+        // Soft-deleted rows are kept as tombstones to prevent re-import during sync.
+        // No hard-delete pruning — soft-delete is the source of truth.
     }
 
     /// Reconcile local with remote
     func reconcile(remoteListens: [Listen], service: ScrobbleService) async {
         Logger.info("🔄 SyncEngine.reconcile: Starting for \(service.rawValue)", log: Logger.sync)
 
+        let deleteStatuses: Set<ServiceSyncState.Status> = [.deleted, .deletePending, .deleteFailed]
+
         for remoteListen in remoteListens {
             do {
                 // 1. Find local match by canonicalKey + timestamp window
                 if let localListen = try await findLocalMatch(for: remoteListen) {
+                    // Skip merge if the listen is soft-deleted locally.
+                    // Soft-delete is the source of truth — remote stale data must not resurrect it.
+                    let hasDeleteState = localListen.services.values.contains { deleteStatuses.contains($0.status) }
+                    if hasDeleteState {
+                        Logger.debug("🔄 Skipping reconcile for soft-deleted: \(remoteListen.track)", log: Logger.sync)
+                        continue
+                    }
+
                     // 2. Match found - merge service identifiers
                     await mergeServiceIdentifiers(local: localListen, remote: remoteListen, service: service)
 
