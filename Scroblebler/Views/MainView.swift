@@ -450,36 +450,51 @@ struct MainView: View {
 
         Task {
             do {
+                // 1. Render from SQLite immediately — no network calls.
                 try await listenStore.refreshHistory(limit: uiPageSize)
 
-                // Restore pre-local-history behavior: history artwork came from the service response.
-                // Now that history is local-first, older DB rows may be missing `releaseMbid` and/or
-                // `imageUrl` until we merge a fresh page from the enabled services.
-                let needsArtworkRefresh = listenStore.history.prefix(uiPageSize).contains { listen in
-                    let hasRelease = (listen.releaseMbid?.isEmpty == false)
-                    let hasImageUrl = (listen.imageUrl?.isEmpty == false)
-                    return !hasRelease && !hasImageUrl
-                }
-                if needsArtworkRefresh {
-                    _ = try? await importAndMergeHistoryPage(page: 1, limit: min(20, uiPageSize))
-                    try? await listenStore.refreshHistory(limit: uiPageSize)
-                }
-
-                // Render from SQLite immediately, then run background backfill until the beginning.
                 let total = try await listenStore.countListens()
-                let startPage = backfillStartPage(totalListens: total)
                 await MainActor.run {
                     hasMoreTracks = total > historyTracks.count || isBackfillingHistory
-                    startHistoryBackfillIfNeeded(startPage: startPage, limitPerPage: backfillPageSize)
                 }
 
-                // Preload in background without blocking
+                // 2. Preload cached images without blocking.
                 Task.detached {
                     await self.preloadImages(for: self.historyTracks)
+                }
+
+                // 3. Background: refresh artwork metadata from services if needed,
+                //    then kick off history backfill. None of this blocks the initial render.
+                Task.detached { @MainActor in
+                    await self.backgroundArtworkAndBackfill()
                 }
             } catch {
                 Logger.error("Failed to load recent tracks: \(error)", log: Logger.ui)
             }
+        }
+    }
+
+    /// Runs after the initial render: refreshes artwork metadata from remote services
+    /// and starts the history backfill. Fully non-blocking to the UI.
+    @MainActor
+    private func backgroundArtworkAndBackfill() async {
+        do {
+            let needsArtworkRefresh = listenStore.history.prefix(uiPageSize).contains { listen in
+                let hasRelease = (listen.releaseMbid?.isEmpty == false)
+                let hasImageUrl = (listen.imageUrl?.isEmpty == false)
+                return !hasRelease && !hasImageUrl
+            }
+            if needsArtworkRefresh {
+                _ = try? await importAndMergeHistoryPage(page: 1, limit: min(20, uiPageSize))
+                try? await listenStore.refreshHistory(limit: uiPageSize)
+            }
+
+            let total = try await listenStore.countListens()
+            let startPage = backfillStartPage(totalListens: total)
+            hasMoreTracks = total > historyTracks.count || isBackfillingHistory
+            startHistoryBackfillIfNeeded(startPage: startPage, limitPerPage: backfillPageSize)
+        } catch {
+            Logger.error("Background artwork/backfill failed: \(error)", log: Logger.ui)
         }
     }
 
@@ -602,6 +617,7 @@ struct MainView: View {
         }
 
         // Merge/dedup into SQLite
+        let deleteStatuses: Set<ServiceSyncState.Status> = [.deleted, .deletePending, .deleteFailed]
         for listen in remoteListens {
             do {
                 if let existing = try await listenStore.findByTimestamp(
@@ -609,12 +625,25 @@ struct MainView: View {
                     track: listen.track,
                     timestamp: listen.listenedAt
                 ) {
+                    // If the listen is soft-deleted locally, skip the merge entirely.
+                    // Soft-delete is the source of truth — remote stale data must not resurrect it.
+                    let hasDeleteState = existing.services.values.contains { deleteStatuses.contains($0.status) }
+                    if hasDeleteState {
+                        Logger.debug("Skipping merge for soft-deleted listen: \(listen.artist) - \(listen.track)", log: Logger.sync)
+                        continue
+                    }
+
                     var updated = existing
 
                     var didChange = false
 
-                    // Merge per-service states
+                    // Merge per-service states, but NEVER overwrite delete-related statuses
                     for (service, state) in listen.services {
+                        let existingStatus = updated.services[service]?.status
+                        if let existingStatus, deleteStatuses.contains(existingStatus) {
+                            // Preserve local delete state — do not overwrite with remote synced
+                            continue
+                        }
                         if updated.services[service] != state {
                             updated.services[service] = state
                             didChange = true
@@ -653,6 +682,19 @@ struct MainView: View {
                         try await listenStore.update(updated)
                     }
                 } else {
+                    // Validate that this is real music before importing from remote.
+                    // Non-music content (YouTube videos, podcasts) must not pollute the DB.
+                    let isMusic = await MusicValidator.shared.shouldScrobble(
+                        artist: listen.artist,
+                        track: listen.track,
+                        album: listen.album,
+                        sourceBundle: nil  // Remote imports have no source bundle
+                    )
+                    if !isMusic {
+                        Logger.info("Skipping non-music remote import: \(listen.artist) - \(listen.track)", log: Logger.sync)
+                        continue
+                    }
+
                     _ = try await listenStore.insert(listen)
                 }
             } catch {

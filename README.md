@@ -136,8 +136,8 @@ on their repository](https://github.com/lastfm/lastfm-desktop/blob/9ae84cf4ab204
 - [x] Display full date on hover.
 - [x] Detect non music playback (from browser, podcasts, videos, system sounds) — MusicValidator with MBID Mapper.
 - [x] Filter out YouTube / non-music browser content — MusicValidator fail-closed for untrusted sources.
-- [ ] Local-first storage + sync engine (store scrobbles locally, offline queue, background sync to multiple services). This should fix ListenBrainz cache losing scrobbles, enable retry for unsynced scrobbles, make undo/sync state consistent, and allow caching history locally.
-- [ ] Taking 10+ seconds to load.
+- [x] Local-first storage + sync engine (store scrobbles locally, offline queue, background sync to multiple services). This should fix ListenBrainz cache losing scrobbles, enable retry for unsynced scrobbles, make undo/sync state consistent, and allow caching history locally.
+- [x] Taking 10+ seconds to load.
 - [ ] Stop the constant reloading of images on scroll in history view.
 - [ ] Fix progress bar jumping UI, animation of bar screwing up when opening/closing app.
 - [ ] Stop requesting images and stuff every time we click in the progress bar.

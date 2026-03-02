@@ -70,12 +70,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         // Initialize network reachability monitoring
         _ = Reachability.shared
 
-        // Auto-authenticate Last.fm web client, then flush pending listens.
-        // Sequential to avoid race where deletes run before web client is ready.
+        // Start periodic sync immediately so scrobbles/retries aren't blocked.
+        // Web auth runs in background — deletes that need the web client will be
+        // retried by the periodic sync once it's ready.
         Task { @MainActor in
-            await ScrobbleManager.shared.autoAuthenticateLastFmWebClient()
             SyncEngine.shared.scheduleProcessPending(reason: "launch")
             SyncEngine.shared.startPeriodicSync()
+        }
+        Task {
+            await ScrobbleManager.shared.autoAuthenticateLastFmWebClient()
         }
 
         // Backfill plays from Music.app (catches iPhone/HomePod/CarPlay plays synced via iCloud)
