@@ -16,12 +16,13 @@ Scroblebler is a native macOS application that scrobbles tracks from any media p
 - **Blacklist Management**: Blacklist tracks to prevent unwanted scrobbles
 - **Undo Support**: Undo recent scrobbles with reliable web-based Last.fm deletion
 - **Play Count Display**: View play counts for your tracks
-- **Listening History**: Browse your recent scrobbles with detailed track information and links
+- **Listening History**: Browse your full scrobble history with infinite scroll, offset-based pagination, and background backfill
 - **Profile View**: View your scrobbling profile with avatar and statistics
-- **Album Artwork**: Display beautiful album artwork
+- **Album Artwork**: Display album artwork with disk-persistent caching and Last.fm fallback
 - **Now Playing**: Real-time now playing updates
 - **Launch at Startup**: Automatically start scrobbling when you log in
 - **Offline Queue**: Scrobbles are queued when offline and synced when connectivity returns
+- **Fast Startup**: UI renders instantly — network calls happen in the background
 
 ## Screenshot
 
@@ -138,9 +139,9 @@ on their repository](https://github.com/lastfm/lastfm-desktop/blob/9ae84cf4ab204
 - [x] Filter out YouTube / non-music browser content — MusicValidator fail-closed for untrusted sources.
 - [x] Local-first storage + sync engine (store scrobbles locally, offline queue, background sync to multiple services). This should fix ListenBrainz cache losing scrobbles, enable retry for unsynced scrobbles, make undo/sync state consistent, and allow caching history locally.
 - [x] Taking 10+ seconds to load.
-- [ ] Stop the constant reloading of images on scroll in history view.
-- [ ] Fix progress bar jumping UI, animation of bar screwing up when opening/closing app.
-- [ ] Stop requesting images and stuff every time we click in the progress bar.
+- [x] Stop the constant reloading of images on scroll in history view.
+- [x] Fix progress bar jumping UI, animation of bar screwing up when opening/closing app.
+- [x] Stop requesting images and stuff every time we click in the progress bar.
 - [ ] Fix UI for password request for Last.fm.
 - [ ] Display blacklisted tracks somewhere, otherwise we have no way of knowing which tracks were blacklisted.
 - [ ] Auto-update.
