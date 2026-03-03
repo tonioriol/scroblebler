@@ -1,41 +1,63 @@
 import Foundation
-import AppKit
+import CryptoKit
 
-@MainActor
-class ImageCache: ObservableObject {
+final class ImageCache: @unchecked Sendable {
     static let shared = ImageCache()
-    
-    private var cache: [String: Data] = [:]
-    private let maxCacheSize = 100
-    private var accessOrder: [String] = []
-    
-    private init() {}
-    
+
+    private let lock = NSLock()
+    private var memory: [String: Data] = [:]
+    private var failedURLs = Set<String>()
+    private let diskDir: URL
+
+    private init() {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        diskDir = appSupport.appendingPathComponent("Scroblebler/ImageCache", isDirectory: true)
+        try? FileManager.default.createDirectory(at: diskDir, withIntermediateDirectories: true)
+    }
+
     func get(_ url: String) -> Data? {
-        guard let data = cache[url] else { return nil }
-        
-        // Update access order (LRU)
-        if let index = accessOrder.firstIndex(of: url) {
-            accessOrder.remove(at: index)
+        lock.lock()
+        if let data = memory[url] {
+            lock.unlock()
+            return data
         }
-        accessOrder.append(url)
-        
+        lock.unlock()
+
+        // Try disk
+        let path = diskPath(for: url)
+        guard let data = try? Data(contentsOf: path) else { return nil }
+        lock.lock()
+        memory[url] = data
+        lock.unlock()
         return data
     }
-    
+
     func set(_ url: String, data: Data) {
-        // Evict oldest if cache is full
-        if cache.count >= maxCacheSize, let oldestUrl = accessOrder.first {
-            cache.removeValue(forKey: oldestUrl)
-            accessOrder.removeFirst()
+        lock.lock()
+        memory[url] = data
+        lock.unlock()
+        // Write to disk in background
+        let path = diskPath(for: url)
+        DispatchQueue.global(qos: .utility).async {
+            try? data.write(to: path, options: .atomic)
         }
-        
-        cache[url] = data
-        accessOrder.append(url)
     }
-    
-    func clear() {
-        cache.removeAll()
-        accessOrder.removeAll()
+
+    func isFailed(_ url: String) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return failedURLs.contains(url)
+    }
+
+    func markFailed(_ url: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        failedURLs.insert(url)
+    }
+
+    private func diskPath(for url: String) -> URL {
+        let hash = SHA256.hash(data: Data(url.utf8))
+        let name = hash.compactMap { String(format: "%02x", $0) }.joined()
+        return diskDir.appendingPathComponent(name)
     }
 }

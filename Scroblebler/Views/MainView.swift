@@ -791,25 +791,52 @@ struct MainView: View {
     private func preloadImages(for listens: [Listen]) async {
         await withTaskGroup(of: Void.self) { group in
             for listen in listens {
-                guard let releaseMbid = listen.releaseMbid else { continue }
-                let imageUrl = CoverArt.coverArtArchiveFrontURL(releaseMbid: releaseMbid, size: 250)
+                let artist = listen.artist
+                let album = listen.album
 
-                group.addTask {
-                    // Check if already cached
-                    let cached = await MainActor.run { ImageCache.shared.get(imageUrl) }
-                    if cached != nil {
-                        return
-                    }
+                if let releaseMbid = listen.releaseMbid {
+                    let imageUrl = CoverArt.coverArtArchiveFrontURL(releaseMbid: releaseMbid, size: 250)
+                    guard ImageCache.shared.get(imageUrl) == nil,
+                          !ImageCache.shared.isFailed(imageUrl) else { continue }
 
-                    // Load from network
-                    guard let url = URL(string: imageUrl) else { return }
-                    do {
-                        let (data, _) = try await URLSession.shared.data(from: url)
-                        await MainActor.run {
-                            ImageCache.shared.set(imageUrl, data: data)
+                    group.addTask {
+                        guard let url = URL(string: imageUrl) else { return }
+                        do {
+                            let (data, response) = try await URLSession.shared.data(from: url)
+                            if let http = response as? HTTPURLResponse, http.statusCode == 404 {
+                                ImageCache.shared.markFailed(imageUrl)
+                                // Try Last.fm fallback during preload
+                                if let fallbackUrl = await CoverArt.lastFmImageUrl(artist: artist, album: album),
+                                   let fUrl = URL(string: fallbackUrl) {
+                                    if let (fData, _) = try? await URLSession.shared.data(from: fUrl) {
+                                        let cacheKey = "lastfm:\(artist)|\(album)"
+                                        ImageCache.shared.set(cacheKey, data: fData)
+                                        ImageCache.shared.set(imageUrl, data: fData)
+                                    }
+                                }
+                            } else {
+                                ImageCache.shared.set(imageUrl, data: data)
+                            }
+                        } catch {
+                            // Silently fail - not critical
                         }
-                    } catch {
-                        // Silently fail - not critical
+                    }
+                } else {
+                    // No releaseMbid — try Last.fm directly
+                    let cacheKey = "lastfm:\(artist)|\(album)"
+                    guard !artist.isEmpty, !album.isEmpty,
+                          ImageCache.shared.get(cacheKey) == nil,
+                          !ImageCache.shared.isFailed(cacheKey) else { continue }
+
+                    group.addTask {
+                        if let fallbackUrl = await CoverArt.lastFmImageUrl(artist: artist, album: album),
+                           let url = URL(string: fallbackUrl) {
+                            if let (data, _) = try? await URLSession.shared.data(from: url) {
+                                ImageCache.shared.set(cacheKey, data: data)
+                            }
+                        } else {
+                            ImageCache.shared.markFailed(cacheKey)
+                        }
                     }
                 }
             }

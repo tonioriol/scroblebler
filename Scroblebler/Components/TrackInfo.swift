@@ -141,7 +141,7 @@ struct TrackInfo<ActionButtons: View, ArtworkOverlay: View>: View {
                     if let imageData = artworkImageData {
                         AlbumArtwork(imageData: imageData, size: artworkSize)
                     } else {
-                        AlbumArtwork(imageUrl: artworkImageUrl, size: artworkSize)
+                        AlbumArtwork(imageUrl: artworkImageUrl, size: artworkSize, artist: artist, album: album, trackName: trackName)
                     }
                 }
                 .onTapGesture { openSourceAppIfPossible() }
