@@ -53,8 +53,15 @@ class ListenStore: ObservableObject {
 
     // MARK: - History Management
 
-    /// Replace history (for page 1 refresh)
+    /// Replace history (for page 1 refresh).
+    /// Skips the assignment when the ID sequence is unchanged to avoid unnecessary SwiftUI diffs.
     func setHistory(_ listens: [Listen]) {
+        let oldIDs = history.map { $0.id }
+        let newIDs = listens.map { $0.id }
+        guard oldIDs != newIDs else {
+            Logger.debug("setHistory skipped: \(listens.count) listens unchanged", log: Logger.sync)
+            return
+        }
         history = listens
         Logger.info("Set history: \(listens.count) listens", log: Logger.sync)
     }
@@ -66,6 +73,16 @@ class ListenStore: ObservableObject {
         let newListens = listens.filter { !existingKeys.contains($0.canonicalKey) }
         history = history + newListens
         Logger.info("Appended \(newListens.count) listens to history", log: Logger.sync)
+    }
+
+    /// Trim oldest (front) items to keep memory bounded. Returns how many were removed.
+    @discardableResult
+    func trimHistoryFront(keepLast count: Int) -> Int {
+        guard history.count > count else { return 0 }
+        let excess = history.count - count
+        history.removeFirst(excess)
+        Logger.info("Trimmed \(excess) items from front of history (now \(history.count))", log: Logger.sync)
+        return excess
     }
 
     /// Clear all history
@@ -352,22 +369,23 @@ class ListenStore: ObservableObject {
 
     /// Get recent listens, excluding listens that are fully deleted across all enabled services.
     func getRecentVisible(limit: Int, enabledServices: [ScrobbleService]) async throws -> [Listen] {
-        let listens = try await getRecent(limit: max(100, limit * 3)) // over-fetch a bit to account for filtering
+        return try await getRecentVisible(limit: limit, offset: 0, enabledServices: enabledServices)
+    }
+
+    /// Get recent visible listens with offset for deep pagination.
+    func getRecentVisible(limit: Int, offset: Int, enabledServices: [ScrobbleService]) async throws -> [Listen] {
         let enabledKeys = Set(enabledServices.map { $0.rawValue })
 
-        let visible = listens.filter { listen in
-            // Only consider enabled services when deciding if the listen should be visible.
-            for serviceKey in enabledKeys {
-                let status = listen.services[serviceKey]?.status
-                if status != .deleted {
-                    return true
-                }
-            }
-            // If there are no enabled services, keep it visible.
-            return enabledKeys.isEmpty
+        // Over-fetch to account for filtering out deleted listens.
+        let fetchLimit = max(100, limit * 3)
+        let listens = try await db.asyncRead { db in
+            try Listen
+                .order(Listen.Columns.listenedAt.desc)
+                .limit(fetchLimit, offset: offset)
+                .fetchAll(db)
         }
 
-        return Array(visible.prefix(limit))
+        return Array(listens.filter { isVisible($0, enabledKeys: enabledKeys) }.prefix(limit))
     }
 
     /// Search listens by artist/track/album in SQLite.
@@ -399,17 +417,15 @@ class ListenStore: ObservableObject {
                 .fetchAll(db)
         }
 
-        let visible = listens.filter { listen in
-            for serviceKey in enabledKeys {
-                let status = listen.services[serviceKey]?.status
-                if status != .deleted {
-                    return true
-                }
-            }
-            return enabledKeys.isEmpty
-        }
+        return Array(listens.filter { isVisible($0, enabledKeys: enabledKeys) }.prefix(limit))
+    }
 
-        return Array(visible.prefix(limit))
+    // MARK: - Visibility Filter
+
+    /// A listen is visible when at least one enabled service has NOT deleted it.
+    private func isVisible(_ listen: Listen, enabledKeys: Set<String>) -> Bool {
+        guard !enabledKeys.isEmpty else { return true }
+        return enabledKeys.contains { listen.services[$0]?.status != .deleted }
     }
 
     /// Total listens in local database
@@ -489,12 +505,33 @@ class ListenStore: ObservableObject {
         }
     }
 
-    /// Refresh history from SQLite
+    /// Refresh history from SQLite (always from the top / newest).
     func refreshHistory(limit: Int) async throws {
         let enabled = Defaults.shared.enabledServices.map { $0.service }
         let listens = try await getRecentVisible(limit: limit, enabledServices: enabled)
-        await MainActor.run {
-            self.setHistory(listens)
+        setHistory(listens)
+    }
+
+    /// Fetch the next page from SQLite and append to in-memory history.
+    /// Returns the number of new (deduplicated) items added.
+    @discardableResult
+    func loadMoreHistory(limit: Int, offset: Int) async throws -> Int {
+        let enabled = Defaults.shared.enabledServices.map { $0.service }
+        let newListens = try await getRecentVisible(limit: limit, offset: offset, enabledServices: enabled)
+
+        let existingIDs = Set(history.compactMap { $0.id })
+        let unique = newListens.filter { $0.id == nil || !existingIDs.contains($0.id!) }
+        guard !unique.isEmpty else { return 0 }
+
+        history += unique
+        Logger.info("Appended \(unique.count) listens to history (offset=\(offset))", log: Logger.sync)
+        return unique.count
+    }
+
+    /// Oldest listen timestamp in the local database (smallest listenedAt value).
+    func oldestTimestamp() async throws -> Int? {
+        try await db.asyncRead { db in
+            try Int.fetchOne(db, sql: "SELECT MIN(listenedAt) FROM listen")
         }
     }
 

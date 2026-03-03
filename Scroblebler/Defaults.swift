@@ -10,6 +10,7 @@ class Defaults: ObservableObject {
         static let historyBackfillLastAttemptAt = "historyBackfillLastAttemptAt"
         static let historyBackfillLastSuccessAt = "historyBackfillLastSuccessAt"
         static let historyBackfillLastError = "historyBackfillLastError"
+        static let historyBackfillComplete = "historyBackfillComplete"
     }
 
     @Published var firstRun: Bool {
@@ -231,6 +232,15 @@ class Defaults: ObservableObject {
                 defaults.removeObject(forKey: Keys.historyBackfillLastError)
             }
         }
+    }
+
+    /// Whether the full history backfill has reached the end of remote data.
+    /// Unlike `historyBackfillLastSuccessAt`, this is only set when the backfill truly exhausted
+    /// all remote pages (fetchedCount < limitPerPage). It is NOT set when backfill completes
+    /// partially due to errors.
+    var historyBackfillComplete: Bool {
+        get { defaults.bool(forKey: Keys.historyBackfillComplete) }
+        set { defaults.set(newValue, forKey: Keys.historyBackfillComplete) }
     }
 
     // Legacy properties for backward compatibility with views

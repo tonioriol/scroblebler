@@ -25,6 +25,7 @@ struct MainView: View {
     @State private var isHistorySearchFocused = false
     @State private var shouldShowHistorySearchBar = true
     @State private var lastHistoryScrollOffsetY: CGFloat = 0
+    @State private var historyOffset: Int = 0
 
     // History backfill state (remote → local)
     @State private var backfillTask: Task<Void, Never>?
@@ -39,7 +40,7 @@ struct MainView: View {
     }
 
     private var filteredHistoryTracks: [Listen] {
-        isSearchingHistory ? historySearchResults : historyTracks
+        (isSearchingHistory && hasHistorySearchText) ? historySearchResults : historyTracks
     }
 
     private var hasHistorySearchText: Bool {
@@ -312,7 +313,8 @@ struct MainView: View {
                             isSearchingHistory = false
                             historySearchResults = []
                             Task {
-                                try? await listenStore.refreshHistory(limit: max(uiPageSize, currentPage * uiPageSize))
+                                // Restore the full history from page 1 through current offset.
+                                try? await listenStore.refreshHistory(limit: historyOffset + uiPageSize)
                                 let total = try? await listenStore.countListens()
                                 await MainActor.run {
                                     hasMoreTracks = (total ?? 0) > historyTracks.count || isBackfillingHistory
@@ -365,10 +367,7 @@ struct MainView: View {
                         ForEach(Array(visible.enumerated()), id: \.element.historyIdentity) { index, track in
                             HistoryItem(track: track)
                                 .onAppear {
-                                    // Only auto-paginate when not filtering.
-                                    let isFiltering = isSearchingHistory
-                                    let isLastItem = index == visible.count - 1
-                                    if !isFiltering && isLastItem && !isLoadingMore && hasMoreTracks {
+                                    if !hasHistorySearchText && index == visible.count - 1 && !isLoadingMore && hasMoreTracks {
                                         loadMoreTracks()
                                     }
                                 }
@@ -446,6 +445,7 @@ struct MainView: View {
 
     private func loadRecentTracks() {
         currentPage = 1
+        historyOffset = 0
         hasMoreTracks = true
 
         Task {
@@ -502,10 +502,8 @@ struct MainView: View {
     private func startHistoryBackfillIfNeeded(startPage: Int, limitPerPage: Int) {
         guard !isBackfillingHistory else { return }
 
-        // If we've already completed a full backfill in a previous session, don't keep hammering
-        // remote APIs on every app/popup open. Users can still refresh the visible UI page from
-        // SQLite; backfill is a one-time import.
-        guard defaults.historyBackfillLastSuccessAt == nil else { return }
+        // Only skip if we've truly exhausted all remote history pages.
+        guard !defaults.historyBackfillComplete else { return }
 
         if let task = backfillTask, !task.isCancelled {
             return
@@ -544,15 +542,15 @@ struct MainView: View {
         while true {
             let fetchedCount = try await importAndMergeHistoryPage(page: page, limit: limitPerPage)
 
-            // Keep UI in sync without shrinking the list.
-            let visibleLimit = max(uiPageSize, currentPage * uiPageSize)
-            try? await listenStore.refreshHistory(limit: visibleLimit)
+            // During backfill, don't replace the user's visible list — just update hasMoreTracks.
             let total = try? await listenStore.countListens()
             if let total {
-                hasMoreTracks = total > historyTracks.count
+                hasMoreTracks = (historyOffset + historyTracks.count) < total
             }
 
             if fetchedCount < limitPerPage {
+                // Truly exhausted all remote pages — mark complete.
+                defaults.historyBackfillComplete = true
                 break
             }
 
@@ -705,75 +703,53 @@ struct MainView: View {
         return maxFetchedCount
     }
 
-    /// Load more tracks for pagination
-    ///
-    /// IMPORTANT: Pagination logic must use fetchedCount from API, NOT the number of tracks added to UI.
-    /// When multiple services are enabled (e.g., Last.fm + ListenBrainz), tracks are merged/deduplicated,
-    /// so fewer tracks may be added to the UI than were fetched from the API.
-    ///
-    /// Example:
-    /// - API returns 20 tracks from Last.fm
-    /// - After merging with ListenBrainz, only 19 unique tracks are added to UI (1 was duplicate)
-    /// - If we check UI count (19 < 20), pagination stops incorrectly
-    /// - We must check API count (20 >= 20) to continue pagination correctly
+    /// Load more tracks from SQLite for infinite-scroll pagination.
     private func loadMoreTracks() {
         guard !isLoadingMore, hasMoreTracks else {
             Logger.debug("Pagination blocked: isLoadingMore=\(isLoadingMore), hasMoreTracks=\(hasMoreTracks)", log: Logger.ui)
             return
         }
 
-        Logger.info("Loading more tracks - page \(currentPage + 1)", log: Logger.ui)
+        // Set synchronously BEFORE entering async Task to prevent re-entrant onAppear calls.
         isLoadingMore = true
         let nextPage = currentPage + 1
+        let nextOffset = historyOffset + uiPageSize
+        Logger.info("Loading more tracks - page \(nextPage), offset \(nextOffset)", log: Logger.ui)
 
         Task {
             do {
-                let countBefore = historyTracks.count
-                let oldestBefore = historyTracks.last?.listenedAt
-                Logger.debug("Before load: \(countBefore) tracks in UI", log: Logger.ui)
-
-                // Load more from local store
-                let newLimit = nextPage * uiPageSize
-                try await listenStore.refreshHistory(limit: newLimit)
-
-                // Prevent unbounded UI growth: keep at most N items visible.
-                // We keep the *oldest* items currently loaded (suffix), so the user can continue
-                // scrolling further back in time.
-                await MainActor.run {
-                    if historyTracks.count > maxVisibleHistoryItems {
-                        let trimmed = Array(historyTracks.suffix(maxVisibleHistoryItems))
-                        listenStore.setHistory(trimmed)
-                    }
-                }
-
-                let oldestAfter = historyTracks.last?.listenedAt
-                let advancedToOlderHistory: Bool = {
-                    guard let oldestBefore, let oldestAfter else { return false }
-                    return oldestAfter < oldestBefore
-                }()
+                // Append the next page from SQLite to the in-memory history.
+                let added = try await listenStore.loadMoreHistory(limit: uiPageSize, offset: nextOffset)
 
                 let total = try await listenStore.countListens()
 
                 await MainActor.run {
-                    let countAfter = historyTracks.count
-                    let addedToUI = countAfter - countBefore
+                    currentPage = nextPage
+                    historyOffset = nextOffset
 
-                    Logger.info("After load: \(countAfter) tracks in UI (added \(addedToUI))", log: Logger.ui)
+                    // Trim front (oldest-in-view) items to cap memory usage.
+                    let trimmed = listenStore.trimHistoryFront(keepLast: maxVisibleHistoryItems)
+                    if trimmed > 0 {
+                        Logger.info("Window trimmed \(trimmed) items, \(historyTracks.count) remain in view", log: Logger.ui)
+                    }
 
-                    if addedToUI > 0 || advancedToOlderHistory {
-                        currentPage = nextPage
-
-                        startBackfillIfNeeded(totalListens: total, visibleCount: countAfter)
-
-                        hasMoreTracks = total > countAfter || isBackfillingHistory
-                        Logger.debug("Updated: currentPage=\(currentPage), hasMoreTracks=\(hasMoreTracks)", log: Logger.ui)
+                    if added > 0 {
+                        startBackfillIfNeeded(totalListens: total, dbOffset: nextOffset + added)
+                        hasMoreTracks = (nextOffset + added) < total || isBackfillingHistory
                     } else {
-                        startBackfillIfNeeded(totalListens: total, visibleCount: countAfter)
-
+                        startBackfillIfNeeded(totalListens: total, dbOffset: nextOffset)
                         hasMoreTracks = isBackfillingHistory
                         Logger.debug("No more tracks available in SQLite; waiting for backfill", log: Logger.ui)
                     }
-                    isLoadingMore = false
+                    // Defer isLoadingMore reset by one run-loop cycle.
+                    // trimHistoryFront() triggers a SwiftUI re-render that fires onAppear
+                    // on the new last item. If isLoadingMore is already false, that onAppear
+                    // immediately calls loadMoreTracks() → trim → onAppear → infinite loop.
+                    // By deferring, the trim-induced onAppear sees isLoadingMore == true
+                    // and is blocked. Only after the re-render settles does the flag clear.
+                    DispatchQueue.main.async { [self] in
+                        isLoadingMore = false
+                    }
                 }
                 // Preload in background without blocking
                 Task.detached {
@@ -850,13 +826,19 @@ struct MainView: View {
     }
 
     @MainActor
-    private func startBackfillIfNeeded(totalListens: Int, visibleCount: Int) {
+    private func startBackfillIfNeeded(totalListens: Int, dbOffset: Int) {
         guard !isBackfillingHistory else { return }
-        guard totalListens <= visibleCount else { return }
+
+        // Trigger backfill when the user's scroll position (tracked via dbOffset)
+        // is near the end of locally-stored data.
+        let nearEdge = totalListens == 0
+            || dbOffset >= totalListens
+            || totalListens - dbOffset < uiPageSize
+        guard nearEdge else { return }
 
         let startPage = backfillStartPage(totalListens: totalListens)
         Logger.info(
-            "Reached end of local history (total=\(totalListens)). Starting background backfill at page \(startPage)",
+            "Reached end of local history (total=\(totalListens), dbOffset=\(dbOffset)). Starting background backfill at page \(startPage)",
             log: Logger.sync
         )
         startHistoryBackfillIfNeeded(startPage: startPage, limitPerPage: backfillPageSize)
