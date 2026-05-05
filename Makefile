@@ -9,7 +9,7 @@ FRAMEWORKS_DIR := $(CONTENTS_DIR)/Frameworks
 RESOURCES_DIR := $(CONTENTS_DIR)/Resources
 SWIFT_BIN_DIR := .build/$(CONFIGURATION)
 SPARKLE_FRAMEWORK := $(SWIFT_BIN_DIR)/Sparkle.framework
-MEDIAREMOTE_DYLIB := $(shell find .build -path '*/$(CONFIGURATION)/libMediaRemoteAdapter.dylib' -type f | head -1)
+MEDIAREMOTE_DYLIB = $(shell find .build -path '*/$(CONFIGURATION)/libMediaRemoteAdapter.dylib' -type f -print -quit)
 TEAM_ID ?= B65K228Z97
 ifeq ($(CONFIGURATION),release)
 CODE_SIGN_IDENTITY ?= $(shell security find-identity -v -p codesigning 2>/dev/null | awk -F'"' '/$(TEAM_ID)/ {print $$2; exit}')
