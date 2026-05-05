@@ -72,3 +72,7 @@ Scroblebler is a macOS menu bar scrobbling app built with Xcode project (`.xcode
   * Added required runtime bundling for `libMediaRemoteAdapter.dylib` from SwiftPM's triple-specific build output into `Contents/Frameworks`
   * Debug builds ad-hoc sign by default for local launch; release builds use Developer ID when available and expand the Xcode-only `$(AppIdentifierPrefix)` entitlement placeholder before signing
   * Verification: `make app`, `make run`, and `make release-zip && ls -la build/Scroblebler.zip` passed
+
+* **2026-05-05 18:31 - Task 5 complete: Cocogitto versioning**
+  * Why: replaced Node-based semantic-release tooling with Cocogitto so release versioning, changelog generation, and tag creation can be driven directly from conventional commits in the CI migration.
+  * How: added `cog.toml` with GitHub remote changelog settings and `Resources/Info.plist` pre-bump hooks; removed `.releaserc.json`, `scripts/build.sh`, and `scripts/release.sh` while keeping `scripts/generate-app-icon.sh` in place. Verified config parsing with `cog check`; only historical non-conventional commit warnings were reported.

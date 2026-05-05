@@ -1,0 +1,15 @@
+tag_prefix = "v"
+branch_whitelist = ["main"]
+ignore_merge_commits = true
+skip_ci = "[skip ci]"
+
+pre_bump_hooks = [
+    "/usr/libexec/PlistBuddy -c 'Set :CFBundleShortVersionString {{version}}' -c 'Set :CFBundleVersion {{version}}' Resources/Info.plist",
+]
+
+[changelog]
+path = "CHANGELOG.md"
+template = "remote"
+remote = "github.com"
+owner = "tonioriol"
+repository = "scroblebler"
