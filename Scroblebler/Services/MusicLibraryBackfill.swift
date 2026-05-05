@@ -20,7 +20,7 @@ class MusicLibraryBackfill {
         Task { @MainActor in await self.run() }
 
         timer = Timer.scheduledTimer(withTimeInterval: Self.pollInterval, repeats: true) { [weak self] _ in
-            Task { @MainActor in await self?.run() }
+            Task { @MainActor [weak self] in await self?.run() }
         }
     }
 

@@ -100,8 +100,9 @@ class SyncService {
         
         // 3. Execute backfills asynchronously
         if !backfillTasks.isEmpty {
+            let tasks = backfillTasks
             Task {
-                await executeBackfills(tasks: backfillTasks)
+                await self.executeBackfills(tasks: tasks)
             }
         }
     }
