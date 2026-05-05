@@ -3,6 +3,38 @@ All notable changes to this project will be documented in this file.
 See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.1.0](https://github.com/tonioriol/scroblebler/compare/ecd7c9189adf9b4927c2a2ba1f4d8ec375f9e405..v1.1.0) - 2026-05-05
+#### Features
+- add Sparkle EdDSA public key - ([78f058c](https://github.com/tonioriol/scroblebler/commit/78f058ce58641efa99f0b118b596adeda48b020c)) - Toni Oriol
+- switch versioning from semantic-release to cocogitto - ([7f0a765](https://github.com/tonioriol/scroblebler/commit/7f0a765486c1c79ad7b16aa398b88369b9210d75)) - Toni Oriol
+- add Makefile for SPM-based app bundle assembly and signing - ([2d0fe34](https://github.com/tonioriol/scroblebler/commit/2d0fe34e22195d5d58c87e294a482c60e8015b61)) - Toni Oriol
+- add Sparkle 2.x auto-update support - ([25c10f9](https://github.com/tonioriol/scroblebler/commit/25c10f96ec79588a55b8efb41d946f3d93b61ab7)) - Toni Oriol
+- add music validation filter with MBID Mapper, fix Last.fm delete, add periodic sync - ([bbd3677](https://github.com/tonioriol/scroblebler/commit/bbd36775a03410db47b8af9354bd82c96352fba3)) - Toni Oriol
+- add MusicKit-based backfill for iPhone/iCloud plays - ([ae6318b](https://github.com/tonioriol/scroblebler/commit/ae6318bc6022a1c54fad0888cde64d81df2f7716)) - Toni Oriol
+#### Bug Fixes
+- (**docs**) correct spelling errors in AGENTS.md - ([ecd7c91](https://github.com/tonioriol/scroblebler/commit/ecd7c9189adf9b4927c2a2ba1f4d8ec375f9e405)) - Toni Oriol
+- Swift 6 concurrency safety for Timer and Task captures - ([bbaf858](https://github.com/tonioriol/scroblebler/commit/bbaf8587666f35e813c4bb5fd8cf4128273ef846)) - Toni Oriol
+- skip legacy non-conventional commits in CI cocogitto check - ([d579356](https://github.com/tonioriol/scroblebler/commit/d57935631ca5b64a0a8fffdffe0aa4b1e6194228)) - Toni Oriol
+- copy MediaRemote adapter dylib into app bundle - ([ef4abd9](https://github.com/tonioriol/scroblebler/commit/ef4abd9811d35cab5f21abfe32115218be747066)) - Toni Oriol
+- offset-based history pagination, UI jumping prevention, and backfill edge detection - ([207dd47](https://github.com/tonioriol/scroblebler/commit/207dd479c06cd0372489ec293ba99179dad02c9b)) - Toni Oriol
+- disk-persistent image cache with Last.fm fallback and negative caching - ([cdceff5](https://github.com/tonioriol/scroblebler/commit/cdceff5c9b7cc7d77fd24dfac5b31adc1279e862)) - Toni Oriol
+- prevent soft-deleted listens from being resurrected by sync - ([30d8700](https://github.com/tonioriol/scroblebler/commit/30d870036f4d3edbe3284169be4e8d95fd33c51c)) - Toni Oriol
+- decouple initial render from network calls for fast startup - ([3e93339](https://github.com/tonioriol/scroblebler/commit/3e933395ba6dcffcd52955f73e622a25cbc485c5)) - Toni Oriol
+#### Documentation
+- mark signing/Sparkle migration complete - ([1909921](https://github.com/tonioriol/scroblebler/commit/1909921524945a23d9f08df1e044c1d7166648c8)) - Toni Oriol
+- flush signing and Sparkle progress - ([047301b](https://github.com/tonioriol/scroblebler/commit/047301b453d4ac5a49011d4966640fee53e61a3b)) - Toni Oriol
+- spec for code signing, Sparkle auto-updates and build migration - ([dcf8148](https://github.com/tonioriol/scroblebler/commit/dcf8148ed44663b3f5377aa1132fcfca950a286b)) - Toni Oriol
+- document play catalog tracks investigation and limitations - ([9b1d1ba](https://github.com/tonioriol/scroblebler/commit/9b1d1bafff04a121a42189297fb628bd9260268a)) - Toni Oriol
+- mark image request on progress bar click TODO as done - ([c916eae](https://github.com/tonioriol/scroblebler/commit/c916eae768216a11cdaa578513f7c5da10280899)) - Toni Oriol
+#### Continuous Integration
+- add release pipeline with signing, notarization and appcast - ([a438556](https://github.com/tonioriol/scroblebler/commit/a4385563d632419f2b077ef7eda51944abb0b8b3)) - Toni Oriol
+#### Miscellaneous Chores
+- add cocogitto changelog separator - ([f17f2be](https://github.com/tonioriol/scroblebler/commit/f17f2be63d6e59ae3bcfc32280294372a8f49826)) - Toni Oriol
+- add standalone Info.plist for SPM builds with Sparkle keys - ([c82b0e9](https://github.com/tonioriol/scroblebler/commit/c82b0e95b87ce4af508d5e4443cde748bb29371b)) - Toni Oriol
+- generate AppIcon.icns from asset catalog PNGs - ([b4a6c11](https://github.com/tonioriol/scroblebler/commit/b4a6c113d7e0b02def7cefd1a6a5e9a59f661e56)) - Toni Oriol
+
+- - -
+
 # [1.0.0](https://github.com/tonioriol/scroblebler/compare/v0.3.0...v1.0.0) (2026-02-20)
 
 
