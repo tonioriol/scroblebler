@@ -37,6 +37,9 @@ Set up proper Apple Developer code signing, notarization, and Sparkle auto-updat
 * `scripts/release.sh` (DELETE)
 * `.github/workflows/update-tap.yml` (DELETE)
 
+* `CHANGELOG.md` (MODIFY — Cocogitto-managed release notes)
+* `Scroblebler/Services/MusicLibraryBackfill.swift` (MODIFY — Swift 6 concurrency-safe timer task capture)
+* `Scroblebler/Services/SyncService.swift` (MODIFY — Swift 6 concurrency-safe backfill task capture)
 ## GENERAL CONTEXT
 
 Scroblebler is a macOS menu bar scrobbling app built with Xcode project (`.xcodeproj`) + Swift Package Manager dependencies. It uses `semantic-release` (Node.js) for versioning and produces a DMG. The adrenaline project (same developer) already has a working setup with Developer ID signing, notarization, Sparkle 2.x, Cocogitto for versioning, and a GitHub Actions CI pipeline.
@@ -97,3 +100,8 @@ Scroblebler is a macOS menu bar scrobbling app built with Xcode project (`.xcode
   * Set all 8 GitHub secrets on `tonioriol/scroblebler` from 1Password: APPLE_ID, APPLE_TEAM_ID, APPLE_NOTARYTOOL_PROFILE, APPLE_APP_SPECIFIC_PASSWORD, APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD, APPLE_DEVELOPER_ID_CERTIFICATE_BASE64, SPARKLE_ED_PRIVATE_KEY, TAP_GITHUB_TOKEN (pre-existing).
   * Created and pushed `gh-pages` branch with initial `appcast.xml` scaffold for Sparkle auto-update feed.
   * Apple ID for notarization: `tonioriol@me.com` (resolved after testing against wrong emails from company 1Password).
+
+* **2026-05-05 21:15 - Release pipeline proven end-to-end**
+  * GitHub Actions run `25396638233` released `v1.1.0` successfully after follow-up fixes for Cocogitto history scope, changelog separator, certificate import secrets, notarytool credentials, Sparkle signing secrets, and Swift 6 concurrency captures.
+  * Release automation produced the version commit and tag on `origin/main` (`16ff707`, `v1.1.0`) and updated `CHANGELOG.md`, `Resources/Info.plist`, and `scroblebler.rb` through the workflow.
+  * Final stabilization commits before this flush: `d579356` (Cocogitto latest-tag check), `f17f2be` (changelog separator), and `bbaf858` (Swift 6 concurrency safety).
