@@ -1,6 +1,6 @@
 ---
 title: "Code signing + Sparkle auto-updates"
-status: active
+status: done
 tags: [code-signing, sparkle, notarization, ci, release-automation]
 created: 2026-05-04
 ---
@@ -18,7 +18,7 @@ Set up proper Apple Developer code signing, notarization, and Sparkle auto-updat
 
 [plan.md](./plan.md) — 11 tasks: icon gen → Info.plist → Sparkle integration → Makefile → Cocogitto → EdDSA keypair → GitHub Secrets → gh-pages appcast → CI workflow → Homebrew cask → integration test
 
-**Cursor:** Task 11
+**Cursor:** All tasks complete
 
 ## RELEVANT FILES
 
@@ -91,3 +91,9 @@ Scroblebler is a macOS menu bar scrobbling app built with Xcode project (`.xcode
 * **2026-05-05 19:04 - Task 11 integration fix: MediaRemote adapter dylib copy**
   * Fixed `MEDIAREMOTE_DYLIB` in `Makefile` to resolve lazily after `swift build` creates SwiftPM's triple-specific release output, allowing `cp .build/arm64-apple-macosx/release/libMediaRemoteAdapter.dylib build/Scroblebler.app/Contents/Frameworks/libMediaRemoteAdapter.dylib` during app bundle assembly.
   * Verification passed: `make app CONFIGURATION=release`, `codesign --verify --deep --strict --verbose=2 build/Scroblebler.app`, `make release-zip CONFIGURATION=release`, and `ls -lh build/Scroblebler.zip`.
+
+* **2026-05-05 20:46 - All tasks complete: secrets set, appcast branch published**
+  * Created shared `Apple Developer Release` and app-specific `Scroblebler macOS Release` items in personal 1Password account (`my.1password.com` / Private vault) as the canonical source of truth for release credentials.
+  * Set all 8 GitHub secrets on `tonioriol/scroblebler` from 1Password: APPLE_ID, APPLE_TEAM_ID, APPLE_NOTARYTOOL_PROFILE, APPLE_APP_SPECIFIC_PASSWORD, APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD, APPLE_DEVELOPER_ID_CERTIFICATE_BASE64, SPARKLE_ED_PRIVATE_KEY, TAP_GITHUB_TOKEN (pre-existing).
+  * Created and pushed `gh-pages` branch with initial `appcast.xml` scaffold for Sparkle auto-update feed.
+  * Apple ID for notarization: `tonioriol@me.com` (resolved after testing against wrong emails from company 1Password).
