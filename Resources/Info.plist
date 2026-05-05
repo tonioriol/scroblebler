@@ -37,7 +37,7 @@
 	<key>SUFeedURL</key>
 	<string>https://tonioriol.github.io/scroblebler/appcast.xml</string>
 	<key>SUPublicEDKey</key>
-	<string>PLACEHOLDER_GENERATE_WITH_SPARKLE_TOOLS</string>
+	<string>LqUZF4dqbYxjqC25RGacWalEo+7/cBs9+T+J+wmOMQ4=</string>
 	<key>SUScheduledCheckInterval</key>
 	<integer>86400</integer>
 </dict>

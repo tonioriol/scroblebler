@@ -76,3 +76,9 @@ Scroblebler is a macOS menu bar scrobbling app built with Xcode project (`.xcode
 * **2026-05-05 18:31 - Task 5 complete: Cocogitto versioning**
   * Why: replaced Node-based semantic-release tooling with Cocogitto so release versioning, changelog generation, and tag creation can be driven directly from conventional commits in the CI migration.
   * How: added `cog.toml` with GitHub remote changelog settings and `Resources/Info.plist` pre-bump hooks; removed `.releaserc.json`, `scripts/build.sh`, and `scripts/release.sh` while keeping `scripts/generate-app-icon.sh` in place. Verified config parsing with `cog check`; only historical non-conventional commit warnings were reported.
+
+* **2026-05-05 18:41 - Task 6 complete: Sparkle EdDSA keypair generated**
+  * Resolved Sparkle 2.9.1 from `Package.resolved`, downloaded matching Sparkle release tools locally, and used `generate_keys` without printing private key material.
+  * Replaced the `SUPublicEDKey` placeholder in `Resources/Info.plist` with the generated public key.
+  * Stored the private key locally in macOS Keychain service `scroblebler-sparkle-ed-private-key` for later secret setup.
+  * Verification: plist parsing confirmed `SUPublicEDKey` is present, 44 characters long, and the placeholder is gone; Keychain lookup confirmed the storage item exists.
