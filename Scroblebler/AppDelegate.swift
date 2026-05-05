@@ -15,6 +15,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     var launchAtLoginItem: NSMenuItem!
     var contextMenu: NSMenu!
     var eventMonitor: Any?
+    private var updater: SparkleUpdaterController?
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         contextMenu = NSMenu()
@@ -86,6 +87,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             MusicLibraryBackfill.shared.start()
         }
 
+        updater = SparkleUpdaterController()
         NSApp.activate(ignoringOtherApps: true)
     }
 
