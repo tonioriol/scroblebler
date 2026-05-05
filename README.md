@@ -140,7 +140,7 @@ on their repository](https://github.com/lastfm/lastfm-desktop/blob/9ae84cf4ab204
 - [x] Local-first storage + sync engine (store scrobbles locally, offline queue, background sync to multiple services). This should fix ListenBrainz cache losing scrobbles, enable retry for unsynced scrobbles, make undo/sync state consistent, and allow caching history locally.
 - [x] Taking 10+ seconds to load.
 - [x] Stop the constant reloading of images on scroll in history view.
-- [x] Fix progress bar jumping UI, animation of bar screwing up when opening/closing app.
+- [ ] Fix progress bar jumping UI, animation of bar screwing up when opening/closing app.
 - [x] Stop requesting images and stuff every time we click in the progress bar.
 - [ ] Fix UI for password request for Last.fm.
 - [ ] Display blacklisted tracks somewhere, otherwise we have no way of knowing which tracks were blacklisted.

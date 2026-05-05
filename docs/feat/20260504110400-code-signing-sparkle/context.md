@@ -87,3 +87,7 @@ Scroblebler is a macOS menu bar scrobbling app built with Xcode project (`.xcode
   * Removed `.github/workflows/update-tap.yml` and created `.github/workflows/release.yml` with Cocogitto release detection, Developer ID certificate import, `notarytool` setup, signed release ZIP build, notarization/stapling, Sparkle EdDSA update signing, cask amend, GitHub Release publishing, appcast update, and Homebrew tap update.
   * Updated `scroblebler.rb` to download `Scroblebler-v#{version}.zip` and removed the old `postflight` quarantine-clearing workaround while leaving current version and SHA unchanged.
   * Verification: parsed the workflow with Python YAML, checked the cask with `ruby -c`, and ran `git diff --check`; no local syntax or whitespace issues found.
+
+* **2026-05-05 19:04 - Task 11 integration fix: MediaRemote adapter dylib copy**
+  * Fixed `MEDIAREMOTE_DYLIB` in `Makefile` to resolve lazily after `swift build` creates SwiftPM's triple-specific release output, allowing `cp .build/arm64-apple-macosx/release/libMediaRemoteAdapter.dylib build/Scroblebler.app/Contents/Frameworks/libMediaRemoteAdapter.dylib` during app bundle assembly.
+  * Verification passed: `make app CONFIGURATION=release`, `codesign --verify --deep --strict --verbose=2 build/Scroblebler.app`, `make release-zip CONFIGURATION=release`, and `ls -lh build/Scroblebler.zip`.
