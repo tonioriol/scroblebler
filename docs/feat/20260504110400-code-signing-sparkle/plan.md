@@ -536,13 +536,13 @@ The main CI pipeline that handles the entire release flow: version bump, build, 
 - Create: `.github/workflows/release.yml`
 - Delete: `.github/workflows/update-tap.yml`
 
-- [ ] **Step 1: Delete the old tap-update workflow**
+- [x] **Step 1: Delete the old tap-update workflow**
 
 ```bash
 git rm .github/workflows/update-tap.yml
 ```
 
-- [ ] **Step 2: Create the release workflow**
+- [x] **Step 2: Create the release workflow**
 
 Create `.github/workflows/release.yml` with the following content (adapted from adrenaline's workflow, using `make` instead of the adrenaline-specific build):
 
@@ -807,7 +807,7 @@ jobs:
           security delete-keychain "$KEYCHAIN_PATH" || true
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git rm .github/workflows/update-tap.yml
@@ -824,7 +824,7 @@ Update the cask formula to use ZIP instead of DMG, and remove the `xattr` postfl
 **Files:**
 - Modify: `scroblebler.rb`
 
-- [ ] **Step 1: Update the cask formula**
+- [x] **Step 1: Update the cask formula**
 
 Replace the contents of `scroblebler.rb` with:
 
@@ -856,7 +856,7 @@ Changes: URL now points to ZIP format (`Scroblebler-v#{version}.zip`), removed `
 
 Note: The SHA and version will be updated automatically by the CI pipeline on the next release.
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add scroblebler.rb

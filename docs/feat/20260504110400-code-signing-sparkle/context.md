@@ -18,7 +18,7 @@ Set up proper Apple Developer code signing, notarization, and Sparkle auto-updat
 
 [plan.md](./plan.md) — 11 tasks: icon gen → Info.plist → Sparkle integration → Makefile → Cocogitto → EdDSA keypair → GitHub Secrets → gh-pages appcast → CI workflow → Homebrew cask → integration test
 
-**Cursor:** Task 4
+**Cursor:** Task 11
 
 ## RELEVANT FILES
 
@@ -82,3 +82,8 @@ Scroblebler is a macOS menu bar scrobbling app built with Xcode project (`.xcode
   * Replaced the `SUPublicEDKey` placeholder in `Resources/Info.plist` with the generated public key.
   * Stored the private key locally in macOS Keychain service `scroblebler-sparkle-ed-private-key` for later secret setup.
   * Verification: plist parsing confirmed `SUPublicEDKey` is present, 44 characters long, and the placeholder is gone; Keychain lookup confirmed the storage item exists.
+
+* **2026-05-05 18:58 - Tasks 9 & 10 complete: release workflow and ZIP cask**
+  * Removed `.github/workflows/update-tap.yml` and created `.github/workflows/release.yml` with Cocogitto release detection, Developer ID certificate import, `notarytool` setup, signed release ZIP build, notarization/stapling, Sparkle EdDSA update signing, cask amend, GitHub Release publishing, appcast update, and Homebrew tap update.
+  * Updated `scroblebler.rb` to download `Scroblebler-v#{version}.zip` and removed the old `postflight` quarantine-clearing workaround while leaving current version and SHA unchanged.
+  * Verification: parsed the workflow with Python YAML, checked the cask with `ruby -c`, and ran `git diff --check`; no local syntax or whitespace issues found.

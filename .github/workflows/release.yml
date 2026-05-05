@@ -1,0 +1,258 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  decide:
+    runs-on: ubuntu-latest
+    outputs:
+      will_release: ${{ steps.dryrun.outputs.will_release }}
+      next_version: ${{ steps.dryrun.outputs.next_version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Cocogitto
+        uses: cocogitto/cocogitto-action@v3
+
+      - name: Compute next version
+        id: dryrun
+        shell: bash
+        run: |
+          set -euo pipefail
+          if RAW="$(cog bump --auto --dry-run 2>/dev/null)"; then
+            NEXT="${RAW#v}"
+            echo "will_release=true" >> "$GITHUB_OUTPUT"
+            echo "next_version=$NEXT" >> "$GITHUB_OUTPUT"
+            echo "Next version: $NEXT"
+          else
+            echo "will_release=false" >> "$GITHUB_OUTPUT"
+            echo "No releasable commits since last tag"
+          fi
+
+  release:
+    needs: decide
+    if: needs.decide.outputs.will_release == 'true'
+    runs-on: macos-14
+    env:
+      NEXT_VERSION: ${{ needs.decide.outputs.next_version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Install Cocogitto
+        run: brew install cocogitto
+
+      - name: Configure git for release commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Import Developer ID certificate
+        env:
+          CERTIFICATE_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+          CERTIFICATE_PATH: ${{ runner.temp }}/certificate.p12
+          KEYCHAIN_PATH: ${{ runner.temp }}/build.keychain
+          KEYCHAIN_PASSWORD_FILE: ${{ runner.temp }}/keychain-password
+        run: |
+          set -euo pipefail
+          echo "$(uuidgen)" > "$KEYCHAIN_PASSWORD_FILE"
+          security create-keychain -p "$(cat "$KEYCHAIN_PASSWORD_FILE")" "$KEYCHAIN_PATH"
+          security default-keychain -s "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$(cat "$KEYCHAIN_PASSWORD_FILE")" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          echo "$CERTIFICATE_BASE64" | base64 --decode > "$CERTIFICATE_PATH"
+          security import "$CERTIFICATE_PATH" -k "$KEYCHAIN_PATH" -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$(cat "$KEYCHAIN_PASSWORD_FILE")" "$KEYCHAIN_PATH"
+          CODE_SIGN_IDENTITY="$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | awk -F'"' '/Developer ID Application/ {print $2; exit}')"
+          if [ -z "$CODE_SIGN_IDENTITY" ]; then
+            echo "No Developer ID Application signing identity found" >&2
+            exit 1
+          fi
+          echo "CODE_SIGN_IDENTITY=$CODE_SIGN_IDENTITY" >> "$GITHUB_ENV"
+
+      - name: Configure notarytool profile
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_NOTARYTOOL_PROFILE: ${{ secrets.APPLE_NOTARYTOOL_PROFILE }}
+        run: |
+          set -euo pipefail
+          xcrun notarytool store-credentials "$APPLE_NOTARYTOOL_PROFILE" \
+            --apple-id "$APPLE_ID" \
+            --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD"
+
+      - name: Bump version
+        run: |
+          set -euo pipefail
+          cog bump --version "$NEXT_VERSION"
+          echo "Bumped to $NEXT_VERSION; tag v$NEXT_VERSION created locally"
+
+      - name: Build signed app
+        run: |
+          set -euo pipefail
+          make release-zip CONFIGURATION=release CODE_SIGN_IDENTITY="$CODE_SIGN_IDENTITY"
+          codesign --verify --deep --strict --verbose=2 build/Scroblebler.app
+
+      - name: Notarize and staple app
+        env:
+          APPLE_NOTARYTOOL_PROFILE: ${{ secrets.APPLE_NOTARYTOOL_PROFILE }}
+        run: |
+          set -euo pipefail
+          xcrun notarytool submit build/Scroblebler.zip --keychain-profile "$APPLE_NOTARYTOOL_PROFILE" --wait
+          xcrun stapler staple build/Scroblebler.app
+          xcrun stapler validate build/Scroblebler.app
+          spctl --assess --type execute --verbose=4 build/Scroblebler.app
+          rm -f build/Scroblebler.zip
+          ditto -c -k --keepParent build/Scroblebler.app "build/Scroblebler-v${NEXT_VERSION}.zip"
+
+      - name: Sign Sparkle update
+        shell: bash
+        env:
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          SPARKLE_VERSION=$(python3 -c "
+          import json
+          with open('Package.resolved') as f:
+              data = json.load(f)
+          for pin in data['pins']:
+              if pin['identity'] == 'sparkle':
+                  print(pin['state']['version'])
+                  break
+          else:
+              raise SystemExit('Sparkle pin not found')
+          ")
+          curl -fsSL "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz" \
+            | tar -xJf - -C "$RUNNER_TEMP" "./bin/sign_update"
+          SIGN_UPDATE="$RUNNER_TEMP/bin/sign_update"
+          SIG_AND_LEN=$("$SIGN_UPDATE" --ed-key-file <(printf "%s" "$SPARKLE_ED_PRIVATE_KEY") "build/Scroblebler-v${NEXT_VERSION}.zip")
+          echo "SPARKLE_SIG_AND_LEN=$SIG_AND_LEN" >> "$GITHUB_ENV"
+
+      - name: Update cask formula
+        env:
+          VERSION: ${{ env.NEXT_VERSION }}
+        run: |
+          set -euo pipefail
+          SHA=$(shasum -a 256 "build/Scroblebler-v${VERSION}.zip" | awk '{print $1}')
+          /usr/bin/sed -i '' \
+            -e 's|^  version ".*"$|  version "'"${VERSION}"'"|' \
+            -e 's|^  sha256 ".*"$|  sha256 "'"${SHA}"'"|' \
+            scroblebler.rb
+          git add scroblebler.rb
+          git commit --amend --no-edit
+          git tag -f "v${VERSION}" HEAD
+          echo "Cask formula updated to ${VERSION} (sha256 ${SHA})"
+
+      - name: Push commit and tag
+        run: |
+          set -euo pipefail
+          git push --force-with-lease origin HEAD
+          git push --force origin "v${NEXT_VERSION}"
+
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cog changelog --at "v${NEXT_VERSION}" > release-notes.md
+          gh release create "v${NEXT_VERSION}" \
+            --title "v${NEXT_VERSION}" \
+            --notes-file release-notes.md \
+            "build/Scroblebler-v${NEXT_VERSION}.zip"
+
+      - name: Publish appcast entry
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ env.NEXT_VERSION }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          DOWNLOAD_URL="https://github.com/${GH_REPO}/releases/download/v${VERSION}/Scroblebler-v${VERSION}.zip"
+          PUB_DATE=$(date -u +"%a, %d %b %Y %H:%M:%S +0000")
+          RELEASE_NOTES=$(gh release view "v${VERSION}" --json body -q .body | head -c 8000)
+
+          git clone --depth 1 --branch gh-pages \
+            "https://x-access-token:${GITHUB_TOKEN}@github.com/${GH_REPO}.git" gh-pages
+          cd gh-pages
+
+          if grep -q "<title>Scroblebler ${VERSION}</title>" appcast.xml; then
+            echo "Appcast already contains v${VERSION}, skipping"
+            exit 0
+          fi
+
+          export VERSION DOWNLOAD_URL PUB_DATE RELEASE_NOTES SPARKLE_SIG_AND_LEN
+          python3 - <<'PY'
+          import os, sys
+          version = os.environ['VERSION']
+          item = f"""        <item>
+              <title>Scroblebler {version}</title>
+              <pubDate>{os.environ['PUB_DATE']}</pubDate>
+              <sparkle:version>{version}</sparkle:version>
+              <sparkle:shortVersionString>{version}</sparkle:shortVersionString>
+              <sparkle:minimumSystemVersion>11.0</sparkle:minimumSystemVersion>
+              <description><![CDATA[{os.environ['RELEASE_NOTES']}]]></description>
+              <enclosure url="{os.environ['DOWNLOAD_URL']}"
+                         type="application/octet-stream"
+                         {os.environ['SPARKLE_SIG_AND_LEN']} />
+          </item>"""
+          with open('appcast.xml', 'r') as f:
+              content = f.read()
+          if '</channel>' not in content:
+              sys.exit('appcast.xml has no </channel> close tag')
+          content = content.replace('</channel>', item + '\n    </channel>', 1)
+          with open('appcast.xml', 'w') as f:
+              f.write(content)
+          PY
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add appcast.xml
+          git commit -m "appcast: v${VERSION}"
+          git push origin gh-pages
+
+      - name: Update Homebrew tap
+        env:
+          TAP_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git clone https://github.com/tonioriol/homebrew-scroblebler.git tap
+          mkdir -p tap/Casks
+          cp scroblebler.rb tap/Casks/
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Casks/scroblebler.rb
+          git commit -m "chore: update scroblebler cask" || exit 0
+          git push "https://x-access-token:${TAP_TOKEN}@github.com/tonioriol/homebrew-scroblebler.git" main
+
+      - name: Cleanup signing materials
+        if: always()
+        env:
+          CERTIFICATE_PATH: ${{ runner.temp }}/certificate.p12
+          KEYCHAIN_PATH: ${{ runner.temp }}/build.keychain
+        run: |
+          set -euo pipefail
+          rm -f "$CERTIFICATE_PATH"
+          security default-keychain -s login.keychain-db || true
+          security delete-keychain "$KEYCHAIN_PATH" || true
