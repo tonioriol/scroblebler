@@ -44,6 +44,13 @@ actor MusicValidator {
         let isTrusted = sourceBundle.map { Self.trustedPlayers.contains($0) } ?? false
         if isTrusted { return true }
 
+        // 2. Has a known source but NOT trusted → deny
+        //    (browsers, Discord, Zoom, etc. — Web Scrobbler handles browser music)
+        if sourceBundle != nil {
+            Logger.info("MusicValidator: untrusted source '\(sourceBundle!)' — blocking \(artist) - \(track)", log: Logger.playback)
+            return false
+        }
+
         let key = cacheKey(artist: artist, track: track)
 
         // 2. Cache hit

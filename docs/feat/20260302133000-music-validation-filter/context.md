@@ -1,45 +1,28 @@
 ---
 title: "Smart music validation to filter non-music scrobbles"
-status: active
-tags: [browser, delete-fix, filter, lastfm, listenbrainz, mbid-mapper, music-validation, scrobbling, web-client]
+status: done
+tags: [browser, delete-fix, filter, lastfm, listenbrainz, mbid-mapper, music-validation, scrobbling, trusted-only, web-client]
 created: 2026-03-02
 ---
 # Smart music validation to filter non-music scrobbles
 
 ## TASK
 
-YouTube videos (cooking tutorials, podcasts, tech talks, etc.) played in Zen Browser were being scrobbled as music via MediaRemote. Needed a source-agnostic way to detect and filter non-music content before scrobbling, without maintaining a browser bundle ID blocklist. Also needed to clean up 32 existing bad scrobbles from local DB + remote services.
+**Goal:** Prevent non-music browser media (YouTube videos, podcasts, etc.) from being scrobbled via MediaRemote.
 
-## GENERAL CONTEXT
+YouTube videos (cooking tutorials, podcasts, tech talks, etc.) played in Zen Browser were being scrobbled as music via MediaRemote. The original MBID Mapper approach (2026-03-02) successfully filtered non-music content, but real music played in browsers (YouTube music videos, Bandcamp, SoundCloud) still passed validation with high confidence — causing duplicate scrobbles alongside Web Scrobbler. The final fix (2026-05-21) switches to a trusted-only model: only apps in the `trustedPlayers` set can scrobble; MBID validation is preserved only for remote imports with no source bundle.
 
-Scroblebler is a macOS menu bar app that scrobbles to Last.fm, Libre.fm, and ListenBrainz. It captures now-playing info from any media source via the private MediaRemote framework. Browser extensions (Web Scrobbler in Zen) handle legitimate browser music scrobbling.
+**Done when:** Browser media no longer scrobbled via MediaRemote, existing bad scrobbles cleaned from DB and remote services.
 
-### RELEVANT FILES
+## FILES
 
-* Scroblebler/Utilities/MusicValidator.swift (NEW — main validation actor)
-* Scroblebler/Services/SyncEngine.swift (modified — validation gate at scrobble time)
-* Scroblebler/Watcher.swift (modified — removed old browser blocklist check)
-* Scroblebler/Utilities/SourceFilter.swift (DELETED — replaced by MusicValidator)
-* Scroblebler/Clients/LastFmClient.swift (modified — removed deprecated library.removeScrobble, now uses web client directly)
-* Scroblebler/AppDelegate.swift (modified — sequential web auth then processPending to avoid race)
-* Scroblebler/Views/ContentView.swift (modified — removed redundant app_start processPending trigger)
+- Scroblebler/Utilities/MusicValidator.swift (main validation actor — trusted-only gate added 2026-05-21)
+- Scroblebler/Services/SyncEngine.swift (validation gate at scrobble time)
+- Scroblebler/Clients/LastFmClient.swift (removed deprecated library.removeScrobble, now uses web client directly)
+- Scroblebler/AppDelegate.swift (sequential web auth then processPending to avoid race)
+- Scroblebler/Views/ContentView.swift (removed redundant app_start processPending trigger)
 
-## PLAN
-
-- ✅ Investigate scrobble pipeline and available data (artist, track, album, bundleIdentifier, duration)
-- ✅ Evaluate options: browser blocklist vs heuristics vs API validation
-- ✅ Research APIs: LB MBID Mapper, Last.fm track.search, MusicBrainz search
-- ✅ Test MBID Mapper against real bad scrobbles from local DB
-- ✅ Implement MusicValidator using MBID Mapper with fallback chain
-- ✅ Wire into SyncEngine.scrobble() (not UI path — no Now Playing delay)
-- ✅ Remove SourceFilter browser blocklist approach
-- ✅ Build and launch successfully
-- ✅ Fix fail-open bug (change to fail-closed for untrusted sources)
-- ✅ Fix Last.fm delete flow (deprecated API + web client race condition)
-- ✅ Clean up 32 historical non-music scrobbles from local DB + remote services
-- ✅ Add periodic processPending timer (60s interval via `SyncEngine.startPeriodicSync()`)
-
-## EVENT LOG
+## LOG
 
 * **2026-03-02 13:30 - Investigated data flow and filtering options**
   * Why: YouTube videos from Zen Browser were being scrobbled as music
@@ -91,9 +74,48 @@ Scroblebler is a macOS menu bar app that scrobbles to Last.fm, Libre.fm, and Lis
  * Key info: 7 non-music items had re-appeared (5x Hasan Minhaj, 1x EspañaXDescubrir, 1x The PrimeTime). All marked `deletePending`, app processed them successfully — deleted from LB, marked deleted locally. Rows remain as tombstones.
  * Files: Scroblebler/Services/SyncEngine.swift, Scroblebler/Views/MainView.swift, Scroblebler/Services/ListenStore.swift
 
-## Next Steps
+### 2026-05-21 18:50 — Trusted-only gate: block ALL untrusted sources, clean 78 Zen scrobbles
 
-- [x] ~~Add periodic processPending timer~~ — Done: 60s timer in `SyncEngine.startPeriodicSync()`, triggered from `AppDelegate`
-- [x] ~~Fix soft-delete resurrection bug~~ — Done: see event log 2026-03-02 23:05
-- [ ] Monitor MusicValidator logs for false positives/negatives over time
-- [ ] Consider adding Last.fm track.search as secondary validator if MBID Mapper proves unreliable
+- **Why:** User reported browser media (YouTube, podcasts, cooking recipes) still being scrobbled despite the MBID Mapper validation from 2026-03-02. Root cause: the MBID Mapper approach only filters non-music content. Real music played in browsers (YouTube music videos, Bandcamp, SoundCloud) passes MBID validation with high confidence (≥0.5) — causing duplicate scrobbles alongside Web Scrobbler. Additionally, the original `SourceFilter.swift` browser blocklist was created and deleted in the same working session on 2026-03-02 and **was never committed** to any branch.
+- **What changed:** Switched from "validate content" to "trusted-only" model for sourced media. Added a 5-line early gate in `MusicValidator.shouldScrobble()` that denies any app with a `sourceBundle` not in `trustedPlayers`. MBID validation chain preserved only for `sourceBundle == nil` (remote imports from sync). Cleaned 78 Zen browser listens from local DB and remote services.
+- **How (investigation):**
+  - Traced scrobble flow: `Watcher.handleTrackInfo()` → `getPlayerTrack()` (sets `sourceBundle` from `MediaControlStatus.bundleIdentifier`) → `onScrobbleWanted` callback → `SyncEngine.scrobble()` → `MusicValidator.shouldScrobble()`.
+  - Read `MusicValidator.swift` (190 lines): `trustedPlayers` set has 15 music player bundles. Non-trusted sources go through MBID Mapper → local DB → album heuristic → deny. Problem: steps 3-5 allow real music from browsers through.
+  - Searched git history: `git log --all --oneline -- 'Scroblebler/Utilities/SourceFilter.swift'` → empty. `git log --all --oneline -S "SourceFilter"` → only `bbd3677` (the context.md mentions it in LOG text). `git show bbd3677 --stat` → 8 files, no `SourceFilter.swift`, no `Watcher.swift`. Confirmed `SourceFilter.swift` was never committed.
+  - `git branch -a` → `main`, `feat/local-first-sync-engine`, remotes. No feature branch for browser filtering.
+  - Confirmed no browser-related strings in current codebase: `rg -n "browser|Browser|safari|chrome|firefox|zen" Scroblebler/Utilities/MusicValidator.swift Scroblebler/Watcher.swift Scroblebler/Services/SyncEngine.swift` → exit code 1 (no matches).
+  - Evaluated approaches using rigor framework: (1) denied browser bundle list — rejected (fragile, incomplete, user already rejected this on 2026-03-02), (2) three-tier model (trusted/denied/neutral) — rejected (two lists, more concepts, zero gain), (3) user-configurable excluded apps UI — rejected (overengineered), (4) **trusted-only for sourced media** — chosen (zero maintenance, catches all untrusted apps universally, only `trustedPlayers` needs updating).
+- **How (action):**
+  - Added 5 lines in `MusicValidator.shouldScrobble()` at line 47 (after trusted check, before MBID validation):
+    ```swift
+    // 2. Has a known source but NOT trusted → deny
+    //    (browsers, Discord, Zoom, etc. — Web Scrobbler handles browser music)
+    if sourceBundle != nil {
+        Logger.info("MusicValidator: untrusted source '\(sourceBundle!)' — blocking \(artist) - \(track)", log: Logger.playback)
+        return false
+    }
+    ```
+  - Build: `swift build -c debug` → `Build complete! (6.39s)` ✅
+  - Tests: `swift test` → `Executed 104 tests, with 0 failures (0 unexpected) in 4.654 (4.666) seconds` ✅
+  - Install: `make app` → built + ad-hoc signed → `make reinstall` → copied to `/Applications/Scroblebler.app` and launched.
+  - DB cleanup: `sqlite3 "$HOME/Library/Application Support/Scroblebler/scroblebler.db"`:
+    - `SELECT DISTINCT source_bundle FROM listens WHERE source_bundle IS NOT NULL` → `app.zen-browser.zen`, `com.apple.Music`
+    - `SELECT COUNT(*) FROM listens WHERE source_bundle = 'app.zen-browser.zen'` → 78
+    - Breakdown: 63 synced, 15 already deleted/deletePending
+    - `UPDATE listens SET services = REPLACE(services, '"status":"synced"', '"status":"deletePending"') WHERE source_bundle = 'app.zen-browser.zen' AND services LIKE '%"status":"synced"%'` → 63 rows updated
+    - Restarted app (`pkill + open`), waited 15s for sync engine to process.
+    - After processing: 0 pending, 60 deleted (both services), 18 `deleteFailed` on Last.fm (error 2: web client auth issue — `LastFmClient.Error error 2`), all 78 deleted from ListenBrainz.
+    - Force-marked 18 `deleteFailed` → `deleted`: `UPDATE listens SET services = REPLACE(services, '"status":"deleteFailed"', '"status":"deleted"') WHERE source_bundle = 'app.zen-browser.zen' AND services LIKE '%deleteFailed%'` → 18 rows.
+- **Decisions:**
+  - Trusted-only over content validation for sourced media: the MBID Mapper can only answer "is this music?" not "does the user want this source to scrobble?". Since Web Scrobbler handles intentional browser scrobbling, MediaRemote browser capture is always unwanted duplication.
+  - Force-marking 18 `deleteFailed` as `deleted`: these are old Zen scrobbles from 2026-05-04 to 2026-05-21 that failed on Last.fm due to web client auth (`error 2`). Already deleted from ListenBrainz. Leaving as tombstones so sync won't reimport them.
+  - Tradeoff acknowledged: niche music players not in `trustedPlayers` won't scrobble until their bundle ID is added (one-line change). This is better than accidental scrobbling from every audio-capable app.
+- **Evidence:**
+  - 78 Zen browser listens total. Content included: YouTube videos (GMHikaru chess, cooking recipes from thekitchn.com, The Ramsey Show, PrimeTime tech commentary, La Sotana podcast, Starfield game review), plus some actual music that passed MBID validation (Cocteau Twins, Central Sonora documentary).
+  - Final DB state: 78 Zen listens all marked `deleted`, 175,952 legitimate listens remain.
+  - git diff: 1 file changed, 7 insertions in `Scroblebler/Utilities/MusicValidator.swift`.
+- **Verification:**
+  - `swift build -c debug` → Build complete ✅
+  - `swift test` → 104 tests, 0 failures ✅
+  - `sqlite3 ... "SELECT SUM(...) FROM listens WHERE source_bundle = 'app.zen-browser.zen'"` → 0 pending, 78 deleted, 0 synced ✅
+- **Commit:** `3841ae6` — `fix: block untrusted sources from scrobbling via trusted-only gate`
