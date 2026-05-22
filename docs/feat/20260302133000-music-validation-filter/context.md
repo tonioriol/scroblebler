@@ -21,6 +21,9 @@ YouTube videos (cooking tutorials, podcasts, tech talks, etc.) played in Zen Bro
 - Scroblebler/Clients/LastFmClient.swift (removed deprecated library.removeScrobble, now uses web client directly)
 - Scroblebler/AppDelegate.swift (sequential web auth then processPending to avoid race)
 - Scroblebler/Views/ContentView.swift (removed redundant app_start processPending trigger)
+- Makefile (added SPM resource bundle copy + pre-build libraryPath patch for app bundle context)
+- Package.swift (pinned mediaremote-adapter to revision 78aae86 instead of branch master)
+- Package.resolved (updated to match pinned revision)
 
 ## LOG
 
@@ -118,4 +121,42 @@ YouTube videos (cooking tutorials, podcasts, tech talks, etc.) played in Zen Bro
   - `swift build -c debug` → Build complete ✅
   - `swift test` → 104 tests, 0 failures ✅
   - `sqlite3 ... "SELECT SUM(...) FROM listens WHERE source_bundle = 'app.zen-browser.zen'"` → 0 pending, 78 deleted, 0 synced ✅
-- **Commit:** `3841ae6` — `fix: block untrusted sources from scrobbling via trusted-only gate`
+- **Commit:** `42aca2b` — `fix: block untrusted sources from scrobbling via trusted-only gate`
+
+### 2026-05-22 09:00 — Fix Now Playing regression: upstream API break + Makefile packaging
+
+- **Why:** After `make reinstall` with the trusted-only gate, Now Playing showed "It's silent here" while Apple Music was playing. MediaRemote listener produced zero events — no `MR_EVENT`, no `Track changed` logs. The Music Library backfill still worked (scrobbled "Subway Song by The Cure" via MusicKit), proving Apple Music was running.
+- **What changed:** Two root causes fixed: (1) `ejbills/mediaremote-adapter` upstream `master` advanced from `78aae86` to `5b2c2ab` with breaking API (removed/renamed `onPlaybackTimeUpdate`), causing silent build failure when SPM re-resolved. (2) Makefile `app` target didn't copy the SPM resource bundle containing `run.pl` (Perl subprocess script) and didn't patch the `libraryPath` resolution for app bundle context.
+- **How (investigation):**
+  - `log show --predicate 'subsystem == "com.tonioriol.scroblebler"' --info --debug --last 30m` → only Sync and API logs, zero Playback/MR_EVENT/Track changed entries.
+  - `ps aux | grep perl | grep -v grep` → no Perl subprocess running (the MediaRemote listener is a Perl process that dlopen's the adapter dylib).
+  - `find /Applications/Scroblebler.app -name "run.pl"` → not found. `ls /Applications/Scroblebler.app/Contents/Resources/` → only AppIcon.icns and Assets.car. The SPM resource bundle `MediaRemoteAdapter_MediaRemoteAdapter.bundle` (containing `run.pl`) was never copied by the Makefile.
+  - `Bundle.module` auto-generated accessor checks: (1) `Bundle.main.bundleURL/MediaRemoteAdapter_MediaRemoteAdapter.bundle` = `/Applications/Scroblebler.app/MediaRemoteAdapter_MediaRemoteAdapter.bundle` → doesn't exist; (2) fallback to hardcoded `.build/arm64-apple-macosx/debug/MediaRemoteAdapter_MediaRemoteAdapter.bundle` → EXISTS on dev machine. So `run.pl` was found via the `.build/` fallback.
+  - Tested Perl subprocess manually: `/usr/bin/perl <script> <dylib> get` → works with absolute dylib path, returns Apple Music track JSON. But the app passes `Bundle(for: MediaController.self).executablePath` as the library path, which for a bare dylib class resolves to the **main binary** `/Applications/Scroblebler.app/Contents/MacOS/Scroblebler`, not the dylib.
+  - Ran app from CLI to capture stderr: Perl errors showed `dlopen(/Applications/Scroblebler.app/Contents/MacOS/Scroblebler): Library not loaded: @rpath/Sparkle.framework` — confirming Perl tried to load the main binary as a dylib and crashed.
+  - `swift package resolve` after Package.swift changes pulled `5b2c2ab` instead of `78aae86`. New version removed `onPlaybackTimeUpdate` callback → `Watcher.swift:99` type inference error.
+  - `cat .build/checkouts/mediaremote-adapter/Sources/MediaRemoteAdapter/MediaController.swift | grep onPlaybackTimeUpdate` → no matches on `5b2c2ab`.
+- **How (action):**
+  1. Pinned `Package.swift` dependency: `revision: "78aae86c03adab11a7b352211cc82381737cf854"` instead of `branch: "master"`.
+  2. Added SPM resource bundle copy to Makefile `app` target: `cp -R $(SWIFT_BIN_DIR)/MediaRemoteAdapter_MediaRemoteAdapter.bundle $(RESOURCES_DIR)/`
+  3. Added Makefile `build` target pre-build patch: `sed` inserts `Bundle.main.privateFrameworksPath` check before the existing `Bundle(for:).executablePath` fallback in the SPM checkout's `MediaController.swift`. The patch is idempotent (checks for `privateFrameworksPath` before applying).
+  4. `swift build -c debug` → Build complete (11.17s) ✅
+  5. `swift test` → 104 tests, 0 failures ✅
+  6. `make app && make reinstall` → installed and launched.
+  7. `ps aux | grep perl` → Perl subprocess running with correct dylib path: `/Applications/Scroblebler.app/Contents/Frameworks/libMediaRemoteAdapter.dylib loop`
+  8. Logs showed: `Track changed: Crocodile (Oliver Huntemann Remix) by Underworld`, `Updated now playing on Last.fm`, `Updated now playing on ListenBrainz`
+- **Decisions:**
+  - Pinned to exact revision instead of `branch: "master"` to prevent future silent upstream breakage. The upstream adapter is a private-API hack with no semver — tracking `master` is dangerous.
+  - Used Makefile sed patch instead of forking the adapter: the submodule directory is broken (points to main repo, not the adapter), and forking adds maintenance burden. The sed patch is idempotent and self-documenting.
+  - Attempted local path dependency first (`path: "Submodules/mediaremote-adapter"`) — failed because the submodule wasn't properly checked out (contained main repo commits). Reverted to remote + pinned revision.
+- **Evidence:**
+  - Before fix: `ps aux | grep perl` → no results. App shows "It's silent here".
+  - After fix: Perl subprocess PID visible, logs show `Track changed: Crocodile (Oliver Huntemann Remix) by Underworld`, Now Playing updated on both services.
+  - Upstream breaking change: `78aae86` has `onPlaybackTimeUpdate` callback. `5b2c2ab` does not (removed/renamed). Build fails with `cannot infer type of closure parameter 'elapsedTime'` at Watcher.swift:99.
+- **Verification:**
+  - `swift build -c debug` → Build complete ✅
+  - `swift test` → 104 tests, 0 failures ✅
+  - `ps aux | grep perl | grep -v grep` → Perl subprocess running ✅
+  - `log show ... | grep "Track changed"` → detects Apple Music track ✅
+  - `log show ... | grep "Updated now playing"` → updates Last.fm + ListenBrainz ✅
+- **Commit:** `c00e90d` — `fix: pin mediaremote-adapter to working revision, copy SPM resource bundle in Makefile`
