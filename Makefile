@@ -25,6 +25,12 @@ APP_IDENTIFIER_PREFIX ?= $(TEAM_ID).
 .PHONY: build app sign release-zip reinstall run clean
 
 build:
+	@# Patch MediaRemoteAdapter to find dylib in app bundle Frameworks dir
+	@if [ -f .build/checkouts/mediaremote-adapter/Sources/MediaRemoteAdapter/MediaController.swift ]; then \
+		grep -q 'privateFrameworksPath' .build/checkouts/mediaremote-adapter/Sources/MediaRemoteAdapter/MediaController.swift || \
+		sed -i 's|private var libraryPath: String? {|private var libraryPath: String? {\n        if let fw = Bundle.main.privateFrameworksPath {\n            let p = (fw as NSString).appendingPathComponent("libMediaRemoteAdapter.dylib")\n            if FileManager.default.fileExists(atPath: p) { return p }\n        }|' \
+			.build/checkouts/mediaremote-adapter/Sources/MediaRemoteAdapter/MediaController.swift; \
+	fi
 	swift build $(SWIFT_BUILD_FLAGS)
 
 app: build
@@ -48,6 +54,8 @@ app: build
 	cp -R $(SPARKLE_FRAMEWORK) $(FRAMEWORKS_DIR)/Sparkle.framework
 	# MediaRemote adapter dylib
 	cp $(MEDIAREMOTE_DYLIB) $(FRAMEWORKS_DIR)/libMediaRemoteAdapter.dylib
+	# MediaRemote adapter SPM resource bundle (contains run.pl for Perl subprocess)
+	cp -R $(SWIFT_BIN_DIR)/MediaRemoteAdapter_MediaRemoteAdapter.bundle $(RESOURCES_DIR)/
 	# Sign
 	$(MAKE) sign
 
