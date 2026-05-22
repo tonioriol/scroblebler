@@ -96,21 +96,6 @@ class Watcher: ObservableObject {
             }
         }
 
-        mediaController.onPlaybackTimeUpdate = { [weak self] elapsedTime in
-            guard let self = self else { return }
-
-            self.lastSnapshotTime = Date()
-            self.lastSnapshotPosition = elapsedTime
-
-            let capped = self.currentStatus?.duration.map { min(elapsedTime, $0) } ?? elapsedTime
-            self.setState {
-                self.currentPosition = capped
-                if self.maxPosition == nil || capped > (self.maxPosition ?? 0) {
-                    self.maxPosition = capped
-                }
-            }
-        }
-
         mediaController.onDecodingError = { error, data in
             Logger.error("MediaController JSON decode error: \(error)", log: Logger.playback)
             if let jsonString = String(data: data, encoding: .utf8) {
