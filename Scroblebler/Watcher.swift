@@ -40,6 +40,7 @@ class Watcher: ObservableObject {
     private var positionTimer: Timer?
     private var lastSeekTime: Date?
     private var pendingResetWorkItem: DispatchWorkItem?
+    private var lastCommandTime: Date?
     private var pendingSnapshotRefreshItems: [DispatchWorkItem] = []
     private let processingQueue = DispatchQueue(label: "com.scroblebler.watcher.processing", qos: .userInitiated)
 
@@ -211,6 +212,7 @@ class Watcher: ObservableObject {
 
     func notifyCommandSent(_ command: MediaCommand) {
         Logger.debug("UI_COMMAND: \(command)", log: Logger.playback)
+        lastCommandTime = Date()
 
         // Optimistic UI update for play/pause/stop so the button reflects instantly.
         // The real state will arrive via MR_EVENT or the delayed snapshot burst.
@@ -567,7 +569,9 @@ end tell
             if incomingIdentity != currentID && incomingIdentity == prevID {
                 Logger.debug("Rejecting stale event for '\(newStatus.title ?? "")' — already moved to '\(currentStatus?.title ?? "")'", log: Logger.playback)
                 // Still update play state from this event (it may carry correct play/pause info)
-                if let playing = newStatus.playing {
+                // but not during command grace period (optimistic update is source of truth)
+                let inGrace = lastCommandTime.map { Date().timeIntervalSince($0) < 0.6 } ?? false
+                if let playing = newStatus.playing, !inGrace {
                     Task { @MainActor in
                         let newState: PlayerState = playing ? .playing : .paused
                         if newState != self.playerState {
@@ -721,7 +725,10 @@ end tell
 
         // Update player state.
         // If we can't determine play/pause, keep the previous state to avoid flip-flopping.
-        if let playing = status.playing {
+        // After a command, suppress stale MR events for a brief grace period — the optimistic
+        // update from notifyCommandSent is the source of truth until MediaRemote catches up.
+        let inCommandGrace = lastCommandTime.map { Date().timeIntervalSince($0) < 0.6 } ?? false
+        if let playing = status.playing, !inCommandGrace {
             let newState: PlayerState = playing ? .playing : .paused
             if newState != playerState {
                 playerState = newState
