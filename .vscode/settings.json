@@ -3,5 +3,19 @@
     "**/.build/**": true,
     "**/DerivedData/**": true
   },
-  "cmake.sourceDirectory": "/Users/tr0n/Code/scroblebler"
+  "cmake.sourceDirectory": "/Users/tr0n/Code/scroblebler",
+  "workbench.colorCustomizations": {
+    "titleBar.activeBackground": "#47147B",
+    "titleBar.inactiveBackground": "#47147B",
+    "titleBar.activeForeground": "#FFFFFF",
+    "titleBar.inactiveForeground": "#E5E7EB",
+    "activityBar.background": "#47147B",
+    "activityBar.foreground": "#FFFFFF",
+    "activityBar.inactiveForeground": "#E5E7EB",
+    "statusBar.background": "#47147B",
+    "statusBar.foreground": "#FFFFFF",
+    "statusBar.noFolderBackground": "#47147B",
+    "tab.activeBorderTop": "#CCABED",
+    "panelTitle.activeBorder": "#CCABED"
+  }
 }
