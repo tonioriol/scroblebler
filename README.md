@@ -28,6 +28,10 @@ Scroblebler is a native macOS application that scrobbles tracks from any media p
 
 <img src="imgs/screenshot.png" width="600" />
 
+## Requirements
+
+macOS 11 Big Sur or later, on Apple silicon or Intel Macs.
+
 ## Installing
 
 ### Homebrew (Recommended)
@@ -38,81 +42,47 @@ brew install --cask tonioriol/scroblebler/scroblebler
 
 ### Manual
 
-Download the latest DMG from [Releases](https://github.com/tonioriol/scroblebler/releases/latest) and drag Scroblebler to Applications.
-
-After installation, remove quarantine attributes:
-```bash
-xattr -cr /Applications/Scroblebler.app
-```
+Download the latest zip from [Releases](https://github.com/tonioriol/scroblebler/releases/latest), unzip it and move Scroblebler to Applications. Releases are signed with Developer ID and notarized, and the app updates itself with Sparkle.
 
 ## Building
 
+Scroblebler is a Swift package; the Makefile assembles, signs and checks the app bundle. No Xcode project is needed.
+
 ### Prerequisites
 
-- Xcode 15.0+
+- Xcode 16.4 to build for macOS 11. Xcode 26 and later can't target macOS 11, so copy `Local.mk.example` to `Local.mk` (git-ignored) to build for macOS 12 and later instead.
+- A "Developer ID Application" certificate for team B65K228Z97 in the keychain. Without it the app is signed ad hoc, and macOS asks for keychain access again after every build.
 
-### From Xcode
-
-1. Clone this repository:
-   ```bash
-   git clone https://github.com/tonioriol/scroblebler.git
-   cd scroblebler
-   ```
-
-2. Open `Scroblebler.xcodeproj` in Xcode
-
-3. Xcode will automatically fetch the Swift package dependencies
-
-4. Build the project (⌘B)
-
-**Note**: On first build, you must configure the MediaRemoteAdapter framework embedding:
-   - Select the Scroblebler target
-   - Go to General tab
-   - Under "Frameworks, Libraries, and Embedded Content"
-   - Set MediaRemoteAdapter.framework to "Embed & Sign"
-
-### Release Build
-
-To create a release DMG:
-```bash
-./scripts/build.sh <version>
-```
-
-### Replace Homebrew Install with Dev Build
-
-To run your local debug build instead of the Homebrew-installed release:
+### Commands
 
 ```bash
-# Build
-xcodebuild -project Scroblebler.xcodeproj -scheme Scroblebler -configuration Debug build 2>&1 | tail -5
-
-# Unlink Homebrew version (keeps the cask so `brew upgrade` still works later)
-brew unlink scroblebler 2>/dev/null
-
-# Symlink debug build into /Applications
-ln -sf ~/Library/Developer/Xcode/DerivedData/Scroblebler-*/Build/Products/Debug/Scroblebler.app /Applications/Scroblebler.app
-
-# Launch
-open /Applications/Scroblebler.app
+make test                          # Run the test suite
+make app                           # Debug build in build/Scroblebler.app
+make app verify CONFIGURATION=release  # Universal release build, then check signature, architectures and minimum macOS
+make release-zip CONFIGURATION=release # Release build zipped for distribution
+make reinstall                     # Replace /Applications/Scroblebler.app with a fresh build and launch it
 ```
 
-To revert back to the Homebrew release:
+Logs:
+
 ```bash
-rm /Applications/Scroblebler.app
-brew reinstall --cask scroblebler
+log stream --predicate 'subsystem == "com.tonioriol.scroblebler"' --info --debug
 ```
 
-## Testing
+## Releasing
 
-Run the test suite:
-```bash
-xcodebuild -project Scroblebler.xcodeproj -scheme Scroblebler -configuration Debug test 2>&1 | tail -20
-```
+Every push to `main` with user-facing [Conventional Commits](https://www.conventionalcommits.org) (`feat`, `fix`, `perf` or a breaking change) since the last tag releases the next version automatically (`.github/workflows/release.yml`):
 
+1. [Cocogitto](https://docs.cocogitto.io) bumps the version, updates `CHANGELOG.md` and tags it.
+2. The app is built with Xcode 16.4 as a universal binary, tested, signed with Developer ID, checked with `make verify`, notarized and stapled.
+3. The zip is signed for Sparkle, attached to a GitHub release, and added to the appcast on the `gh-pages` branch with HTML release notes.
+4. The Homebrew cask in `scroblebler.rb` and [tonioriol/homebrew-scroblebler](https://github.com/tonioriol/homebrew-scroblebler) is updated.
+
+Other branches and pull requests are tested and built the same way by `.github/workflows/build.yml`.
 
 ## Credits
 
-This project is a fork of the original [Audioscrobbler](https://github.com/heyvito/audioscrobbler) by Victor Gama, with additional features.
+Scroblebler is maintained by [Toni Oriol](https://github.com/tonioriol). It started as a fork of [Audioscrobbler](https://github.com/heyvito/audioscrobbler), created by [Victor Gama](https://github.com/heyvito).
 
 Media playback control and detection uses [mediaremote-adapter](https://github.com/ejbills/mediaremote-adapter) by ejbills (forked from ungive's original work), which provides a Swift interface to macOS's private MediaRemote framework.
 
@@ -144,7 +114,7 @@ on their repository](https://github.com/lastfm/lastfm-desktop/blob/9ae84cf4ab204
 - [x] Stop requesting images and stuff every time we click in the progress bar.
 - [ ] Fix UI for password request for Last.fm.
 - [ ] Display blacklisted tracks somewhere, otherwise we have no way of knowing which tracks were blacklisted.
-- [ ] Auto-update.
+- [x] Auto-update.
 - [ ] Add macOS notification center alerts (for track change, for API failures...).
 - [ ] Show multiple playing sources in player.
 - [ ] Edit track info before/after scrobbling.
