@@ -23,10 +23,8 @@ let package = Package(
             ],
             path: "Scroblebler",
             exclude: [
-                "Info.plist",
                 "Scroblebler.entitlements",
-                "Assets.xcassets",
-                "Preview Content"
+                "Assets.xcassets"
             ]
         ),
         .testTarget(

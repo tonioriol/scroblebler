@@ -1,0 +1,4 @@
+# Copy to Local.mk for per-machine overrides. It is git-ignored.
+
+# Xcode 26 and later cannot build for macOS 11; build for macOS 12 and later instead.
+MACOS_MIN := 12.0
