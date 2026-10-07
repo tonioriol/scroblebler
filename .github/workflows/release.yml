@@ -47,8 +47,10 @@ jobs:
   release:
     needs: decide
     if: needs.decide.outputs.will_release == 'true'
-    runs-on: macos-14
+    # Xcode 16.4 is the newest Xcode that builds for macOS 11.
+    runs-on: macos-15
     env:
+      DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
       NEXT_VERSION: ${{ needs.decide.outputs.next_version }}
     steps:
       - name: Checkout
@@ -74,7 +76,7 @@ jobs:
           KEYCHAIN_PASSWORD_FILE: ${{ runner.temp }}/keychain-password
         run: |
           set -euo pipefail
-          echo "$(uuidgen)" > "$KEYCHAIN_PASSWORD_FILE"
+          uuidgen > "$KEYCHAIN_PASSWORD_FILE"
           security create-keychain -p "$(cat "$KEYCHAIN_PASSWORD_FILE")" "$KEYCHAIN_PATH"
           security default-keychain -s "$KEYCHAIN_PATH"
           security unlock-keychain -p "$(cat "$KEYCHAIN_PASSWORD_FILE")" "$KEYCHAIN_PATH"
@@ -108,11 +110,15 @@ jobs:
           cog bump --version "$NEXT_VERSION"
           echo "Bumped to $NEXT_VERSION; tag v$NEXT_VERSION created locally"
 
+      - name: Test
+        run: make test
+
       - name: Build signed app
         run: |
           set -euo pipefail
           make release-zip CONFIGURATION=release CODE_SIGN_IDENTITY="$CODE_SIGN_IDENTITY"
-          codesign --verify --deep --strict --verbose=2 build/Scroblebler.app
+          # Fails unless the app is universal and runs on the oldest supported macOS.
+          make verify CONFIGURATION=release
 
       - name: Notarize and staple app
         env:
@@ -192,7 +198,9 @@ jobs:
           set -euo pipefail
           DOWNLOAD_URL="https://github.com/${GH_REPO}/releases/download/v${VERSION}/Scroblebler-v${VERSION}.zip"
           PUB_DATE=$(date -u +"%a, %d %b %Y %H:%M:%S +0000")
-          RELEASE_NOTES=$(gh release view "v${VERSION}" --json body -q .body | head -c 8000)
+          # Sparkle shows HTML release notes on every supported macOS; Markdown needs macOS 12.
+          RELEASE_NOTES=$(cog changelog --at "v${VERSION}" --template scripts/release-notes.tera)
+          MACOS_MIN=$(plutil -extract LSMinimumSystemVersion raw build/Scroblebler.app/Contents/Info.plist)
 
           git clone --depth 1 --branch gh-pages \
             "https://x-access-token:${GITHUB_TOKEN}@github.com/${GH_REPO}.git" gh-pages
@@ -203,7 +211,7 @@ jobs:
             exit 0
           fi
 
-          export VERSION DOWNLOAD_URL PUB_DATE RELEASE_NOTES SPARKLE_SIG_AND_LEN
+          export VERSION DOWNLOAD_URL PUB_DATE RELEASE_NOTES SPARKLE_SIG_AND_LEN MACOS_MIN
           python3 - <<'PY'
           import os, sys
           version = os.environ['VERSION']
@@ -212,7 +220,7 @@ jobs:
               <pubDate>{os.environ['PUB_DATE']}</pubDate>
               <sparkle:version>{version}</sparkle:version>
               <sparkle:shortVersionString>{version}</sparkle:shortVersionString>
-              <sparkle:minimumSystemVersion>11.0</sparkle:minimumSystemVersion>
+              <sparkle:minimumSystemVersion>{os.environ['MACOS_MIN']}</sparkle:minimumSystemVersion>
               <description><![CDATA[{os.environ['RELEASE_NOTES']}]]></description>
               <enclosure url="{os.environ['DOWNLOAD_URL']}"
                          type="application/octet-stream"
@@ -226,6 +234,8 @@ jobs:
           with open('appcast.xml', 'w') as f:
               f.write(content)
           PY
+          # Hardware requirements would hide the update from Intel Macs.
+          if grep -q "<sparkle:hardwareRequirements>" appcast.xml; then exit 1; fi
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

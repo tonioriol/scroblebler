@@ -1,0 +1,27 @@
+name: Build
+
+on:
+  push:
+    branches-ignore: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    # Same toolchain as the release job: Xcode 16.4 deploys to macOS 11.
+    runs-on: macos-15
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Test
+        run: make test
+
+      # Signed ad hoc: branch builds have no access to the Developer ID certificate.
+      - name: Build universal app
+        run: make app verify CONFIGURATION=release

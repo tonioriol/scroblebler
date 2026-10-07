@@ -1,0 +1,9 @@
+<h3>Scroblebler {{ version.tag | trim_start_matches(pat="v") }}</h3>
+{% for type, typed_commits in commits | sort(attribute="type") | group_by(attribute="type") -%}
+<h4>{{ type }}</h4>
+<ul>
+{% for commit in typed_commits -%}
+<li>{% if commit.scope %}<b>{{ commit.scope | escape }}:</b> {% endif %}{{ commit.summary | upper_first | escape }}</li>
+{% endfor -%}
+</ul>
+{% endfor -%}
