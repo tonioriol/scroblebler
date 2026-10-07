@@ -12,3 +12,6 @@ DerivedData/
 dist/
 
 .roo/tasks/
+
+# Local notes
+/docs/
