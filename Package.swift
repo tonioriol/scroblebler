@@ -10,7 +10,8 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/ejbills/mediaremote-adapter.git", revision: "5b2c2ab"),
         .package(url: "https://github.com/groue/GRDB.swift", from: "6.0.0"),
-        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.7.0"),
+        // 2.9.6 is the last Sparkle that supports macOS 11; 2.10 needs macOS 12.
+        .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.9.6"),
     ],
     targets: [
         .executableTarget(
