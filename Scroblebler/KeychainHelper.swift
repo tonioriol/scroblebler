@@ -7,7 +7,6 @@ class KeychainHelper {
     private init() {}
     
     private let service = "com.tonioriol.scroblebler"
-    private let accessGroup = "com.tonioriol.scroblebler"
     
     // MARK: - Save Password
     
@@ -22,7 +21,6 @@ class KeychainHelper {
             kSecAttrAccount as String: username,
             kSecValueData as String: password.data(using: .utf8)!,
             kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
-            kSecAttrAccessGroup as String: accessGroup
         ]
         
         // Add to keychain
@@ -42,7 +40,6 @@ class KeychainHelper {
             kSecAttrAccount as String: username,
             kSecReturnData as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne,
-            kSecAttrAccessGroup as String: accessGroup
         ]
         
         var result: AnyObject?
@@ -71,7 +68,6 @@ class KeychainHelper {
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: username,
-            kSecAttrAccessGroup as String: accessGroup
         ]
         
         let status = SecItemDelete(query as CFDictionary)

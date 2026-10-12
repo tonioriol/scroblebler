@@ -58,7 +58,7 @@ app: build
 		--platform macosx \
 		--minimum-deployment-target $(MACOS_MIN) \
 		--app-icon AppIcon \
-		--output-partial-info-plist /dev/null 2>/dev/null || true
+		--output-partial-info-plist /dev/null
 	# Sparkle framework
 	cp -R $(SWIFT_BIN_DIR)/Sparkle.framework $(FRAMEWORKS_DIR)/Sparkle.framework
 	# MediaRemote adapter dylib
