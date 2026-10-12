@@ -45,5 +45,49 @@
                type="application/octet-stream"
                sparkle:edSignature="u5LjzFbMqXC//Yv1EnxQc8alr0+XLs0hp6hAofDdWakj4Q6OEtChOlt2S9IO+F88qaeTfUBHqkwkg6vqSXDgBQ==" length="4046241" />
 </item>
+            <item>
+    <title>Scroblebler 1.2.0</title>
+    <pubDate>Mon, 12 Oct 2026 19:03:45 +0000</pubDate>
+    <sparkle:version>1.2.0</sparkle:version>
+    <sparkle:shortVersionString>1.2.0</sparkle:shortVersionString>
+    <sparkle:minimumSystemVersion>11.0</sparkle:minimumSystemVersion>
+    <description><![CDATA[<h3>Scroblebler 1.2.0</h3>
+<h4>Bug Fixes</h4>
+<ul>
+<li>Skip image_url migration when fresh installs already have the column</li>
+<li>Pin Sparkle 2.9.6, the last release that supports macOS 11</li>
+<li>Suppress stale MR play state during command grace period</li>
+<li>Pin mediaremote-adapter to working revision, copy SPM resource bundle in Makefile</li>
+<li>Block untrusted sources from scrobbling via trusted-only gate</li>
+</ul>
+<h4>Build system</h4>
+<ul>
+<li>Build a universal app with SwiftPM only and verify its architectures and minimum macOS</li>
+</ul>
+<h4>Continuous Integration</h4>
+<ul>
+<li>Build and release with Xcode 16.4 on macos-15 and show HTML release notes in updates</li>
+</ul>
+<h4>Documentation</h4>
+<ul>
+<li>Document requirements, building and releasing, and credit the original author</li>
+<li>Flush mediaremote-adapter upgrade context</li>
+<li>Flush session context for trusted-only gate and Now Playing regression fix</li>
+<li>Flush release pipeline completion</li>
+</ul>
+<h4>Features</h4>
+<ul>
+<li>Upgrade mediaremote-adapter to 5b2c2ab with stdin transport and event-driven updates</li>
+</ul>
+<h4>Miscellaneous Chores</h4>
+<ul>
+<li><b>version:</b> V1.2.0</li>
+<li>Keep local notes out of the repository</li>
+<li>Add project window color</li>
+</ul>]]></description>
+    <enclosure url="https://github.com/tonioriol/scroblebler/releases/download/v1.2.0/Scroblebler-v1.2.0.zip"
+               type="application/octet-stream"
+               sparkle:edSignature="3Bc897hh/OgUYvFRsK8zTHILBWRSQyUygd/3KqtD9kWANhYiv7FI3c9T3pZT4ogsG9mO6MeReQydcokIbUJgCw==" length="6868489" />
+</item>
     </channel>
 </rss>
