@@ -29,7 +29,10 @@ let package = Package(
         ),
         .testTarget(
             name: "ScrobbleblerTests",
-            dependencies: ["Scroblebler"],
+            dependencies: [
+                "Scroblebler",
+                .product(name: "GRDB", package: "GRDB.swift"),
+            ],
             path: "ScrobbleblerTests"
         )
     ]

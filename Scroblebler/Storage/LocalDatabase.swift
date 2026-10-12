@@ -124,9 +124,13 @@ class LocalDatabase {
 
         migrator.registerMigration("v6_listens_image_url") { db in
             // Add service-provided artwork URL fallback for history.
-            // Kept separate from v4 to avoid forcing a full DB reset.
-            try db.alter(table: "listens") { t in
-                t.add(column: "image_url", .text)
+            // v4 already creates this column for fresh databases; only add it
+            // when upgrading a database created before it existed.
+            let columns = try db.columns(in: "listens").map(\.name)
+            if !columns.contains("image_url") {
+                try db.alter(table: "listens") { t in
+                    t.add(column: "image_url", .text)
+                }
             }
         }
 
