@@ -3,6 +3,12 @@ All notable changes to this project will be documented in this file.
 See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.2.1](https://github.com/tonioriol/scroblebler/compare/ef91e026d2f0d27dfe54405b32bea5e639db14bc..v1.2.1) - 2026-10-12
+#### Bug Fixes
+- remove keychain-access-groups entitlement that kills the app at launch - ([ef91e02](https://github.com/tonioriol/scroblebler/commit/ef91e026d2f0d27dfe54405b32bea5e639db14bc)) - Toni Oriol
+
+- - -
+
 ## [v1.2.0](https://github.com/tonioriol/scroblebler/compare/24c206bbbed34b138778366fadec70ff6081c9e2..v1.2.0) - 2026-10-12
 #### Features
 - upgrade mediaremote-adapter to 5b2c2ab with stdin transport and event-driven updates - ([701d815](https://github.com/tonioriol/scroblebler/commit/701d81594e53e0938c57df54ab90ff5c16796e8a)) - Toni Oriol
