@@ -3,6 +3,30 @@ All notable changes to this project will be documented in this file.
 See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.2.0](https://github.com/tonioriol/scroblebler/compare/24c206bbbed34b138778366fadec70ff6081c9e2..v1.2.0) - 2026-10-12
+#### Features
+- upgrade mediaremote-adapter to 5b2c2ab with stdin transport and event-driven updates - ([701d815](https://github.com/tonioriol/scroblebler/commit/701d81594e53e0938c57df54ab90ff5c16796e8a)) - Toni Oriol
+#### Bug Fixes
+- skip image_url migration when fresh installs already have the column - ([72f2615](https://github.com/tonioriol/scroblebler/commit/72f2615cb0abe76e780385a79aab10f0d521558b)) - Toni Oriol
+- pin Sparkle 2.9.6, the last release that supports macOS 11 - ([1160c4b](https://github.com/tonioriol/scroblebler/commit/1160c4b90027810b49ae4ef2469690b83e118299)) - Toni Oriol
+- suppress stale MR play state during command grace period - ([cb0139a](https://github.com/tonioriol/scroblebler/commit/cb0139a8a54288a54a8e0d66f342fcd3d12d51db)) - Toni Oriol
+- pin mediaremote-adapter to working revision, copy SPM resource bundle in Makefile - ([c00e90d](https://github.com/tonioriol/scroblebler/commit/c00e90d70f0bcadb3d0dc3eec6d0b42fcfaf51b8)) - Toni Oriol
+- block untrusted sources from scrobbling via trusted-only gate - ([42aca2b](https://github.com/tonioriol/scroblebler/commit/42aca2b607024bd0d795df10615e185a6d2e91f6)) - Toni Oriol
+#### Documentation
+- document requirements, building and releasing, and credit the original author - ([bcb0219](https://github.com/tonioriol/scroblebler/commit/bcb02194f6e2768906b85034c7d9b1f7a2edb13f)) - Toni Oriol
+- flush mediaremote-adapter upgrade context - ([ede4597](https://github.com/tonioriol/scroblebler/commit/ede4597773e07761c81a94aed258e4900a3fe24c)) - Toni Oriol
+- flush session context for trusted-only gate and Now Playing regression fix - ([ac06aff](https://github.com/tonioriol/scroblebler/commit/ac06aff5bf00156ac717b43fded4f3b5cc57de21)) - Toni Oriol
+- flush release pipeline completion - ([24c206b](https://github.com/tonioriol/scroblebler/commit/24c206bbbed34b138778366fadec70ff6081c9e2)) - Toni Oriol
+#### Build system
+- build a universal app with SwiftPM only and verify its architectures and minimum macOS - ([6733d9a](https://github.com/tonioriol/scroblebler/commit/6733d9a24c9502a6824ab7d1340a6c58dbaa2ccc)) - Toni Oriol
+#### Continuous Integration
+- build and release with Xcode 16.4 on macos-15 and show HTML release notes in updates - ([ff1466b](https://github.com/tonioriol/scroblebler/commit/ff1466be5a799e6730c09104193664a8a83e5af8)) - Toni Oriol
+#### Miscellaneous Chores
+- keep local notes out of the repository - ([6004f7a](https://github.com/tonioriol/scroblebler/commit/6004f7a53b6f5681f3be5bef6eeb14a8531aefb4)) - Toni Oriol
+- add project window color - ([558f050](https://github.com/tonioriol/scroblebler/commit/558f0501c16e5596101b5528dd60de8cba99945d)) - Toni Oriol
+
+- - -
+
 ## [v1.1.0](https://github.com/tonioriol/scroblebler/compare/ecd7c9189adf9b4927c2a2ba1f4d8ec375f9e405..v1.1.0) - 2026-05-05
 #### Features
 - add Sparkle EdDSA public key - ([78f058c](https://github.com/tonioriol/scroblebler/commit/78f058ce58641efa99f0b118b596adeda48b020c)) - Toni Oriol
