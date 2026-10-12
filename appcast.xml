@@ -89,5 +89,24 @@
                type="application/octet-stream"
                sparkle:edSignature="3Bc897hh/OgUYvFRsK8zTHILBWRSQyUygd/3KqtD9kWANhYiv7FI3c9T3pZT4ogsG9mO6MeReQydcokIbUJgCw==" length="6868489" />
 </item>
+            <item>
+    <title>Scroblebler 1.2.1</title>
+    <pubDate>Mon, 12 Oct 2026 21:00:24 +0000</pubDate>
+    <sparkle:version>1.2.1</sparkle:version>
+    <sparkle:shortVersionString>1.2.1</sparkle:shortVersionString>
+    <sparkle:minimumSystemVersion>11.0</sparkle:minimumSystemVersion>
+    <description><![CDATA[<h3>Scroblebler 1.2.1</h3>
+<h4>Bug Fixes</h4>
+<ul>
+<li>Remove keychain-access-groups entitlement that kills the app at launch</li>
+</ul>
+<h4>Miscellaneous Chores</h4>
+<ul>
+<li><b>version:</b> V1.2.1</li>
+</ul>]]></description>
+    <enclosure url="https://github.com/tonioriol/scroblebler/releases/download/v1.2.1/Scroblebler-v1.2.1.zip"
+               type="application/octet-stream"
+               sparkle:edSignature="7ImyGwuO6N2baax3G8PZIuS/STII79vrGXj0s+S9AAgBMB/+/IMA5HTUk1EPBNG/ldXkN8uQ9BBnm3S+TKztAA==" length="6867898" />
+</item>
     </channel>
 </rss>
